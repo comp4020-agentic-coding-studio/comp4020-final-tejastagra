@@ -1,18 +1,26 @@
 # syntax = docker/dockerfile:1
 
-# A placeholder, and yours to replace: it serves one page, plus README.md
-# verbatim at /readme/, which is enough to prove the deploy path end to end.
-# Whatever your app is built with, the image that replaces this one must serve
-# HTTP on 0.0.0.0:$PORT (fly.toml sets PORT) and publish README.md at /readme/
-# (spec/README.md says what's checked).
+# Taskflow: plain Node.js (no framework), ws for realtime, node:sqlite for
+# persistence (built into Node 24, so no native-module build step here).
+# Serves HTTP on 0.0.0.0:$PORT (fly.toml sets PORT) and publishes README.md
+# at /readme/ (spec/README.md says what's checked).
+FROM node:24-slim
 
-FROM docker.io/library/busybox:1.38.0
-COPY placeholder/ /src/
-COPY README.md /src/
-# README.md goes into the page as-is, HTML-escaped, in place of @README@;
-# rendering it properly is your app's job
-RUN mkdir -p /site/readme \
-    && cp /src/index.html /site/ \
-    && sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' /src/README.md > /src/body \
-    && sed -e '/@README@/{r /src/body' -e 'd}' /src/readme.html > /site/readme/index.html
-CMD ["sh", "-c", "exec httpd -f -p 0.0.0.0:${PORT:-8080} -h /site"]
+WORKDIR /app
+
+# Install prod deps only, using the lockfile for a reproducible build.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN corepack enable && corepack prepare pnpm@11.9.0 --activate \
+    && pnpm install --prod --frozen-lockfile
+
+COPY src ./src
+COPY public ./public
+COPY README.md ./README.md
+
+# /data is the Fly volume mount (see fly.toml) -- the only storage that
+# survives a restart or redeploy.
+RUN mkdir -p /data
+ENV DB_PATH=/data/taskflow.db
+
+EXPOSE 8080
+CMD ["node", "src/server.ts"]
