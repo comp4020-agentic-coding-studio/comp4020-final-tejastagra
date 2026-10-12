@@ -13,11 +13,13 @@ wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
 
 const createdIds: string[] = [];
 afterAll(async () => {
-  // Best-effort cleanup so repeated runs don't pile up tasks.
+  // Best-effort cleanup so repeated runs don't pile up tasks. There's no
+  // GET /api/tasks/:id — fetch the current version from the list instead.
+  const listRes = await fetch(new URL("/api/tasks", baseUrl));
+  const all: any[] = listRes.ok ? await listRes.json() : [];
   for (const id of createdIds) {
-    const res = await fetch(new URL(`/api/tasks/${id}`, baseUrl));
-    if (res.ok) {
-      const task = await res.json();
+    const task = all.find((t) => t.id === id);
+    if (task) {
       await fetch(new URL(`/api/tasks/${id}`, baseUrl), {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
