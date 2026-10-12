@@ -1,25 +1,26 @@
 # Crit 9 reflection
 
-Okay, honestly — I started this way too late. Crit 9's cutoff was 12pm today
-and I hadn't touched this repo before this morning. That's just true, and I'm
-not going to pretend otherwise in the next file either.
+I started this later than I should have. Crit 9's cutoff was 12pm today, and
+I hadn't touched this repo before this morning. I'd rather say that plainly
+than write around it.
 
-The breakthrough wasn't some clever idea, it was getting smacked in the face
-by how much stuff "looks done" but isn't. The server crashed on first run
-because of a TypeScript thing Node doesn't actually support when you run it
-without a build step. Then my own tests were lying to me — they timed out not
-because the realtime sync was broken, but because I'd written the test wrong
-and it missed the message by a fraction of a second. Then I deployed and Fly
-threw a scary warning that the app wasn't listening on the right port, and for
-a second I thought I'd broken it — turned out it just checked too early and
-the app was actually fine a few seconds later. None of that would've surfaced
-if I'd just trusted "it compiled" or "the command exited 0."
+The real breakthrough wasn't a design idea — it was realising how much
+"looks done" isn't actually done. The server failed on its first run because
+of a TypeScript constructor shorthand that Node doesn't support when you run
+`.ts` files directly without a build step. Then one of my own tests started
+timing out, not because the realtime sync was broken, but because I'd
+attached the test's listener a moment too late and it missed the message. And
+when I deployed, Fly printed a warning that the app wasn't listening on the
+right port — for a minute I thought something had actually broken, until
+checking the live URL directly showed it was fine; the warning had just fired
+before the app finished starting. None of these would have surfaced if I'd
+stopped at "it compiled" or "the command exited 0."
 
-What that actually changed for me: I used to think "done" meant the code
-looks right and runs once. Now I think done means you've actually gone and
-poked the real thing — the deployed thing, not localhost, not your head — and
-watched it do what you said it does. That's a cheap habit and I should've
-been doing it from week 1, not discovering it an hour before a deadline.
+What that changed for me is how I define "done." I used to treat it as the
+code looking right and running once. Now I think it means actually checking
+the deployed version — not localhost, not my assumption of what it does —
+and confirming it behaves the way I claim it does. That's a habit I should
+have had from week one, not one I was forced into an hour before a cutoff.
 
-Also, not going to lie, cutting it this close sucked. I don't want to do this
-again next week.
+The honest cost of starting this late is that it left no room for error, and
+I know that's on me going into the next crit.
