@@ -1,25 +1,25 @@
 # Crit 9 reflection
 
-**The breakthrough.** The moment that actually moved things forward wasn't a
-design idea, it was watching the agent refuse to treat "I wrote the code" as
-the same thing as "it works." Three times this session a claim that looked
-fine on paper turned out to be wrong the moment it was actually run: a
-constructor shorthand that Node's type stripping doesn't support, a test that
-raced its own WebSocket listener and would have quietly stayed broken if I'd
-trusted the first failure message instead of digging in, and a deploy warning
-that turned out to be a false alarm only because we checked the live endpoint
-ourselves instead of taking the CLI's word for it. None of those would have
-surfaced if "looks right" had been the bar. Seeing each one caught — by
-actually running the app, hitting the real API, opening a real WebSocket
-against the real deployed URL — was the breakthrough: not a feature, a
-standard.
+Okay, honestly — I started this way too late. Crit 9's cutoff was 12pm today
+and I hadn't touched this repo before this morning. That's just true, and I'm
+not going to pretend otherwise in the next file either.
 
-**What it changed.** I came into this session later than I should have —
-crit 8's work never happened in this repo, and crit 9 got built in the hours
-before its own cutoff. That's on me, not the tooling. But it reframed what I
-want "shipped" to mean going forward: not "the agent said it's done," but "I
-watched it prove that, against the real thing, including the real deployment,
-not a mock of it." Going forward I want to build that verification step into
-how I work by default, early in a project rather than as a scramble before a
-deadline — check the claim against reality before believing it, and leave
-enough time that checking is still possible.
+The breakthrough wasn't some clever idea, it was getting smacked in the face
+by how much stuff "looks done" but isn't. The server crashed on first run
+because of a TypeScript thing Node doesn't actually support when you run it
+without a build step. Then my own tests were lying to me — they timed out not
+because the realtime sync was broken, but because I'd written the test wrong
+and it missed the message by a fraction of a second. Then I deployed and Fly
+threw a scary warning that the app wasn't listening on the right port, and for
+a second I thought I'd broken it — turned out it just checked too early and
+the app was actually fine a few seconds later. None of that would've surfaced
+if I'd just trusted "it compiled" or "the command exited 0."
+
+What that actually changed for me: I used to think "done" meant the code
+looks right and runs once. Now I think done means you've actually gone and
+poked the real thing — the deployed thing, not localhost, not your head — and
+watched it do what you said it does. That's a cheap habit and I should've
+been doing it from week 1, not discovering it an hour before a deadline.
+
+Also, not going to lie, cutting it this close sucked. I don't want to do this
+again next week.

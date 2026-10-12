@@ -1,24 +1,22 @@
 # Crit 8 reflection
 
-I'm writing this alongside crit 9's reflection, honestly: crit 8's own work
-never happened in this repo — it sat as the untouched starter, one commit,
-until the session that built Taskflow for crit 9. I'd rather say that plainly
-than write a reflection implying crit 8 went as intended when it didn't.
+Not going to dress this one up: crit 8 just didn't happen. The repo sat as
+the untouched starter — one commit — right up until I started building for
+crit 9 today. So there's no real crit-8-specific breakthrough to report,
+because there was no crit 8 work. I'd rather say that straight than write
+something that makes it sound like I was quietly grinding away on it.
 
-**The breakthrough**, if there is one to name for crit 8 specifically, is
-retroactive: realising during crit 9's build how much a late start costs
-beyond the obvious time pressure. It's not just fewer hours — it's that
-verification itself gets squeezed first. The things that actually caught real
-bugs this session (running the built Docker image the way CI runs it before
-trusting it, testing the live deployment instead of only localhost, pushing
-back on writing a reflection that wasn't genuinely mine) all take time that
-doesn't exist if you start the week the deadline is due.
+If I'm being honest about what I actually learned from falling behind, it's
+this: the cost of starting late isn't just "less time to code." It's that the
+stuff that actually catches your mistakes — running the thing properly,
+checking the real deployed app instead of trusting localhost, stepping back
+and asking "does this actually work or does it just look like it does" — is
+the first thing that gets cut when you're racing a clock. I only had time to
+do that checking today because I forced it, and it still felt tight.
 
-**What it changed.** Falling behind on crit 8 and then building crit 9 under
-real pressure made the gap between "an app that appears to work" and "an app
-I've actually watched work, deployed, with someone else's connection
-hitting it" very concrete to me. Going forward, the discipline I want isn't
-really about this project's stack or tests — it's about not letting the
-first real check of my own work be the crit itself. Starting earlier isn't
-just about having more time to build; it's about having enough time left to
-actually verify what got built.
+What it's changed for me: I don't want "I'll start it closer to the deadline,
+I work better under pressure" to be a thing I tell myself anymore. It's not
+really about time management as a skill, it's about not wanting the first
+real test of my own work to be the crit itself. I'd rather be the kind of
+developer who's already seen it break and fixed it before anyone else is
+watching, not scrambling to make that true in the last hour.
