@@ -11,7 +11,10 @@ the week's spec tests (honestly: written against the already-working server
 rather than before it, given the cutoff — see "Failures and corrections"
 below for the one real red-to-green moment in them) →
 [`57dd1b2`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/57dd1b2)
-the real Dockerfile.
+the real Dockerfile →
+[`06d3a9f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/06d3a9f)
+a test cleanup bug found only once the app was actually deployed and the
+suite run against it.
 
 ## Stack, and why
 
@@ -110,6 +113,19 @@ doesn't need).
   correctly (confirmed with a standalone script first). Fixed by buffering
   every message from the moment the socket opens, so a test can check
   messages that already arrived as well as ones still to come.
+- `flyctl deploy` printed a WARNING that the app "is not listening on
+  0.0.0.0:8080" right after the first deploy — alarming, but the health check
+  had run before the app finished starting; curling the live URL seconds
+  later returned 200. Took the warning seriously enough to check, rather than
+  either panicking or ignoring it.
+- The test suite's cleanup tried `fetch` with no method on
+  `/api/tasks/:id` expecting a single-task lookup that the API never
+  exposed (only list/create/patch/delete exist) — it silently failed, and
+  three test-created tasks were left sitting on the *live* board until the
+  deployed `pnpm check` run surfaced it. Fixed in
+  [`06d3a9f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/06d3a9f)
+  by reading the current version from the list endpoint instead, then
+  manually deleted the three stale tasks the broken version had left behind.
 
 ## Remaining limitations
 
