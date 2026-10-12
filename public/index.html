@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Taskflow</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Taskflow</h1>
+      <span id="connection" class="connection" role="status" aria-live="polite">connecting…</span>
+    </header>
+
+    <form id="create-form" class="create-form" aria-label="Create a task">
+      <input
+        id="title-input"
+        name="title"
+        type="text"
+        placeholder="What needs doing?"
+        aria-label="Task title"
+        required
+        maxlength="200"
+      />
+      <input
+        id="description-input"
+        name="description"
+        type="text"
+        placeholder="Details (optional)"
+        aria-label="Task description"
+        maxlength="1000"
+      />
+      <button type="submit">Add task</button>
+    </form>
+
+    <div id="error-banner" class="error-banner" role="alert" hidden></div>
+
+    <nav class="filters" aria-label="Filter tasks">
+      <button type="button" class="filter-btn is-active" data-filter="all" aria-pressed="true">All</button>
+      <button type="button" class="filter-btn" data-filter="active" aria-pressed="false">Active</button>
+      <button type="button" class="filter-btn" data-filter="completed" aria-pressed="false">Completed</button>
+    </nav>
+
+    <ul id="task-list" class="task-list" aria-live="polite"></ul>
+    <p id="empty-state" class="empty-state" hidden>No tasks yet — add one above.</p>
+    <p id="loading-state" class="loading-state">Loading tasks…</p>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
