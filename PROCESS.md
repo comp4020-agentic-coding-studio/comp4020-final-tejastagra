@@ -1,5 +1,42 @@
 # Process overview
 
+## Multi-user testing with Fly logs
+
+[`9c4661e`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/9c4661e)
+`room_id` on tasks, migrated in for the already-deployed volume →
+[`52eef4c`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/52eef4c)
+`?room=` scoping on the API and WebSocket broadcast, plus the
+connect/leave/snapshot log lines this exercise needed from `flyctl logs` →
+[`42e0fee`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/42e0fee)
+the room UI and
+[`docs/adr/0003`](docs/adr/0003-rooms.md), which writes down why "one
+shared board" (the original README restraint) no longer holds →
+[`a5b2dd5`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/a5b2dd5)
+`spec/rooms.test.ts`, checking room isolation at both the list and
+broadcast layer →
+[`5baeb5c`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/5baeb5c)
+[`docs/testing/multi-user-test-report.md`](docs/testing/multi-user-test-report.md),
+driving the live deployed app through all eight class-exercise scenarios
+with independent cookie-jar clients.
+
+Seven of eight scenarios passed outright. The exception —
+`flyctl scale count 2` — is a real, demonstrated limit: Fly gives a second
+machine its own empty volume rather than sharing the first one, so the two
+machines disagreed about how many tasks existed in the same room (9 vs. 11,
+for identical requests). That's the expected cost of this app's
+single-SQLite-file design (`docs/adr/0001`), not a bug introduced by this
+exercise, but seeing it happen live — rather than reasoning about it from
+the architecture — is exactly the kind of thing `CLAUDE.md` already asks
+for ("never report something as working without having run it"). Scaling
+back down with `flyctl scale count 1` destroyed the wrong machine (the one
+holding real data, not the empty one) and briefly left the live app serving
+zero tasks; caught immediately by checking `GET /api/tasks` against the
+deployed URL rather than trusting the scale command's exit code, then fixed
+by cloning a machine onto the original volume, destroying the other two
+leftovers, and reconfirming with a full `pnpm check` run against the live
+URL (17/17 green, original three tasks restored). Full account in the
+report linked above.
+
 ## Crit 10: identity, ownership, and the audit log
 
 [`01ce601`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/01ce601)
