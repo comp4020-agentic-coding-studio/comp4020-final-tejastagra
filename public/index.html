@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Wall</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="bar">
+        <h1>The Wall</h1>
+        <div class="palette" role="toolbar" aria-label="Drawing tools">
+          <button id="tool-draw" aria-pressed="true" title="Draw (D)">Draw</button>
+          <button id="tool-text" aria-pressed="false" title="Add text (T)">Text</button>
+          <button id="tool-select" aria-pressed="false" title="Select (S)">Select</button>
+          <span aria-hidden="true" style="width: 1px; height: 1.2rem; background: var(--line)"></span>
+          <button class="swatch selected" data-color="#1c1a17" style="background: #1c1a17" aria-label="Ink" aria-pressed="true"></button>
+          <button class="swatch" data-color="#c4551c" style="background: #c4551c" aria-label="Rust" aria-pressed="false"></button>
+          <button class="swatch" data-color="#2e5b4f" style="background: #2e5b4f" aria-label="Pine" aria-pressed="false"></button>
+          <button class="swatch" data-color="#3457a6" style="background: #3457a6" aria-label="Indigo" aria-pressed="false"></button>
+        </div>
+        <div class="spacer"></div>
+        <span class="who" id="who"></span>
+        <button id="fork-btn" title="Fork this canvas into an independent copy">Fork</button>
+      </header>
+      <div id="canvas-wrap">
+        <canvas id="canvas" tabindex="0" aria-label="Collaborative drawing canvas"></canvas>
+        <div id="text-layer" aria-live="off"></div>
+        <div id="cursor-layer" aria-hidden="true"></div>
+      </div>
+      <div id="status" role="status"></div>
+    </div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
