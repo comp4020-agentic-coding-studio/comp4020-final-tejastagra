@@ -31,3 +31,8 @@ in what order — not a substitute for `PROCESS.md`/`docs/agent-progress.md`.
 - pnpm check: 27/27 passing, stable across repeated runs
 - Committed docs (FigJam honesty note in README, ADR 0004) and all bug fixes
 - Started: this short-form log (per user request mid-session)
+- Rebuilt Docker image, verified 27/27 against container
+- Redeployed Phase 2 to Fly, verified live over HTTP (deploy warning was a transient blip again, same as last time)
+- Live pnpm check found a real test bug: fork-isolation test assumed main starts empty (false once main had real objects from testing) — fixed by counting before/after instead
+- Re-verified 27/27 against live URL + checked flyctl logs for new rejection reasons
+- Answered user's question: added .gitignore entries + gave the direct local-run command (no Docker/Fly needed for dev)

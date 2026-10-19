@@ -307,12 +307,35 @@ a fresh Playwright pass confirmed the sticky-overlap fix (2 independent
 notes, correct text) and the coloured-stroke feature (pink swatch ->
 magenta stroke) both work as intended.
 
+### Completed and verified (final Phase 2 deploy)
+- [x] Docker image rebuilt with all Phase 2 changes; `pnpm check` 27/27
+      against the real container (tmpfs `/data`).
+- [x] Redeployed to Fly (`flyctl deploy --remote-only --ha=false`),
+      verified live over real HTTP (not trusting the deploy command's own
+      "not listening" warning, which was again a transient health-check
+      timing blip — curl confirmed 200 seconds later, same as the first
+      deploy).
+- [x] `pnpm check` against the live URL initially found a real test bug
+      (not an app bug): `spec/branches.test.ts`'s fork-isolation test
+      assumed `main` starts empty, which stopped being true once `main` on
+      the live deployment accumulated real objects from manual testing.
+      Fixed by counting before/after fork instead of assuming zero.
+      Re-verified 27/27 against both a clean local DB and the live URL.
+- [x] `flyctl logs` confirms the new rejection reasons (embed/music
+      allow-list messages) appear correctly in production, no secrets
+      exposed.
+- [x] Added `.gitignore` entries for `local-wall.db`/`local-uploads/` and
+      told the user how to run the app directly on their machine
+      (`WALL_DB_PATH=./local-wall.db WALL_UPLOADS_PATH=./local-uploads
+      PORT=8080 node src/server.ts`) instead of waiting on a Fly deploy
+      each time.
+
 ### Current task
-- Goal: Rebuild and redeploy the Docker image to Fly with all Phase 2
-  changes and security fixes, verify live, and update docs/testing with
-  anything new to check.
-- Files being changed: none expected from this step
-- Last known state: not started
+- Goal: none — Phase 2 is deployed, tested, and documented. Open items are
+  P3+ stretch goals (minimap at low zoom, sticky auto-offset) explicitly
+  deferred as known limitations, not in-progress work.
+- Files being changed: none
+- Last known state: complete for this session
 
 ## Resume instructions
 Read this file, inspect `git status`, inspect the last commit and continue from the exact next task. Do not repeat completed work. If resuming Phase 2 specifically: the server-side work (commit `1bc744c`) is done and tested; the frontend rewrite is written but not yet visually verified — verify it first before adding anything further.
