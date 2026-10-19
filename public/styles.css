@@ -30,6 +30,13 @@ body {
 
 .app-header h1 { margin: 0; font-size: 1.5rem; }
 
+.room {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-left: auto;
+  margin-right: 0.75rem;
+}
+
 .connection {
   font-size: 0.8rem;
   padding: 0.2rem 0.6rem;

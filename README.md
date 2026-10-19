@@ -29,9 +29,14 @@ Good, for this app, means:
 - **It's usable with a keyboard and a screen reader, not just a mouse.**
   Every control has a label; the task list and error banner are
   live-announced regions.
-- **Small is a feature.** No accounts, no boards-of-boards, no notifications —
-  the brief explicitly asks for this restraint, and a smaller surface is
-  also less that can silently break under the one-second realtime target.
+- **Small is a feature.** No accounts, no notifications, no room directory
+  or room management — the brief explicitly asks for this restraint, and a
+  smaller surface is also less that can silently break under the one-second
+  realtime target. A board does live at a specific URL (`?room=<id>`, see
+  [`docs/adr/0003-rooms.md`](docs/adr/0003-rooms.md)) rather than there being
+  exactly one global board, but the restraint is the same: no creation step,
+  no list to browse, nothing to manage — a room exists the moment someone
+  links it, same as the whole app already worked by link alone.
 
 ## What actually went into deciding that
 

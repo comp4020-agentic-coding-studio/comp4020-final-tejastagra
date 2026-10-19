@@ -9,6 +9,12 @@ let filter = "all";
 /** @type {{id: string, name: string} | null} */
 let me = null;
 
+// ADR 0003: a room is just whatever's in ?room=, shared by linking the URL —
+// no creation step, no switcher. Absent or blank means the one room that
+// existed before rooms did.
+const room = new URLSearchParams(location.search).get("room")?.trim() || "general";
+const roomQuery = `room=${encodeURIComponent(room)}`;
+
 const listEl = document.getElementById("task-list");
 const emptyEl = document.getElementById("empty-state");
 const loadingEl = document.getElementById("loading-state");
@@ -18,6 +24,8 @@ const form = document.getElementById("create-form");
 const titleInput = document.getElementById("title-input");
 const descInput = document.getElementById("description-input");
 const whoEl = document.getElementById("whoami");
+const roomEl = document.getElementById("room");
+roomEl.textContent = `room: ${room}`;
 const renameForm = document.getElementById("rename-form");
 const nameInput = document.getElementById("name-input");
 
@@ -131,7 +139,7 @@ function render() {
 
 async function loadTasks() {
   try {
-    const res = await fetch("/api/tasks");
+    const res = await fetch(`/api/tasks?${roomQuery}`);
     if (!res.ok) throw new Error(`load failed: ${res.status}`);
     const data = await res.json();
     tasks.clear();
@@ -145,7 +153,7 @@ async function loadTasks() {
 
 async function createTask(title, description) {
   try {
-    const res = await fetch("/api/tasks", {
+    const res = await fetch(`/api/tasks?${roomQuery}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, description }),
@@ -240,7 +248,7 @@ let reconnectDelay = 500;
 
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  socket = new WebSocket(`${proto}//${location.host}`);
+  socket = new WebSocket(`${proto}//${location.host}/?${roomQuery}`);
 
   socket.addEventListener("open", () => {
     connEl.textContent = "live";
