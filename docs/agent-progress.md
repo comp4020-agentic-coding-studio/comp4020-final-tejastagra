@@ -330,10 +330,45 @@ magenta stroke) both work as intended.
       PORT=8080 node src/server.ts`) instead of waiting on a Fly deploy
       each time.
 
+## Phase 3: onboarding, nicknames, art direction
+
+Prompted by direct user feedback: the app looked "generalist," dropped a
+stranger onto an empty canvas with no explanation, and had no sense of
+being "your digital space."
+
+### Completed and verified
+- [x] First-visit welcome overlay (`public/index.html`) — project
+      explanation, fork explainer, optional nickname field, "?" button to
+      reopen on demand. Gates the app's boot sequence.
+- [x] Nickname system: client-side only (localStorage), sent with every
+      cursor ping, sanitised server-side (`src/identity.ts`'s
+      `sanitiseNickname`), never persisted or logged — purely a display
+      layer over the existing anonymous identity (ADR 0002 updated).
+- [x] Soft gradient atmosphere wash behind the existing dot-grid canvas
+      background.
+- [x] Found and fixed before shipping: `showCursor`'s `innerHTML` use with
+      a directly-interpolated label was a real XSS path once that label
+      could be an arbitrary client-supplied nickname — switched to
+      `textContent`-based DOM construction.
+- [x] 2 new realtime tests (nickname broadcast, sanitisation). `pnpm
+      check`: 29/29, stable across 5 repeated runs.
+- [x] Investigated and resolved a one-off EPIPE flake in the oversized-
+      image test — root-caused as an inherent trade-off of the Phase 2
+      connection-poisoning fix, documented in code and the test rather
+      than hidden.
+- [x] Verified with Playwright: welcome shows once, nickname persists and
+      displays, reload skips it, help button reopens pre-filled, two
+      browser contexts see each other's nicknamed cursors, keyboard-only
+      flow (focus, Enter-to-submit) works.
+- [x] README/PROCESS/ADR 0002 updated; corrected a now-false "no onboarding
+      flow" claim in README's principles section.
+- [x] Redeployed to Fly, verified live (`/` serves the welcome overlay
+      markup), `pnpm check` 29/29 against the live URL, pushed, CI green.
+
 ### Current task
-- Goal: none — Phase 2 is deployed, tested, and documented. Open items are
-  P3+ stretch goals (minimap at low zoom, sticky auto-offset) explicitly
-  deferred as known limitations, not in-progress work.
+- Goal: none — Phase 3 is deployed, tested, and documented. Open items are
+  explicitly-deferred known limitations (minimap at low zoom, sticky
+  auto-offset on tight placement), not in-progress work.
 - Files being changed: none
 - Last known state: complete for this session
 
