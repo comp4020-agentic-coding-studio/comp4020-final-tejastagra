@@ -92,9 +92,43 @@
 - [x] `docker stats` showed ~48MB resident — comfortably inside the
       256MB/shared-cpu-1x Fly machine size.
 
+## Completed and verified (continued — deployment)
+- [x] `flyctl deploy --remote-only --ha=false -a comp4020-final-tejastagra`
+      ran successfully. Note: the app already had a prior deployment — of
+      the earlier Taskflow product, from before this session's pivot — live
+      at this same URL; this deploy replaced it, which is the correct and
+      intended outcome, not an accidental overwrite of real user data (the
+      old deploy had no real visitors to lose work from).
+- [x] Verified **not** by trusting the deploy command's exit code: curled
+      `https://comp4020-final-tejastagra.fly.dev/` (200, `<title>The
+      Wall</title>`) and `/readme/` (200, `<h1>The Wall</h1>`) directly.
+- [x] `APP_URL=https://comp4020-final-tejastagra.fly.dev pnpm check` — 11/11
+      passed against the real live deployment, including the realtime
+      broadcast-timing and fork-isolation tests running over the actual
+      public network, not localhost.
+- [x] `flyctl logs -a comp4020-final-tejastagra` inspected after generating
+      traffic: confirmed real, live log lines for all six required event
+      types (`user_join`, `user_leave`, `action_received`,
+      `update_broadcast`, `action_rejected`, `state_snapshot_sent`), each
+      carrying a pseudonymous `user_id`, `branch_id`, and `object_id` where
+      relevant — no cookie values or secrets present in any line.
+- [x] Noted honestly, not hidden: the log stream also showed repeated
+      `proxy ... "could not complete HTTP request to instance: hyper error:
+      connection closed before message completed"` errors in a ~3-minute
+      window after the deploy. The app's own status stayed `started` and
+      `curl`/`pnpm check` kept returning success throughout and after this
+      window, so the working hypothesis is this is `auto_stop_machines`
+      cycling the single machine between the test suite's traffic bursts
+      and idle gaps (`fly.toml` sets `min_machines_running = 0`), not an
+      application bug — not yet confirmed further; flagged as a line item
+      for the multi-user test document rather than asserted as fully
+      understood.
+
 ## Current task
-- Goal: Attempt `flyctl deploy` and verify the live deployment over real HTTP.
-- Files being changed: none expected
+- Goal: Write `docs/testing/multi-user-test.md` with the real scenario
+  matrix, marking anything that needs two live human-driven browser
+  profiles as `Not run`.
+- Files being changed: `docs/testing/multi-user-test.md`
 - Last known state: not started
 
 ## Checks run
@@ -102,23 +136,32 @@
 - Result: success
 - Command: `APP_URL=http://localhost:8082 pnpm check` (against the Docker container)
 - Result: 11/11 passed
-- Command: `node scripts/check-evidence.ts`
-- Result: all checks passed
+- Command: `flyctl deploy --remote-only --ha=false -a comp4020-final-tejastagra`
+- Result: success; machine reached "started" state, smoke/health checks passed
+- Command: `curl` against `https://comp4020-final-tejastagra.fly.dev/` and `/readme/`
+- Result: both 200, correct content (title "The Wall", README's actual H1)
+- Command: `APP_URL=https://comp4020-final-tejastagra.fly.dev pnpm check`
+- Result: 11/11 passed against the live deployment
+- Command: `flyctl logs -a comp4020-final-tejastagra` (after generating traffic)
+- Result: all six required event types observed live; also observed
+  transient proxy connection errors, noted above, not yet root-caused
+  further than a working hypothesis
 
 ## Blockers
-- Blocker: none currently
-- Safe next action: attempt the Fly deploy
+- Blocker: none currently; the proxy-error observation above is a note for
+  the multi-user test doc, not something currently blocking core
+  functionality (every HTTP check succeeded before and after the error window)
+- Safe next action: write the multi-user test document, then the final report
 
 ## Exact next task
-1. Attempt `flyctl deploy --remote-only --ha=false -a comp4020-final-tejastagra`
-   from this repo (token is in `mise.local.toml`, not printed).
-2. Verify the live URL and `/readme/` over real HTTP with curl — do not
-   trust the deploy command's exit code alone.
-3. Inspect `flyctl logs -a comp4020-final-tejastagra` for the six structured
-   event types after exercising the app against the live URL.
-4. Write `docs/testing/multi-user-test.md` with real results (marking
-   anything requiring two live browser profiles as `Not run` until a human
-   does that part).
+1. Write `docs/testing/multi-user-test.md`: deployment URL, commit tested,
+   test date, the scenario matrix from the lecture whiteboard task, marking
+   automated-equivalent scenarios as run (with evidence linking back to this
+   file and the spec tests) and genuinely two-human-browser scenarios as
+   `Not run`.
+2. Do a final `git status --short` / `git diff` pass for accidental
+   changes or secrets before the final commit.
+3. Produce the final report per prompt.md Part G.
 
 ## Resume instructions
 Read this file, inspect `git status`, inspect the last commit and continue from the exact next task. Do not repeat completed work.
