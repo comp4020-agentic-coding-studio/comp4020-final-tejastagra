@@ -11,16 +11,32 @@ const baseUrl = inject("baseUrl");
 const wsUrl = new URL(baseUrl);
 wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
 
+// Crit 10 added server-side ownership (docs/adr/0002): a task's creator is
+// the only identity allowed to PATCH or DELETE it. This file is about
+// realtime sync and the concurrency decision, not ownership itself (that's
+// spec/ownership.test.ts), so every call here goes through one consistent
+// identity — this jar — the same way one real browser tab would, rather than
+// each bare `fetch` call looking like a different anonymous person.
+let cookie = "";
+async function fetch_(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (cookie) headers.set("Cookie", cookie);
+  const res = await fetch(new URL(path, baseUrl), { ...init, headers });
+  const setCookie = res.headers.get("set-cookie");
+  if (setCookie) cookie = setCookie.split(";")[0];
+  return res;
+}
+
 const createdIds: string[] = [];
 afterAll(async () => {
   // Best-effort cleanup so repeated runs don't pile up tasks. There's no
   // GET /api/tasks/:id — fetch the current version from the list instead.
-  const listRes = await fetch(new URL("/api/tasks", baseUrl));
+  const listRes = await fetch_("/api/tasks");
   const all: any[] = listRes.ok ? await listRes.json() : [];
   for (const id of createdIds) {
     const task = all.find((t) => t.id === id);
     if (task) {
-      await fetch(new URL(`/api/tasks/${id}`, baseUrl), {
+      await fetch_(`/api/tasks/${id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ version: task.version }),
@@ -71,7 +87,7 @@ it("a task created by one client reaches another open session within ~1s, no rel
   const listener = await openSocket();
   try {
     const title = `realtime-create-${Date.now()}`;
-    const res = await fetch(new URL("/api/tasks", baseUrl), {
+    const res = await fetch_("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
@@ -88,7 +104,7 @@ it("a task created by one client reaches another open session within ~1s, no rel
 });
 
 it("completing, reopening and deleting a task broadcast to other sessions", async () => {
-  const createRes = await fetch(new URL("/api/tasks", baseUrl), {
+  const createRes = await fetch_("/api/tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title: `realtime-lifecycle-${Date.now()}` }),
@@ -98,7 +114,7 @@ it("completing, reopening and deleting a task broadcast to other sessions", asyn
 
   const listener = await openSocket();
   try {
-    const completeRes = await fetch(new URL(`/api/tasks/${task.id}`, baseUrl), {
+    const completeRes = await fetch_(`/api/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: true, version: task.version }),
@@ -108,7 +124,7 @@ it("completing, reopening and deleting a task broadcast to other sessions", asyn
     const updateMsg = await waitForMessage(listener, (m) => m.type === "updated" && m.task.id === task.id);
     expect(updateMsg.task.completed).toBe(true);
 
-    const deleteRes = await fetch(new URL(`/api/tasks/${task.id}`, baseUrl), {
+    const deleteRes = await fetch_(`/api/tasks/${task.id}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ version: completed.version }),
@@ -124,7 +140,7 @@ it("completing, reopening and deleting a task broadcast to other sessions", asyn
 
 it("persists state: a fresh fetch sees what an earlier client wrote", async () => {
   const title = `persistence-${Date.now()}`;
-  const res = await fetch(new URL("/api/tasks", baseUrl), {
+  const res = await fetch_("/api/tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
@@ -132,13 +148,13 @@ it("persists state: a fresh fetch sees what an earlier client wrote", async () =
   const task = await res.json();
   createdIds.push(task.id);
 
-  const listRes = await fetch(new URL("/api/tasks", baseUrl));
+  const listRes = await fetch_("/api/tasks");
   const tasks = await listRes.json();
   expect(tasks.some((t: any) => t.id === task.id && t.title === title)).toBe(true);
 });
 
 it("rejects a stale write instead of silently overwriting (the documented concurrency decision)", async () => {
-  const createRes = await fetch(new URL("/api/tasks", baseUrl), {
+  const createRes = await fetch_("/api/tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title: `conflict-${Date.now()}` }),
@@ -147,7 +163,7 @@ it("rejects a stale write instead of silently overwriting (the documented concur
   createdIds.push(task.id);
 
   // First writer succeeds and moves the version forward.
-  const firstWrite = await fetch(new URL(`/api/tasks/${task.id}`, baseUrl), {
+  const firstWrite = await fetch_(`/api/tasks/${task.id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ completed: true, version: task.version }),
@@ -155,7 +171,7 @@ it("rejects a stale write instead of silently overwriting (the documented concur
   expect(firstWrite.status).toBe(200);
 
   // A second writer using the now-stale version is rejected, not merged.
-  const staleWrite = await fetch(new URL(`/api/tasks/${task.id}`, baseUrl), {
+  const staleWrite = await fetch_(`/api/tasks/${task.id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ completed: false, version: task.version }),
