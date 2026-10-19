@@ -1,107 +1,54 @@
-// The Wall — client. Vanilla JS, no build step: fetch the branch's
-// persisted snapshot over HTTP, then apply live diffs from the WebSocket on
-// top. Presence/cursor messages never touch persisted state.
+// The Wall — client. Vanilla JS, no build step. An infinite pan/zoom
+// "camera" over a world-space canvas: every object (stroke, sticky, text,
+// music, embed, image) is a positioned DOM/SVG node inside #camera, moved
+// as one group by a single CSS transform. Durable state comes from the
+// branch's HTTP snapshot; live diffs arrive over WebSocket; presence/cursor
+// messages never touch persisted state.
 
 const params = new URLSearchParams(location.search);
 const branchId = params.get("branch") ?? "main";
 
-const canvas = document.getElementById("canvas");
-const ctx2d = canvas.getContext("2d");
-const textLayer = document.getElementById("text-layer");
+const canvasWrap = document.getElementById("canvas-wrap");
+const camera = document.getElementById("camera");
+const strokesLayer = document.getElementById("strokes-layer");
+const objectsLayer = document.getElementById("objects-layer");
 const cursorLayer = document.getElementById("cursor-layer");
 const statusEl = document.getElementById("status");
 const whoEl = document.getElementById("who");
+const zoomPill = document.getElementById("zoom-pill");
+const imageInput = document.getElementById("image-input");
 
-let tool = "draw";
-let color = "#1c1a17";
-const objects = new Map(); // id -> object (as sent by the server)
-let drawing = null; // { id, points: [[x,y],...] } while actively drawing
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+let tool = "select";
+let color = "#fff2a8"; // sticky colour; strokes use a fixed ink colour
+const STROKE_COLOR = "#1b1d23";
+
+const objects = new Map(); // id -> server object (data already JSON-parsed)
+const objectEls = new Map(); // id -> DOM node
+const strokeEls = new Map(); // id -> <path>
+
 let myLabel = "";
 
-function resizeCanvas() {
-  const rect = canvas.parentElement.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  canvas.style.width = `${rect.width}px`;
-  canvas.style.height = `${rect.height}px`;
-  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-  redraw();
+// --- Camera (world <-> screen) ---
+
+const cam = { x: 0, y: 0, scale: 1 };
+
+function applyCameraTransform() {
+  camera.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.scale})`;
+  zoomPill.textContent = `${Math.round(cam.scale * 100)}%`;
 }
-window.addEventListener("resize", resizeCanvas);
+
+function screenToWorld(sx, sy) {
+  return [(sx - cam.x) / cam.scale, (sy - cam.y) / cam.scale];
+}
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.dataset.state = isError ? "error" : "ok";
 }
 
-// Strokes are stored relative to their own x/y; draw them translated into
-// canvas space.
-function drawStroke(obj) {
-  const data = JSON.parse(obj.data);
-  const points = (data.points ?? []).map(([px, py]) => [px + (obj.x ?? 0), py + (obj.y ?? 0)]);
-  if (points.length < 2) return;
-  ctx2d.strokeStyle = data.color ?? "#1c1a17";
-  ctx2d.lineWidth = data.width ?? 2.5;
-  ctx2d.lineJoin = "round";
-  ctx2d.lineCap = "round";
-  ctx2d.beginPath();
-  ctx2d.moveTo(points[0][0], points[0][1]);
-  for (const [x, y] of points.slice(1)) ctx2d.lineTo(x, y);
-  ctx2d.stroke();
-}
-
-function redraw() {
-  const rect = canvas.getBoundingClientRect();
-  ctx2d.clearRect(0, 0, rect.width, rect.height);
-  for (const obj of objects.values()) {
-    if (obj.type === "stroke") drawStroke(obj);
-  }
-  if (drawing) drawStroke({ x: 0, y: 0, data: JSON.stringify({ points: drawing.points, color }) });
-}
-
-function renderTextObject(obj) {
-  let el = document.getElementById(`text-${obj.id}`);
-  const data = JSON.parse(obj.data);
-  if (!el) {
-    el = document.createElement("div");
-    el.className = "text-object";
-    el.id = `text-${obj.id}`;
-    el.contentEditable = "true";
-    el.spellcheck = false;
-    textLayer.appendChild(el);
-    let saveTimer;
-    el.addEventListener("input", () => {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => {
-        api(`/api/branches/${branchId}/objects/${obj.id}`, "PATCH", {
-          data: { text: el.textContent, color: data.color },
-        });
-      }, 400);
-    });
-  }
-  el.style.left = `${obj.x}px`;
-  el.style.top = `${obj.y}px`;
-  el.style.color = data.color ?? "#1c1a17";
-  if (document.activeElement !== el) el.textContent = data.text ?? "";
-}
-
-function removeObjectEl(id) {
-  const el = document.getElementById(`text-${id}`);
-  if (el) el.remove();
-}
-
-function applyObject(obj) {
-  objects.set(obj.id, obj);
-  if (obj.type === "stroke") redraw();
-  else if (obj.type === "text") renderTextObject(obj);
-}
-
-function removeObject(id) {
-  objects.delete(id);
-  removeObjectEl(id);
-  redraw();
-}
+// --- API ---
 
 async function api(path, method = "GET", body) {
   const res = await fetch(path, {
@@ -109,14 +56,275 @@ async function api(path, method = "GET", body) {
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`${method} ${path} -> ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${method} ${path} -> ${res.status} ${text}`);
+  }
   return res.status === 204 ? null : res.json();
+}
+
+function parsedData(obj) {
+  try {
+    return JSON.parse(obj.data);
+  } catch {
+    return {};
+  }
+}
+
+// --- Rendering: strokes (SVG) ---
+
+function strokePathD(points) {
+  if (!points || points.length < 2) return "";
+  return `M ${points[0][0]} ${points[0][1]} ` + points.slice(1).map(([x, y]) => `L ${x} ${y}`).join(" ");
+}
+
+function renderStroke(obj) {
+  const data = parsedData(obj);
+  let path = strokeEls.get(obj.id);
+  if (!path) {
+    path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("stroke-linecap", "round");
+    strokesLayer.appendChild(path);
+    strokeEls.set(obj.id, path);
+  }
+  const absolute = (data.points ?? []).map(([x, y]) => [x + obj.x, y + obj.y]);
+  path.setAttribute("d", strokePathD(absolute));
+  path.setAttribute("stroke", data.color ?? STROKE_COLOR);
+  path.setAttribute("stroke-width", String(data.width ?? 2.5));
+}
+
+function removeStroke(id) {
+  const path = strokeEls.get(id);
+  if (path) path.remove();
+  strokeEls.delete(id);
+}
+
+// --- Rendering: cards (sticky / text / music / embed / image) ---
+
+function positionCard(el, obj) {
+  el.style.left = `${obj.x}px`;
+  el.style.top = `${obj.y}px`;
+}
+
+function makeDraggable(el, obj, { onFinish } = {}) {
+  let dragging = null;
+  el.addEventListener("pointerdown", (e) => {
+    if (tool !== "select") return;
+    if (e.target.closest("[contenteditable]") && document.activeElement === e.target) return;
+    e.stopPropagation();
+    el.setPointerCapture(e.pointerId);
+    el.classList.add("dragging");
+    dragging = { startScreenX: e.clientX, startScreenY: e.clientY, startX: obj.x, startY: obj.y };
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dx = (e.clientX - dragging.startScreenX) / cam.scale;
+    const dy = (e.clientY - dragging.startScreenY) / cam.scale;
+    obj.x = dragging.startX + dx;
+    obj.y = dragging.startY + dy;
+    positionCard(el, obj);
+  });
+  el.addEventListener("pointerup", async (e) => {
+    if (!dragging) return;
+    el.classList.remove("dragging");
+    dragging = null;
+    try {
+      await api(`/api/branches/${branchId}/objects/${obj.id}`, "PATCH", { x: obj.x, y: obj.y });
+    } catch {
+      setStatus("Failed to save position", true);
+    }
+    onFinish?.();
+  });
+}
+
+function renderSticky(obj) {
+  const data = parsedData(obj);
+  const stickyColor = data.color ?? "#fff2a8";
+  let el = objectEls.get(obj.id);
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "card card-sticky";
+    el.dataset.id = obj.id;
+    const inner = document.createElement("div");
+    inner.contentEditable = "true";
+    inner.spellcheck = false;
+    inner.style.outline = "none";
+    el.appendChild(inner);
+    objectsLayer.appendChild(el);
+    objectEls.set(obj.id, el);
+    makeDraggable(el, obj);
+    let saveTimer;
+    inner.addEventListener("input", () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        // Colour is fixed at creation time; only the text can be edited.
+        api(`/api/branches/${branchId}/objects/${obj.id}`, "PATCH", {
+          data: { text: inner.textContent, color: stickyColor },
+        }).catch(() => setStatus("Failed to save note", true));
+      }, 400);
+    });
+  }
+  positionCard(el, obj);
+  el.style.background = stickyColor;
+  const inner = el.firstChild;
+  if (document.activeElement !== inner) inner.textContent = data.text ?? "";
+}
+
+function renderTextObject(obj) {
+  const data = parsedData(obj);
+  let el = objectEls.get(obj.id);
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "text-object";
+    el.contentEditable = "true";
+    el.spellcheck = false;
+    el.dataset.id = obj.id;
+    objectsLayer.appendChild(el);
+    objectEls.set(obj.id, el);
+    makeDraggable(el, obj);
+    let saveTimer;
+    el.addEventListener("input", () => {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        api(`/api/branches/${branchId}/objects/${obj.id}`, "PATCH", {
+          data: { text: el.textContent },
+        }).catch(() => setStatus("Failed to save text", true));
+      }, 400);
+    });
+  }
+  positionCard(el, obj);
+  el.style.color = data.color ?? "#1b1d23";
+  if (document.activeElement !== el) el.textContent = data.text ?? "";
+}
+
+function musicEmbedSrc(platform, url) {
+  try {
+    const u = new URL(url);
+    if (platform === "spotify") {
+      const path = u.pathname.replace(/^\/(track|album|playlist|episode)\//, "$1/");
+      return `https://open.spotify.com/embed/${path}`;
+    }
+    if (platform === "youtube") {
+      const id = u.hostname === "youtu.be" ? u.pathname.slice(1) : u.searchParams.get("v");
+      return `https://www.youtube.com/embed/${id}`;
+    }
+    if (platform === "soundcloud") {
+      return `https://w.soundcloud.com/player/?url=${encodeURIComponent(u.toString())}&auto_play=false`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function renderMusic(obj) {
+  const data = parsedData(obj);
+  let el = objectEls.get(obj.id);
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "card card-music";
+    el.dataset.id = obj.id;
+    const iframe = document.createElement("iframe");
+    iframe.loading = "lazy";
+    iframe.allow = "autoplay; encrypted-media";
+    iframe.referrerPolicy = "no-referrer";
+    const src = musicEmbedSrc(data.platform, data.url);
+    if (src) iframe.src = src;
+    el.appendChild(iframe);
+    objectsLayer.appendChild(el);
+    objectEls.set(obj.id, el);
+    makeDraggable(el, obj);
+    allowIframeInteractionOnDoubleClick(el);
+  }
+  positionCard(el, obj);
+}
+
+function renderEmbed(obj) {
+  const data = parsedData(obj);
+  let el = objectEls.get(obj.id);
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "card card-embed";
+    el.dataset.id = obj.id;
+    const iframe = document.createElement("iframe");
+    iframe.loading = "lazy";
+    iframe.referrerPolicy = "no-referrer";
+    // No allow-same-origin: a compromised embedded page still can't read
+    // this origin's cookies or DOM. See docs/adr/0004-embeds-and-uploads.md.
+    iframe.sandbox = "allow-scripts allow-popups allow-popups-to-escape-sandbox";
+    iframe.src = data.url;
+    el.appendChild(iframe);
+    objectsLayer.appendChild(el);
+    objectEls.set(obj.id, el);
+    makeDraggable(el, obj);
+    allowIframeInteractionOnDoubleClick(el);
+  }
+  positionCard(el, obj);
+}
+
+// A draggable card's iframe would otherwise eat every pointer event; let a
+// double-click toggle "interacting" so the embed becomes usable, and click
+// elsewhere on the canvas to hand dragging back.
+function allowIframeInteractionOnDoubleClick(el) {
+  el.addEventListener("dblclick", () => el.classList.toggle("interacting"));
+}
+
+function renderImage(obj) {
+  const data = parsedData(obj);
+  let el = objectEls.get(obj.id);
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "card card-image";
+    el.dataset.id = obj.id;
+    const img = document.createElement("img");
+    img.src = data.path;
+    img.alt = "";
+    img.draggable = false;
+    el.appendChild(img);
+    objectsLayer.appendChild(el);
+    objectEls.set(obj.id, el);
+    makeDraggable(el, obj);
+  }
+  positionCard(el, obj);
+}
+
+function removeCard(id) {
+  const el = objectEls.get(id);
+  if (el) el.remove();
+  objectEls.delete(id);
+}
+
+const RENDERERS = {
+  stroke: renderStroke,
+  sticky: renderSticky,
+  text: renderTextObject,
+  music: renderMusic,
+  embed: renderEmbed,
+  image: renderImage,
+};
+
+function applyObject(obj) {
+  objects.set(obj.id, obj);
+  const render = RENDERERS[obj.type];
+  if (render) render(obj);
+}
+
+function removeObject(id) {
+  const obj = objects.get(id);
+  objects.delete(id);
+  if (obj?.type === "stroke") removeStroke(id);
+  else removeCard(id);
 }
 
 async function loadSnapshot() {
   const { objects: list } = await api(`/api/branches/${branchId}/objects`);
   objects.clear();
-  textLayer.innerHTML = "";
+  objectsLayer.innerHTML = "";
+  strokesLayer.innerHTML = "";
+  objectEls.clear();
+  strokeEls.clear();
   for (const obj of list) applyObject(obj);
 }
 
@@ -160,17 +368,17 @@ function connectWs() {
 }
 
 const cursorEls = new Map();
-function showCursor(userId, x, y) {
+function showCursor(userId, worldX, worldY) {
   let el = cursorEls.get(userId);
   if (!el) {
     el = document.createElement("div");
     el.className = "cursor";
-    el.innerHTML = `<div class="dot"></div><div class="label">${userId}</div>`;
+    el.innerHTML = `<div class="pointer"></div><div class="label">${userId}</div>`;
     cursorLayer.appendChild(el);
     cursorEls.set(userId, el);
   }
-  el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
+  el.style.left = `${worldX * cam.scale + cam.x}px`;
+  el.style.top = `${worldY * cam.scale + cam.y}px`;
 }
 function hideCursor(userId) {
   const el = cursorEls.get(userId);
@@ -181,28 +389,41 @@ function hideCursor(userId) {
 }
 
 let lastCursorSend = 0;
-function sendCursor(x, y) {
+function sendCursor(worldX, worldY) {
   const now = performance.now();
   if (now - lastCursorSend < 50) return; // throttle — presence is ephemeral, not logged, but still shouldn't flood
   lastCursorSend = now;
   if (ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "cursor", x, y }));
+    ws.send(JSON.stringify({ type: "cursor", x: worldX, y: worldY }));
   }
 }
 
 // --- Tools ---
 
-document.getElementById("tool-draw").addEventListener("click", () => setTool("draw"));
-document.getElementById("tool-text").addEventListener("click", () => setTool("text"));
-document.getElementById("tool-select").addEventListener("click", () => setTool("select"));
+const TOOL_BUTTONS = {
+  select: document.getElementById("tool-select"),
+  draw: document.getElementById("tool-draw"),
+  sticky: document.getElementById("tool-sticky"),
+  text: document.getElementById("tool-text"),
+};
+
+for (const [name, btn] of Object.entries(TOOL_BUTTONS)) {
+  btn.addEventListener("click", () => setTool(name));
+}
+document.getElementById("tool-music").addEventListener("click", addMusicCard);
+document.getElementById("tool-embed").addEventListener("click", addEmbedCard);
+document.getElementById("tool-image").addEventListener("click", () => imageInput.click());
 
 function setTool(next) {
   tool = next;
-  for (const btn of document.querySelectorAll(".palette button[id^='tool-']")) {
-    const active = btn.id === `tool-${next}`;
+  for (const [name, btn] of Object.entries(TOOL_BUTTONS)) {
+    const active = name === next;
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-pressed", String(active));
   }
+  canvasWrap.classList.toggle("tool-draw", next === "draw");
+  canvasWrap.classList.toggle("tool-sticky", next === "sticky");
+  canvasWrap.classList.toggle("tool-text", next === "text");
 }
 
 for (const swatch of document.querySelectorAll(".swatch")) {
@@ -216,47 +437,88 @@ for (const swatch of document.querySelectorAll(".swatch")) {
 }
 
 window.addEventListener("keydown", (e) => {
-  if (e.target.isContentEditable) return;
+  if (e.target.isContentEditable || e.target.tagName === "INPUT") return;
+  if (e.key === "v") setTool("select");
   if (e.key === "d") setTool("draw");
+  if (e.key === "s") setTool("sticky");
   if (e.key === "t") setTool("text");
-  if (e.key === "s") setTool("select");
+  if (e.key === "m") addMusicCard();
+  if (e.key === "e") addEmbedCard();
+  if (e.key === "i") imageInput.click();
 });
 
-// --- Canvas interaction ---
+// --- Canvas interaction: pan, zoom, draw, place ---
 
-function canvasPoint(e) {
-  const rect = canvas.getBoundingClientRect();
-  return [e.clientX - rect.left, e.clientY - rect.top];
-}
+let drawing = null; // { points: [[worldX, worldY], ...] }
+let panState = null; // { startScreenX, startScreenY, startCamX, startCamY }
+let spacePanning = false;
 
-canvas.addEventListener("pointerdown", (e) => {
-  const [x, y] = canvasPoint(e);
-  if (tool === "draw") {
-    drawing = { points: [[x, y]] };
-    canvas.setPointerCapture(e.pointerId);
-  } else if (tool === "text") {
-    createText(x, y);
-    setTool("select");
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && !e.target.isContentEditable) spacePanning = true;
+});
+window.addEventListener("keyup", (e) => {
+  if (e.code === "Space") spacePanning = false;
+});
+
+canvasWrap.addEventListener("pointerdown", (e) => {
+  if (e.target !== canvasWrap && e.target !== camera && e.target !== strokesLayer && e.target !== objectsLayer) {
+    return; // a card handled it
   }
-});
+  const [wx, wy] = screenToWorld(e.clientX, e.clientY);
 
-canvas.addEventListener("pointermove", (e) => {
-  const [x, y] = canvasPoint(e);
-  sendCursor(x, y);
-  if (drawing) {
-    drawing.points.push([x, y]);
-    redraw();
-  }
-});
-
-canvas.addEventListener("pointerup", async () => {
-  if (!drawing) return;
-  const points = drawing.points;
-  drawing = null;
-  if (points.length < 2) {
-    redraw();
+  if (tool === "select" || spacePanning) {
+    canvasWrap.classList.add("panning");
+    panState = { startScreenX: e.clientX, startScreenY: e.clientY, startCamX: cam.x, startCamY: cam.y };
+    canvasWrap.setPointerCapture(e.pointerId);
     return;
   }
+  if (tool === "draw") {
+    drawing = { points: [[wx, wy]] };
+    canvasWrap.setPointerCapture(e.pointerId);
+    return;
+  }
+  if (tool === "sticky") {
+    createSticky(wx, wy);
+    setTool("select");
+    return;
+  }
+  if (tool === "text") {
+    createText(wx, wy);
+    setTool("select");
+    return;
+  }
+});
+
+canvasWrap.addEventListener("pointermove", (e) => {
+  const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+  sendCursor(wx, wy);
+
+  if (panState) {
+    cam.x = panState.startCamX + (e.clientX - panState.startScreenX);
+    cam.y = panState.startCamY + (e.clientY - panState.startScreenY);
+    applyCameraTransform();
+    return;
+  }
+  if (drawing) {
+    drawing.points.push([wx, wy]);
+    renderLiveStroke();
+  }
+});
+
+canvasWrap.addEventListener("pointerup", async (e) => {
+  if (panState) {
+    panState = null;
+    canvasWrap.classList.remove("panning");
+    return;
+  }
+  if (!drawing) return;
+  const points = drawing.points;
+  const liveEl = strokeEls.get("__live__");
+  if (liveEl) liveEl.remove();
+  strokeEls.delete("__live__");
+  drawing = null;
+  if (points.length < 2) return;
+
   const xs = points.map((p) => p[0]);
   const ys = points.map((p) => p[1]);
   const x = Math.min(...xs);
@@ -267,14 +529,71 @@ canvas.addEventListener("pointerup", async () => {
       type: "stroke",
       x,
       y,
-      data: { points: relative, color, width: 2.5 },
+      data: { points: relative, color: STROKE_COLOR, width: 2.5 },
     });
-    objects.set(obj.id, obj);
-  } catch (e) {
+    applyObject(obj);
+  } catch {
     setStatus("Failed to save stroke", true);
   }
-  redraw();
 });
+
+function renderLiveStroke() {
+  let path = strokeEls.get("__live__");
+  if (!path) {
+    path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", STROKE_COLOR);
+    path.setAttribute("stroke-width", "2.5");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("stroke-linecap", "round");
+    strokesLayer.appendChild(path);
+    strokeEls.set("__live__", path);
+  }
+  path.setAttribute("d", strokePathD(drawing.points));
+}
+
+// Zoom anchored at the cursor: recompute cam.x/y so the world point under
+// the cursor stays fixed on screen.
+canvasWrap.addEventListener(
+  "wheel",
+  (e) => {
+    e.preventDefault();
+    const rect = canvasWrap.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const [wx, wy] = screenToWorld(sx, sy);
+
+    const zoomFactor = Math.exp(-e.deltaY * 0.001);
+    const nextScale = Math.min(3, Math.max(0.2, cam.scale * zoomFactor));
+
+    cam.x = sx - wx * nextScale;
+    cam.y = sy - wy * nextScale;
+    cam.scale = nextScale;
+    applyCameraTransform();
+  },
+  { passive: false },
+);
+
+zoomPill.addEventListener("click", () => {
+  cam.scale = 1;
+  applyCameraTransform();
+});
+
+async function createSticky(x, y) {
+  try {
+    const obj = await api(`/api/branches/${branchId}/objects`, "POST", {
+      type: "sticky",
+      x,
+      y,
+      data: { text: "", color },
+    });
+    applyObject(obj);
+    const el = objectEls.get(obj.id);
+    el?.firstChild?.focus();
+  } catch {
+    setStatus("Failed to create note", true);
+  }
+}
 
 async function createText(x, y) {
   try {
@@ -282,14 +601,74 @@ async function createText(x, y) {
       type: "text",
       x,
       y,
-      data: { text: "", color },
+      data: { text: "" },
     });
     applyObject(obj);
-    document.getElementById(`text-${obj.id}`).focus();
-  } catch (e) {
+    objectEls.get(obj.id)?.focus();
+  } catch {
     setStatus("Failed to create text", true);
   }
 }
+
+async function addMusicCard() {
+  const url = prompt("Paste a Spotify, YouTube or SoundCloud link:");
+  if (!url) return;
+  const rect = canvasWrap.getBoundingClientRect();
+  const [x, y] = screenToWorld(rect.width / 2, rect.height / 2);
+  try {
+    const obj = await api(`/api/branches/${branchId}/objects`, "POST", {
+      type: "music",
+      x,
+      y,
+      data: { url },
+    });
+    applyObject(obj);
+  } catch (e) {
+    setStatus("That link isn't supported yet", true);
+  }
+}
+
+async function addEmbedCard() {
+  const url = prompt("Paste a link to embed (Figma, Google Maps, CodePen, CodeSandbox, Giphy, Google Docs):");
+  if (!url) return;
+  const rect = canvasWrap.getBoundingClientRect();
+  const [x, y] = screenToWorld(rect.width / 2, rect.height / 2);
+  try {
+    const obj = await api(`/api/branches/${branchId}/objects`, "POST", {
+      type: "embed",
+      x,
+      y,
+      data: { url },
+    });
+    applyObject(obj);
+  } catch (e) {
+    setStatus("That link isn't on the embed allow-list", true);
+  }
+}
+
+imageInput.addEventListener("change", async () => {
+  const file = imageInput.files?.[0];
+  imageInput.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result.toString().split(",")[1];
+    const rect = canvasWrap.getBoundingClientRect();
+    const [x, y] = screenToWorld(rect.width / 2, rect.height / 2);
+    try {
+      const obj = await api(`/api/branches/${branchId}/objects`, "POST", {
+        type: "image",
+        x,
+        y,
+        data: { imageBase64: base64 },
+      });
+      applyObject(obj);
+    } catch {
+      setStatus("Failed to upload image", true);
+    }
+  };
+  reader.readAsDataURL(file);
+});
 
 // --- Fork ---
 
@@ -297,14 +676,14 @@ document.getElementById("fork-btn").addEventListener("click", async () => {
   try {
     const branch = await api(`/api/branches/${branchId}/fork`, "POST");
     location.href = `${location.pathname}?branch=${branch.id}`;
-  } catch (e) {
+  } catch {
     setStatus("Fork failed", true);
   }
 });
 
 // --- Boot ---
 
-resizeCanvas();
+applyCameraTransform();
 loadSnapshot()
   .then(() => connectWs())
   .catch((e) => setStatus(`Failed to load canvas: ${e.message}`, true));

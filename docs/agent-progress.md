@@ -184,5 +184,79 @@
    changes or secrets before the final commit.
 3. Produce the final report per prompt.md Part G.
 
+## Phase 2: FigJam visual overhaul + modular object types
+
+Started 2026-10-19, after the initial build (above) was deployed and
+verified. The user explicitly asked for a FigJam-style visual identity
+(acknowledged by the user as conflicting with the original brief's "don't
+clone Figma, distinct identity" principle — see README.md's honest note on
+this) plus new object types: sticky notes, music embeds (Spotify/YouTube/
+SoundCloud), generic iframe embeds (allow-listed domains), and image
+upload.
+
+### Completed and verified (server-side)
+- [x] `src/links.ts`: music URL classifier (Spotify/YouTube/SoundCloud
+      patterns) and a fixed embed-domain allow-list.
+- [x] `src/uploads.ts`: `saveImage` — decodes base64, checks real magic
+      bytes (PNG/JPEG/GIF/WebP) regardless of declared MIME type, caps at
+      2MB, writes under `/data/uploads/<branchId>/<uuid>.<ext>` (same Fly
+      volume as the SQLite file). `resolveUploadPath` makes path traversal
+      structurally impossible (fixed filename pattern, no user-supplied path
+      segments touch the filesystem).
+- [x] `src/server.ts`: `VALID_TYPES` extended to `text, stroke, sticky,
+      image, music, embed` (dropped unused `shape`/`link`); per-type
+      `validateTypedData` for sticky (fixed colour palette), music
+      (allow-list check, platform derived server-side), embed (hostname
+      allow-list); image upload gets its own larger body-size cap (3MB, to
+      cover base64 overhead on a 2MB image) and a dedicated error path;
+      `GET /uploads/:branchId/:file` static route added.
+- [x] `spec/objects.test.ts` (13 new tests): valid/invalid cases for every
+      new type, plus a check that a plain `type: "text"` object — the shape
+      already persisted on the live Fly volume from before this change —
+      still round-trips correctly (no breaking change for existing data).
+- [x] `pnpm check` locally: 24/24 passing (11 original + 13 new).
+- [x] Manual curl verification of every new type (sticky, music x valid/
+      invalid, embed x valid/invalid, image x valid/oversized/wrong-format)
+      against a running `node src/server.ts` — all behaved as expected
+      before the automated tests were even written.
+- [x] Committed (`1bc744c`): server-side modular object types.
+
+### Completed and verified (frontend)
+- [x] Frontend rewrite: infinite pan/zoom camera (`public/app.js`'s `cam`
+      object, `screenToWorld`), FigJam-style visual language
+      (`public/styles.css` full rewrite — dot-grid background, floating
+      pill toolbar, rounded sticky/music/embed/image cards, coloured
+      presence cursors), and renderers for every object type
+      (`renderSticky`, `renderMusic`, `renderEmbed`, `renderImage`,
+      `renderStroke` now SVG-based instead of `<canvas>` 2D).
+- [x] Visually verified with a Playwright-driven headless Chromium (no
+      project skill covered this, so a one-off driver script was used,
+      installed under `/tmp/pw-driver`, not committed to the repo): empty
+      canvas renders with dot-grid + floating toolbar; placing a sticky
+      note works (correct colour, draggable, editable); freehand drawing
+      renders as an SVG path that scales correctly with zoom (tested at
+      100% and 82%); dragging a card moves it by the exact pixel delta
+      dragged and persists after reload; a music card (Spotify) renders the
+      real embedded player; an embed card (Figma) renders the card chrome
+      correctly (a 403 inside it is Figma's own response to a test URL,
+      not a bug in this app); image upload works end-to-end (file picker →
+      base64 → server validation → saved file → rendered `<img>`) and
+      **persists after a full page reload**. Zero console/page errors
+      across every check.
+- [x] One transient flake observed and investigated, not a bug: the first
+      Spotify embed attempt showed Spotify's own "403 ERROR" page instead
+      of the player; isolated with standalone test pages (same iframe
+      construction, same `referrerpolicy="no-referrer"`) that loaded fine,
+      and a second run of the exact same in-app flow succeeded — concluded
+      this was Spotify-side embed-request flakiness, not an app bug, and
+      moved on rather than chasing an unreproducible network hiccup.
+
+### Current task
+- Goal: Commit the frontend overhaul, then run the two read-only review
+  subagents from the plan (visual/design, security) before the final
+  Docker/Fly redeploy.
+- Files being changed: none expected from this step
+- Last known state: not started
+
 ## Resume instructions
-Read this file, inspect `git status`, inspect the last commit and continue from the exact next task. Do not repeat completed work.
+Read this file, inspect `git status`, inspect the last commit and continue from the exact next task. Do not repeat completed work. If resuming Phase 2 specifically: the server-side work (commit `1bc744c`) is done and tested; the frontend rewrite is written but not yet visually verified — verify it first before adding anything further.

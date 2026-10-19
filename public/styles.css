@@ -1,10 +1,14 @@
 :root {
-  --warm-white: #fbfaf7;
-  --ink: #1c1a17;
-  --muted: #8a8476;
-  --accent: #c4551c;
-  --line: #e8e4db;
-  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --canvas-bg: #f5f6f8;
+  --dot: #d7dbe3;
+  --ink: #1b1d23;
+  --muted: #80848f;
+  --accent: #6c4ef0;
+  --accent-ink: #ffffff;
+  --panel-bg: #ffffff;
+  --panel-border: #e4e6eb;
+  --panel-shadow: 0 8px 24px rgba(20, 20, 40, 0.12), 0 1px 3px rgba(20, 20, 40, 0.08);
+  font-family: -apple-system, "Segoe UI", "Inter", Helvetica, Arial, sans-serif;
 }
 
 * {
@@ -15,90 +19,170 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--warm-white);
+  background: var(--canvas-bg);
   color: var(--ink);
-}
-
-body {
   overflow: hidden;
 }
-
-/* --- Shell layout --- */
 
 #app {
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;
 }
 
-header.bar {
+/* --- Infinite canvas --- */
+
+#canvas-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--canvas-bg);
+  background-image: radial-gradient(var(--dot) 1.4px, transparent 1.4px);
+  background-size: 28px 28px;
+  cursor: grab;
+}
+
+#canvas-wrap.panning {
+  cursor: grabbing;
+}
+
+#canvas-wrap.tool-draw {
+  cursor: crosshair;
+}
+
+#canvas-wrap.tool-sticky,
+#canvas-wrap.tool-text {
+  cursor: copy;
+}
+
+#camera {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+#strokes-layer {
+  position: absolute;
+  overflow: visible;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+#objects-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* --- Topbar --- */
+
+.topbar {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.topbar h1 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  pointer-events: auto;
+}
+
+.topbar .who {
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  pointer-events: auto;
+}
+
+/* --- Floating pill toolbar --- */
+
+.toolbar {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 1rem;
-  border-bottom: 1px solid var(--line);
-  background: var(--warm-white);
-  z-index: 10;
+  gap: 0.3rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  border-radius: 999px;
+  padding: 0.4rem;
+  z-index: 30;
 }
 
-header.bar h1 {
-  font-size: 1.05rem;
-  font-weight: 600;
-  margin: 0;
-  letter-spacing: 0.02em;
-}
-
-header.bar .spacer {
-  flex: 1;
-}
-
-header.bar .who {
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-button {
-  font: inherit;
-  background: none;
-  border: 1px solid var(--line);
+.tool {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
   color: var(--ink);
-  padding: 0.35rem 0.7rem;
-  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
-button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+.tool:hover {
+  background: #f0eefe;
 }
 
-button:focus-visible,
-a:focus-visible,
+.tool.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tool.wide {
+  width: auto;
+  padding: 0 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.tool:focus-visible,
+.swatch:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-button.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: #fdf1e9;
+.divider {
+  width: 1px;
+  height: 22px;
+  background: var(--panel-border);
+  margin: 0 0.15rem;
 }
-
-/* --- Tool palette: compact, contextual --- */
 
 .palette {
   display: flex;
-  gap: 0.4rem;
-  align-items: center;
+  gap: 0.3rem;
 }
 
 .swatch {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   cursor: pointer;
   padding: 0;
 }
@@ -108,34 +192,112 @@ button.active {
   outline-offset: 2px;
 }
 
-/* --- Canvas --- */
+/* --- Zoom pill --- */
 
-#canvas-wrap {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
+.zoom-pill {
+  position: absolute;
+  bottom: 20px;
+  right: 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+  z-index: 20;
+  user-select: none;
 }
 
-#canvas {
+/* --- Object cards --- */
+
+.card {
   position: absolute;
-  inset: 0;
-  touch-action: none;
-  cursor: crosshair;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(20, 20, 40, 0.14), 0 1px 2px rgba(20, 20, 40, 0.1);
+  cursor: grab;
+}
+
+.card.dragging {
+  cursor: grabbing;
+  z-index: 100;
+}
+
+.card-sticky {
+  min-width: 140px;
+  max-width: 240px;
+  min-height: 100px;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Segoe Print", "Comic Sans MS", "Inter", sans-serif;
 }
 
 .text-object {
   position: absolute;
-  min-width: 40px;
+  min-width: 30px;
   padding: 2px 4px;
   outline: none;
   white-space: pre-wrap;
   font-size: 1rem;
+  background: transparent;
+  box-shadow: none;
   cursor: text;
 }
 
 .text-object:focus {
   box-shadow: 0 0 0 1px var(--accent);
 }
+
+.card-music,
+.card-embed {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  overflow: hidden;
+  width: 300px;
+  height: 160px;
+}
+
+.card-music iframe,
+.card-embed iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.card.selected .card-music iframe,
+.card.selected .card-embed iframe,
+.card-music.interacting iframe,
+.card-embed.interacting iframe {
+  pointer-events: auto;
+}
+
+.card-image {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  padding: 4px;
+  line-height: 0;
+}
+
+.card-image img {
+  display: block;
+  max-width: 320px;
+  max-height: 320px;
+  border-radius: 6px;
+}
+
+.card-handle {
+  position: absolute;
+  inset: 0;
+}
+
+/* --- Presence cursors --- */
 
 .cursor {
   position: absolute;
@@ -145,34 +307,45 @@ button.active {
   z-index: 50;
 }
 
-.cursor .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
+.cursor .pointer {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 14px 10px;
+  border-color: transparent transparent var(--accent) transparent;
+  transform: rotate(-8deg);
 }
 
 .cursor .label {
-  font-size: 0.65rem;
-  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
   margin-left: 10px;
-  margin-top: -10px;
+  margin-top: -6px;
   white-space: nowrap;
+  display: inline-block;
 }
 
 /* --- States --- */
 
 #status {
-  position: fixed;
-  bottom: 0.75rem;
-  left: 1rem;
+  position: absolute;
+  top: 14px;
+  right: 16px;
   font-size: 0.75rem;
   color: var(--muted);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
   z-index: 20;
 }
 
 #status[data-state="error"] {
-  color: var(--accent);
+  color: #b23b3b;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -181,17 +354,29 @@ button.active {
   }
 }
 
+@media (max-width: 640px) {
+  .toolbar {
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+  }
+  .topbar h1 {
+    font-size: 0.85rem;
+  }
+}
+
 /* --- /readme/ page --- */
 
 body.readme {
   overflow: auto;
   padding: 2rem;
+  background: #fff;
 }
 
 body.readme main {
   max-width: 42rem;
   margin: 0 auto;
   line-height: 1.6;
+  font-family: Georgia, serif;
 }
 
 body.readme h1,

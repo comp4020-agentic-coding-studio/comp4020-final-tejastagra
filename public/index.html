@@ -8,28 +8,57 @@
   </head>
   <body>
     <div id="app">
-      <header class="bar">
-        <h1>The Wall</h1>
-        <div class="palette" role="toolbar" aria-label="Drawing tools">
-          <button id="tool-draw" aria-pressed="true" title="Draw (D)">Draw</button>
-          <button id="tool-text" aria-pressed="false" title="Add text (T)">Text</button>
-          <button id="tool-select" aria-pressed="false" title="Select (S)">Select</button>
-          <span aria-hidden="true" style="width: 1px; height: 1.2rem; background: var(--line)"></span>
-          <button class="swatch selected" data-color="#1c1a17" style="background: #1c1a17" aria-label="Ink" aria-pressed="true"></button>
-          <button class="swatch" data-color="#c4551c" style="background: #c4551c" aria-label="Rust" aria-pressed="false"></button>
-          <button class="swatch" data-color="#2e5b4f" style="background: #2e5b4f" aria-label="Pine" aria-pressed="false"></button>
-          <button class="swatch" data-color="#3457a6" style="background: #3457a6" aria-label="Indigo" aria-pressed="false"></button>
-        </div>
-        <div class="spacer"></div>
-        <span class="who" id="who"></span>
-        <button id="fork-btn" title="Fork this canvas into an independent copy">Fork</button>
-      </header>
       <div id="canvas-wrap">
-        <canvas id="canvas" tabindex="0" aria-label="Collaborative drawing canvas"></canvas>
-        <div id="text-layer" aria-live="off"></div>
+        <div id="camera">
+          <svg id="strokes-layer" aria-hidden="true"></svg>
+          <div id="objects-layer"></div>
+        </div>
         <div id="cursor-layer" aria-hidden="true"></div>
       </div>
+
+      <header class="topbar">
+        <h1>The Wall</h1>
+        <span class="who" id="who"></span>
+      </header>
+
+      <div class="toolbar" role="toolbar" aria-label="Canvas tools">
+        <button id="tool-select" class="tool active" aria-pressed="true" title="Select &amp; pan (V)">
+          <svg viewBox="0 0 20 20" width="18" height="18"><path d="M4 2l12 7-5 1.5L13 16l-2 1-2.5-6L4 14z" fill="currentColor"/></svg>
+        </button>
+        <button id="tool-draw" class="tool" aria-pressed="false" title="Draw (D)">
+          <svg viewBox="0 0 20 20" width="18" height="18"><path d="M3 17l1-4L13 4l3 3-9 9-4 1z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+        <button id="tool-sticky" class="tool" aria-pressed="false" title="Sticky note (S)">
+          <svg viewBox="0 0 20 20" width="18" height="18"><path d="M3 3h14v10l-4 4H3z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M13 17v-4h4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+        <button id="tool-text" class="tool" aria-pressed="false" title="Text (T)">
+          <svg viewBox="0 0 20 20" width="18" height="18"><path d="M4 5h12M10 5v10" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+        <span class="divider" aria-hidden="true"></span>
+        <button id="tool-music" class="tool" title="Add music link (M)">
+          <svg viewBox="0 0 20 20" width="18" height="18"><circle cx="6" cy="15" r="2.3" fill="currentColor"/><circle cx="14" cy="13" r="2.3" fill="currentColor"/><path d="M8.3 15V5.5L16.3 4v9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button id="tool-embed" class="tool" title="Embed a link (E)">
+          <svg viewBox="0 0 20 20" width="18" height="18"><path d="M7 6L2.5 10 7 14M13 6l4.5 4-4.5 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+        <button id="tool-image" class="tool" title="Upload image (I)">
+          <svg viewBox="0 0 20 20" width="18" height="18"><rect x="2.5" y="3.5" width="15" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="7" cy="8" r="1.5" fill="currentColor"/><path d="M3 15l5-5 3 3 3-4 3.5 6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <span class="divider" aria-hidden="true"></span>
+        <div class="palette" id="palette">
+          <button class="swatch selected" data-color="#fff2a8" style="background:#fff2a8" aria-label="Yellow" aria-pressed="true"></button>
+          <button class="swatch" data-color="#ffd1e6" style="background:#ffd1e6" aria-label="Pink" aria-pressed="false"></button>
+          <button class="swatch" data-color="#bfe3ff" style="background:#bfe3ff" aria-label="Blue" aria-pressed="false"></button>
+          <button class="swatch" data-color="#c8f2d4" style="background:#c8f2d4" aria-label="Green" aria-pressed="false"></button>
+          <button class="swatch" data-color="#ffdcb0" style="background:#ffdcb0" aria-label="Orange" aria-pressed="false"></button>
+        </div>
+        <span class="divider" aria-hidden="true"></span>
+        <button id="fork-btn" class="tool wide" title="Fork this canvas into an independent copy">Fork</button>
+      </div>
+
+      <div class="zoom-pill" id="zoom-pill" title="Reset zoom (click)">100%</div>
       <div id="status" role="status"></div>
+      <input type="file" id="image-input" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
     </div>
     <script type="module" src="/app.js"></script>
   </body>
