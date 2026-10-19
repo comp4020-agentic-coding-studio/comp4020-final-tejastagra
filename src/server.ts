@@ -10,6 +10,8 @@ import { WebSocketServer } from "ws";
 import { openDb, TaskStore } from "./db.ts";
 import { broadcast } from "./realtime.ts";
 import { renderMarkdown } from "./markdown.ts";
+import { createIdentitiesTable, ensureIdentity, renameIdentity } from "./identity.ts";
+import { createAuditTable, logAction, recentAuditLog } from "./auditlog.ts";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(__dirname, "..", "public");
@@ -17,6 +19,8 @@ const README_PATH = join(__dirname, "..", "README.md");
 const PORT = Number(process.env.PORT ?? 8080);
 
 const db = openDb();
+createIdentitiesTable(db);
+createAuditTable(db);
 const store = new TaskStore(db);
 
 const MIME: Record<string, string> = {
@@ -66,69 +70,144 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (pathname === "/api/tasks" && req.method === "GET") {
-      sendJson(res, 200, store.all());
-      return;
-    }
+    // Every API route is attributed to the caller's browser-local identity
+    // (see docs/adr/0002) before anything else runs, so every write below can
+    // check "may this actor do this" and every audit entry names who acted.
+    if (pathname.startsWith("/api/")) {
+      const me = ensureIdentity(db, req, res);
 
-    if (pathname === "/api/tasks" && req.method === "POST") {
-      const body = JSON.parse((await readBody(req)) || "{}");
-      const title = typeof body.title === "string" ? body.title.trim() : "";
-      if (!title) {
-        sendJson(res, 400, { error: "title is required" });
+      if (pathname === "/api/me" && req.method === "GET") {
+        sendJson(res, 200, me);
         return;
       }
-      const description = typeof body.description === "string" ? body.description.trim() || null : null;
-      const task = store.create(title, description);
-      broadcast(wss, { type: "created", task });
-      sendJson(res, 201, task);
-      return;
-    }
 
-    const taskMatch = pathname.match(/^\/api\/tasks\/([^/]+)$/);
-    if (taskMatch && req.method === "PATCH") {
-      const id = taskMatch[1];
-      const body = JSON.parse((await readBody(req)) || "{}");
-      const expectedVersion = Number(body.version);
-      if (!Number.isFinite(expectedVersion)) {
-        sendJson(res, 400, { error: "version is required" });
+      if (pathname === "/api/me" && req.method === "PATCH") {
+        const body = JSON.parse((await readBody(req)) || "{}");
+        const name = typeof body.name === "string" ? body.name.trim().slice(0, 40) : "";
+        if (!name) {
+          sendJson(res, 400, { error: "name is required" });
+          return;
+        }
+        const updated = renameIdentity(db, me.id, name);
+        logAction(db, { actorId: me.id, actorName: updated.name, action: "rename", taskId: null, allowed: true, detail: null });
+        sendJson(res, 200, updated);
         return;
       }
-      const changes: { completed?: boolean; title?: string; description?: string | null } = {};
-      if (typeof body.completed === "boolean") changes.completed = body.completed;
-      if (typeof body.title === "string") changes.title = body.title.trim();
-      if (typeof body.description === "string" || body.description === null) {
-        changes.description = body.description;
-      }
-      const result = store.update(id, changes, expectedVersion);
-      if (result === undefined) {
-        sendJson(res, 404, { error: "not found" });
-        return;
-      }
-      if (result === "conflict") {
-        sendJson(res, 409, { error: "conflict", current: store.get(id) });
-        return;
-      }
-      broadcast(wss, { type: "updated", task: result });
-      sendJson(res, 200, result);
-      return;
-    }
 
-    if (taskMatch && req.method === "DELETE") {
-      const id = taskMatch[1];
-      const body = JSON.parse((await readBody(req)) || "{}");
-      const expectedVersion = Number(body.version);
-      const result = store.delete(id, expectedVersion);
-      if (result === "missing") {
-        sendJson(res, 404, { error: "not found" });
+      if (pathname === "/api/audit-log" && req.method === "GET") {
+        sendJson(res, 200, recentAuditLog(db));
         return;
       }
-      if (result === "conflict") {
-        sendJson(res, 409, { error: "conflict", current: store.get(id) });
+
+      if (pathname === "/api/tasks" && req.method === "GET") {
+        // Everyone may see the whole shared board — the restriction is on
+        // who may *change* a task, not who may see it (docs/adr/0002).
+        sendJson(res, 200, store.all());
         return;
       }
-      broadcast(wss, { type: "deleted", id });
-      sendJson(res, 204, null);
+
+      if (pathname === "/api/tasks" && req.method === "POST") {
+        const body = JSON.parse((await readBody(req)) || "{}");
+        const title = typeof body.title === "string" ? body.title.trim() : "";
+        if (!title) {
+          sendJson(res, 400, { error: "title is required" });
+          return;
+        }
+        const description = typeof body.description === "string" ? body.description.trim() || null : null;
+        const task = store.create(title, description, me.id, me.name);
+        logAction(db, { actorId: me.id, actorName: me.name, action: "create", taskId: task.id, allowed: true, detail: title });
+        broadcast(wss, { type: "created", task });
+        sendJson(res, 201, task);
+        return;
+      }
+
+      const taskMatch = pathname.match(/^\/api\/tasks\/([^/]+)$/);
+      if (taskMatch && req.method === "PATCH") {
+        const id = taskMatch[1];
+        const existing = store.get(id);
+        if (!existing) {
+          sendJson(res, 404, { error: "not found" });
+          return;
+        }
+        // Server-side permission decision (docs/adr/0002): only the owner may
+        // change their own task. Checked here, not trusted from the client,
+        // and every denial is logged exactly like every allowed write.
+        if (existing.ownerId !== me.id) {
+          logAction(db, {
+            actorId: me.id,
+            actorName: me.name,
+            action: "update",
+            taskId: id,
+            allowed: false,
+            detail: `not the owner (owned by ${existing.ownerName})`,
+          });
+          sendJson(res, 403, { error: "only the task's owner may change it" });
+          return;
+        }
+        const body = JSON.parse((await readBody(req)) || "{}");
+        const expectedVersion = Number(body.version);
+        if (!Number.isFinite(expectedVersion)) {
+          sendJson(res, 400, { error: "version is required" });
+          return;
+        }
+        const changes: { completed?: boolean; title?: string; description?: string | null } = {};
+        if (typeof body.completed === "boolean") changes.completed = body.completed;
+        if (typeof body.title === "string") changes.title = body.title.trim();
+        if (typeof body.description === "string" || body.description === null) {
+          changes.description = body.description;
+        }
+        const result = store.update(id, changes, expectedVersion);
+        if (result === undefined) {
+          sendJson(res, 404, { error: "not found" });
+          return;
+        }
+        if (result === "conflict") {
+          sendJson(res, 409, { error: "conflict", current: store.get(id) });
+          return;
+        }
+        logAction(db, { actorId: me.id, actorName: me.name, action: "update", taskId: id, allowed: true, detail: JSON.stringify(changes) });
+        broadcast(wss, { type: "updated", task: result });
+        sendJson(res, 200, result);
+        return;
+      }
+
+      if (taskMatch && req.method === "DELETE") {
+        const id = taskMatch[1];
+        const existing = store.get(id);
+        if (!existing) {
+          sendJson(res, 404, { error: "not found" });
+          return;
+        }
+        if (existing.ownerId !== me.id) {
+          logAction(db, {
+            actorId: me.id,
+            actorName: me.name,
+            action: "delete",
+            taskId: id,
+            allowed: false,
+            detail: `not the owner (owned by ${existing.ownerName})`,
+          });
+          sendJson(res, 403, { error: "only the task's owner may delete it" });
+          return;
+        }
+        const body = JSON.parse((await readBody(req)) || "{}");
+        const expectedVersion = Number(body.version);
+        const result = store.delete(id, expectedVersion);
+        if (result === "missing") {
+          sendJson(res, 404, { error: "not found" });
+          return;
+        }
+        if (result === "conflict") {
+          sendJson(res, 409, { error: "conflict", current: store.get(id) });
+          return;
+        }
+        logAction(db, { actorId: me.id, actorName: me.name, action: "delete", taskId: id, allowed: true, detail: null });
+        broadcast(wss, { type: "deleted", id });
+        sendJson(res, 204, null);
+        return;
+      }
+
+      sendJson(res, 404, { error: "not found" });
       return;
     }
 
