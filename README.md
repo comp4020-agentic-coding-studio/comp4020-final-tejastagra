@@ -125,6 +125,10 @@ out about the conflict by noticing the resemblance.
 - An embedded iframe (music or generic embed) doesn't respond to pointer
   events until double-clicked, so dragging the card it's in doesn't fight
   with interacting with the embedded content.
+- Placing several sticky notes in quick succession at nearly the same point
+  stacks them with no automatic spacing or offset — each note is a
+  correctly independent object (no data corruption), but they visually
+  overlap until dragged apart. A deliberate scope cut, not an oversight.
 - This is a from-scratch build completing crits 8–10 retrospectively in one
   session rather than across the original three weeks — see `PROCESS.md`
   and `reflections/crit-8.md` for the honest account of why.

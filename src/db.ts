@@ -27,6 +27,14 @@ export interface WallObject {
 export function openDb(path: string): DatabaseSync {
   mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
+  // WAL mode lets readers and a writer proceed concurrently instead of
+  // blocking each other outright, and busy_timeout makes a writer retry for
+  // up to 5s instead of throwing SQLITE_BUSY immediately on the rare case
+  // two writes do land at the same instant (this server is single-process,
+  // single-connection, so writes are already serialised in practice, but
+  // this keeps the server from erroring under a true write burst rather
+  // than relying on request ordering alone).
+  db.exec(`PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS branches (
       id TEXT PRIMARY KEY,

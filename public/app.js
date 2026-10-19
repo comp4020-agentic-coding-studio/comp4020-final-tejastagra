@@ -21,8 +21,23 @@ const imageInput = document.getElementById("image-input");
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 let tool = "select";
-let color = "#fff2a8"; // sticky colour; strokes use a fixed ink colour
-const STROKE_COLOR = "#1b1d23";
+let color = "#fff2a8"; // selected palette colour, used for sticky backgrounds
+
+// The palette is a set of pastel sticky-note backgrounds; a stroke drawn in
+// the raw pastel would barely show against the light canvas, so each entry
+// maps to a bold "ink" version for strokes. Falls back to a near-black ink
+// if a colour outside this fixed set is ever selected.
+const STROKE_INK = {
+  "#fff2a8": "#8a6d00",
+  "#ffd1e6": "#a3245c",
+  "#bfe3ff": "#19588f",
+  "#c8f2d4": "#1f7a42",
+  "#ffdcb0": "#9a5200",
+};
+const DEFAULT_INK = "#1b1d23";
+function currentStrokeColor() {
+  return STROKE_INK[color] ?? DEFAULT_INK;
+}
 
 const objects = new Map(); // id -> server object (data already JSON-parsed)
 const objectEls = new Map(); // id -> DOM node
@@ -91,7 +106,7 @@ function renderStroke(obj) {
   }
   const absolute = (data.points ?? []).map(([x, y]) => [x + obj.x, y + obj.y]);
   path.setAttribute("d", strokePathD(absolute));
-  path.setAttribute("stroke", data.color ?? STROKE_COLOR);
+  path.setAttribute("stroke", data.color ?? DEFAULT_INK);
   path.setAttribute("stroke-width", String(data.width ?? 2.5));
 }
 
@@ -461,17 +476,27 @@ window.addEventListener("keyup", (e) => {
 });
 
 canvasWrap.addEventListener("pointerdown", (e) => {
-  if (e.target !== canvasWrap && e.target !== camera && e.target !== strokesLayer && e.target !== objectsLayer) {
-    return; // a card handled it
-  }
-  const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+  const onBareCanvas =
+    e.target === canvasWrap || e.target === camera || e.target === strokesLayer || e.target === objectsLayer;
 
   if (tool === "select" || spacePanning) {
+    if (!onBareCanvas) return; // a card handled its own drag via stopPropagation
     canvasWrap.classList.add("panning");
     panState = { startScreenX: e.clientX, startScreenY: e.clientY, startCamX: cam.x, startCamY: cam.y };
     canvasWrap.setPointerCapture(e.pointerId);
     return;
   }
+
+  // Creation tools (draw/sticky/text) always place a new object at the
+  // clicked point, even if an existing card happens to be underneath —
+  // otherwise a click that lands on another object silently does nothing
+  // except leave that object's own contenteditable focused, and the next
+  // keystroke types into it instead of the new object the user meant to
+  // create. This was a real bug (found by a design-review subagent and
+  // confirmed by reproducing it): placing a sticky near an existing one
+  // appended text into the existing note instead of creating a new one.
+  const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+
   if (tool === "draw") {
     drawing = { points: [[wx, wy]] };
     canvasWrap.setPointerCapture(e.pointerId);
@@ -529,7 +554,7 @@ canvasWrap.addEventListener("pointerup", async (e) => {
       type: "stroke",
       x,
       y,
-      data: { points: relative, color: STROKE_COLOR, width: 2.5 },
+      data: { points: relative, color: currentStrokeColor(), width: 2.5 },
     });
     applyObject(obj);
   } catch {
@@ -542,7 +567,7 @@ function renderLiveStroke() {
   if (!path) {
     path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("fill", "none");
-    path.setAttribute("stroke", STROKE_COLOR);
+    path.setAttribute("stroke", currentStrokeColor());
     path.setAttribute("stroke-width", "2.5");
     path.setAttribute("stroke-linejoin", "round");
     path.setAttribute("stroke-linecap", "round");

@@ -251,10 +251,66 @@ upload.
       this was Spotify-side embed-request flakiness, not an app bug, and
       moved on rather than chasing an unreproducible network hiccup.
 
+### Subagent quality pass: findings and fixes
+
+Two read-only review agents ran in parallel against the new build.
+
+**Security review** found one critical, confirmed-exploitable issue:
+`PATCH /api/branches/:id/objects/:objectId` never re-ran the per-type
+validation `POST` applies. Reproduced directly with curl: created a valid
+allow-listed `embed` object, then `PATCH`ed its `data.url` to an arbitrary
+non-allow-listed URL — the server accepted and broadcast it, completely
+defeating the embed/music allow-list for any object after its initial
+creation. **Fixed**: PATCH now calls the same `validateTypedData` POST
+uses, keyed off the object's existing `type`; `image` objects reject any
+`data` PATCH outright (their data is server-generated on upload, never
+client-editable). Added two regression tests
+(`spec/objects.test.ts`: "PATCH re-validates an embed's URL...", "...a
+music URL..."). Also applied two smaller findings: a `Content-Length`-based
+early rejection so a non-image POST can't force the server to buffer up to
+3MB before discovering it isn't an image, and `X-Content-Type-Options:
+nosniff` on both static-file and upload responses.
+
+**While fixing and testing the above, found and fixed a second, unrelated
+bug**: rejecting an oversized request body left its unread remaining bytes
+on a keep-alive connection, which corrupted the *next* request reusing that
+same socket — surfaced as a real, reproducible test hang (not flakiness)
+when the oversized-image test ran immediately before another test on the
+same vitest worker. This would have affected real traffic too, not just
+tests. Fixed in `readJsonBody`/a new `sendJsonAndCloseConnection` helper:
+on a too-large body, the response now sets `Connection: close` and destroys
+the socket after flushing, so the client is forced to open a fresh
+connection rather than reuse a poisoned one. Confirmed fixed by running the
+full suite 3 times in a row with no flakes (previously failed consistently
+on both runs before the fix).
+
+**Visual/design review** (driven with a real headless browser, not just
+reading CSS) found: (1) a real bug — placing a sticky note near an
+existing one did nothing except silently focus the existing note, so the
+next keystroke appended into it instead of creating a new note. Reproduced
+exactly, confirmed the root cause (`canvasWrap`'s pointerdown handler
+bailed whenever the click landed on an existing card, even for creation
+tools), and fixed it: creation tools (`draw`/`sticky`/`text`) now always
+place a new object at the clicked point regardless of what's underneath,
+since cards only claim the pointerdown event themselves when `tool ===
+"select"`. (2) The colour palette's selection ring was visually heavier
+and a different style than the toolbar's active-tool treatment — restyled
+to a consistent, lighter ring. (3) Freehand drawing was locked to flat
+black with no way to pick a colour — added a stroke/ink colour mapped from
+the same palette swatches (pastel sticky backgrounds map to bolder "ink"
+variants for contrast against the canvas, in `STROKE_INK`). Did not act on
+the no-minimap-at-low-zoom observation — recorded as a known limitation
+instead of building a feature that wasn't asked for.
+
+All fixes verified: `pnpm check` 27/27 (stable across repeated runs), and
+a fresh Playwright pass confirmed the sticky-overlap fix (2 independent
+notes, correct text) and the coloured-stroke feature (pink swatch ->
+magenta stroke) both work as intended.
+
 ### Current task
-- Goal: Commit the frontend overhaul, then run the two read-only review
-  subagents from the plan (visual/design, security) before the final
-  Docker/Fly redeploy.
+- Goal: Rebuild and redeploy the Docker image to Fly with all Phase 2
+  changes and security fixes, verify live, and update docs/testing with
+  anything new to check.
 - Files being changed: none expected from this step
 - Last known state: not started
 

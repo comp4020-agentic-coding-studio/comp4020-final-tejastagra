@@ -153,3 +153,63 @@ it("rejects an oversized image payload", async () => {
   });
   expect(res.status).toBe(400);
 });
+
+// Regression test for a real, fixed vulnerability: PATCH used to skip the
+// per-type validation POST applies, so a client could create a valid
+// allow-listed embed/music object, then PATCH its data.url to an arbitrary
+// URL and have it stored and broadcast unchecked.
+it("PATCH re-validates an embed's URL against the allow-list, not just POST", async () => {
+  const branchId = await freshBranch();
+  const created = await createObject(branchId, {
+    type: "embed",
+    x: 0,
+    y: 0,
+    data: { url: "https://www.figma.com/file/abc123" },
+  }).then((r) => r.json());
+
+  const patchRes = await fetch(new URL(`/api/branches/${branchId}/objects/${created.id}`, baseUrl), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: { url: "https://evil.example.com/phish" } }),
+  });
+  expect(patchRes.status).toBe(400);
+
+  const listed = await fetch(new URL(`/api/branches/${branchId}/objects`, baseUrl)).then((r) => r.json());
+  const obj = listed.objects.find((o: any) => o.id === created.id);
+  expect(obj.data).toContain("figma.com");
+  expect(obj.data).not.toContain("evil.example.com");
+});
+
+it("PATCH re-validates a music URL against the allow-list too", async () => {
+  const branchId = await freshBranch();
+  const created = await createObject(branchId, {
+    type: "music",
+    x: 0,
+    y: 0,
+    data: { url: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT" },
+  }).then((r) => r.json());
+
+  const patchRes = await fetch(new URL(`/api/branches/${branchId}/objects/${created.id}`, baseUrl), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: { url: "https://evil.example.com/track" } }),
+  });
+  expect(patchRes.status).toBe(400);
+});
+
+it("rejects a PATCH that tries to change an image object's data", async () => {
+  const branchId = await freshBranch();
+  const created = await createObject(branchId, {
+    type: "image",
+    x: 0,
+    y: 0,
+    data: { imageBase64: TINY_PNG_BASE64 },
+  }).then((r) => r.json());
+
+  const patchRes = await fetch(new URL(`/api/branches/${branchId}/objects/${created.id}`, baseUrl), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: { path: "/uploads/other/hacked.png" } }),
+  });
+  expect(patchRes.status).toBe(400);
+});

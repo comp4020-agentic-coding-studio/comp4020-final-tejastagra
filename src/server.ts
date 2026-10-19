@@ -51,9 +51,12 @@ function serveStatic(req: IncomingMessage, res: ServerResponse, path: string): v
       res.writeHead(404, { "Content-Type": "text/plain" }).end("Not found");
       return;
     }
-    res.writeHead(200, { "Content-Type": MIME[extname(full)] ?? "application/octet-stream" }).end(
-      data,
-    );
+    res
+      .writeHead(200, {
+        "Content-Type": MIME[extname(full)] ?? "application/octet-stream",
+        "X-Content-Type-Options": "nosniff",
+      })
+      .end(data);
   });
 }
 
@@ -63,16 +66,33 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
     .end(JSON.stringify(body));
 }
 
+class BodyTooLargeError extends Error {}
+
 async function readJsonBody(req: IncomingMessage, maxBytes: number): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > maxBytes) throw new Error("body too large");
+    if (size > maxBytes) throw new BodyTooLargeError("body too large");
     chunks.push(chunk);
   }
   if (chunks.length === 0) return {};
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+// After rejecting a body for being too large, the client may still be
+// mid-send of a much larger payload than we read. Leaving those bytes
+// unread on a keep-alive connection corrupts the *next* request that
+// reuses the same socket (the leftover bytes get parsed as that request's
+// data) — found via a real, reproducible test hang: a test posting an
+// oversized body followed by any other request on the same connection
+// would time out. Telling the client to close the connection, then
+// destroying the socket once the error response is flushed, is what
+// actually prevents that — rejecting the response alone isn't enough.
+function sendJsonAndCloseConnection(res: ServerResponse, status: number, body: unknown): void {
+  res.setHeader("Connection", "close");
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(body), () => res.socket?.destroy());
 }
 
 const VALID_TYPES = new Set(["text", "stroke", "sticky", "image", "music", "embed"]);
@@ -176,15 +196,26 @@ async function handleApi(
     }
 
     if (method === "POST") {
+      // Only an image upload's base64 payload needs the larger cap; every
+      // other type's `data` is capped at MAX_DATA_LENGTH anyway, so reject
+      // an oversized non-image body by its declared Content-Length before
+      // reading any of it off the wire, rather than buffering up to 3MB
+      // just to discover it isn't an image.
+      const declaredLength = Number(req.headers["content-length"] ?? 0);
+      const cap = declaredLength > MAX_BODY_BYTES ? MAX_IMAGE_BODY_BYTES : MAX_BODY_BYTES;
       let body: any;
       try {
-        // An image upload's base64 payload needs a higher cap than every
-        // other type's small JSON `data`; peek the content-length-agnostic
-        // way (read under the larger cap, then re-check per-type below) is
-        // unnecessary here since we only raise the cap, never lower it.
-        body = await readJsonBody(req, MAX_IMAGE_BODY_BYTES);
-      } catch {
-        sendJson(res, 400, { error: "invalid JSON or body too large" });
+        body = await readJsonBody(req, cap);
+      } catch (e) {
+        if (e instanceof BodyTooLargeError) {
+          sendJsonAndCloseConnection(res, 400, { error: "body too large" });
+        } else {
+          sendJson(res, 400, { error: "invalid JSON body" });
+        }
+        return true;
+      }
+      if (body.type !== "image" && declaredLength > MAX_BODY_BYTES) {
+        sendJson(res, 400, { error: "body too large for this type" });
         return true;
       }
       const err = validateObjectInput(body);
@@ -294,10 +325,30 @@ async function handleApi(
       let body: any;
       try {
         body = await readJsonBody(req, MAX_BODY_BYTES);
-      } catch {
-        sendJson(res, 400, { error: "invalid JSON body" });
+      } catch (e) {
+        if (e instanceof BodyTooLargeError) {
+          sendJsonAndCloseConnection(res, 400, { error: "body too large" });
+        } else {
+          sendJson(res, 400, { error: "invalid JSON body" });
+        }
         return true;
       }
+
+      const existing = store.getObject(branchId, objectId);
+      if (!existing) {
+        log({
+          event: "action_rejected",
+          user_id: userId,
+          branch_id: branchId,
+          object_id: objectId,
+          outcome: "rejected",
+          reason: "object not found",
+          request_id: requestId,
+        });
+        sendJson(res, 404, { error: "object not found" });
+        return true;
+      }
+
       const patch: { x?: number; y?: number; data?: string } = {};
       if (body.x !== undefined) {
         if (typeof body.x !== "number" || !Number.isFinite(body.x)) {
@@ -314,26 +365,37 @@ async function handleApi(
         patch.y = body.y;
       }
       if (body.data !== undefined) {
-        const encoded = JSON.stringify(body.data);
+        if (existing.type === "image") {
+          // An uploaded image's data is server-generated on create (the
+          // saved file path) and never client-editable afterwards.
+          sendJson(res, 400, { error: "image data cannot be edited" });
+          return true;
+        }
+        // Re-run the same per-type validation POST uses — a PATCH is just
+        // as capable of smuggling an unvalidated URL/colour as a POST, and
+        // skipping this check here was a real, fixed vulnerability: it let
+        // a PATCH silently replace a validated embed/music URL with an
+        // arbitrary one after creation, bypassing the allow-list entirely.
+        const typed = validateTypedData(existing.type, body.data);
+        if ("error" in typed) {
+          log({
+            event: "action_rejected",
+            user_id: userId,
+            branch_id: branchId,
+            object_id: objectId,
+            outcome: "rejected",
+            reason: typed.error,
+            request_id: requestId,
+          });
+          sendJson(res, 400, { error: typed.error });
+          return true;
+        }
+        const encoded = JSON.stringify(typed.data);
         if (encoded.length > MAX_DATA_LENGTH) {
           sendJson(res, 400, { error: "data exceeds the size limit" });
           return true;
         }
         patch.data = encoded;
-      }
-      const existing = store.getObject(branchId, objectId);
-      if (!existing) {
-        log({
-          event: "action_rejected",
-          user_id: userId,
-          branch_id: branchId,
-          object_id: objectId,
-          outcome: "rejected",
-          reason: "object not found",
-          request_id: requestId,
-        });
-        sendJson(res, 404, { error: "object not found" });
-        return true;
       }
       // Same-object conflict policy: server-accepted last-write-wins. The
       // update that reaches the server last simply overwrites; no merge, no
@@ -485,6 +547,7 @@ const server = createServer(async (req, res) => {
         .writeHead(200, {
           "Content-Type": MIME[extname(full)] ?? "application/octet-stream",
           "Cache-Control": "public, max-age=31536000, immutable",
+          "X-Content-Type-Options": "nosniff",
         })
         .end(data);
     });
