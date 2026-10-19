@@ -14,6 +14,7 @@ export interface Task {
   version: number;
   ownerId: string;
   ownerName: string;
+  roomId: string;
 }
 
 // fly.toml mounts the volume at /data; that's the only storage that survives
@@ -32,7 +33,8 @@ export function openDb(path: string = DB_PATH): DatabaseSync {
       updated_at TEXT NOT NULL,
       version INTEGER NOT NULL DEFAULT 1,
       owner_id TEXT NOT NULL DEFAULT '',
-      owner_name TEXT NOT NULL DEFAULT ''
+      owner_name TEXT NOT NULL DEFAULT '',
+      room_id TEXT NOT NULL DEFAULT 'general'
     )
   `);
   // Crit 9's deployed volume already has a `tasks` table without owner
@@ -43,6 +45,10 @@ export function openDb(path: string = DB_PATH): DatabaseSync {
   const names = new Set(columns.map((c) => c.name));
   if (!names.has("owner_id")) db.exec("ALTER TABLE tasks ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''");
   if (!names.has("owner_name")) db.exec("ALTER TABLE tasks ADD COLUMN owner_name TEXT NOT NULL DEFAULT ''");
+  // Rooms (ADR 0003) similarly post-date the already-deployed volume; unlike
+  // ownership, pre-room tasks get a real, visible default ('general') rather
+  // than being locked out, since a room is a view scope, not a permission.
+  if (!names.has("room_id")) db.exec("ALTER TABLE tasks ADD COLUMN room_id TEXT NOT NULL DEFAULT 'general'");
   return db;
 }
 
@@ -57,6 +63,7 @@ function rowToTask(row: Record<string, unknown>): Task {
     version: row.version as number,
     ownerId: row.owner_id as string,
     ownerName: row.owner_name as string,
+    roomId: row.room_id as string,
   };
 }
 
@@ -67,8 +74,10 @@ export class TaskStore {
     this.db = db;
   }
 
-  all(): Task[] {
-    const rows = this.db.prepare("SELECT * FROM tasks ORDER BY created_at ASC").all();
+  all(roomId: string): Task[] {
+    const rows = this.db
+      .prepare("SELECT * FROM tasks WHERE room_id = ? ORDER BY created_at ASC")
+      .all(roomId);
     return rows.map((r) => rowToTask(r as Record<string, unknown>));
   }
 
@@ -77,15 +86,21 @@ export class TaskStore {
     return row ? rowToTask(row as Record<string, unknown>) : undefined;
   }
 
-  create(title: string, description: string | null, ownerId: string, ownerName: string): Task {
+  create(
+    title: string,
+    description: string | null,
+    ownerId: string,
+    ownerName: string,
+    roomId: string,
+  ): Task {
     const now = new Date().toISOString();
     const id = randomUUID();
     this.db
       .prepare(
-        `INSERT INTO tasks (id, title, description, completed, created_at, updated_at, version, owner_id, owner_name)
-         VALUES (?, ?, ?, 0, ?, ?, 1, ?, ?)`,
+        `INSERT INTO tasks (id, title, description, completed, created_at, updated_at, version, owner_id, owner_name, room_id)
+         VALUES (?, ?, ?, 0, ?, ?, 1, ?, ?, ?)`,
       )
-      .run(id, title, description, now, now, ownerId, ownerName);
+      .run(id, title, description, now, now, ownerId, ownerName, roomId);
     return this.get(id)!;
   }
 
