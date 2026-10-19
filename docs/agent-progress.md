@@ -365,12 +365,48 @@ being "your digital space."
 - [x] Redeployed to Fly, verified live (`/` serves the welcome overlay
       markup), `pnpm check` 29/29 against the live URL, pushed, CI green.
 
+## Phase 4: real art direction + seed artwork
+
+Prompted by direct, pointed user feedback: Phase 3's FigJam-style result
+read as "generic SaaS software," not artist-made.
+
+### Completed and verified
+- [x] Full type/colour/chrome rewrite: Fraunces (display) + Instrument
+      Sans (body), an ochre/terracotta/sage/plum/paper palette, hard
+      offset "stamped" shadows replacing soft blur, toolbar redrawn as a
+      solid ledge instead of a floating pill.
+- [x] `STICKY_COLORS` (`src/server.ts`) and `STROKE_INK`
+      (`public/app.js`) updated together to the new palette — these two
+      lists must stay in sync since the server rejects colours the client
+      doesn't offer; `spec/objects.test.ts` updated to match.
+- [x] `src/seed.ts`: hand-plotted seed artwork (hills, sun, welcome
+      sticky) inserted idempotently on server startup via a fixed
+      sentinel id. Verified directly: restarted twice against the same
+      DB, no duplication; a real object created in between survived;
+      forking `main` inherited the seed artwork + the real object
+      together, through the existing fork mechanism, no new logic needed.
+- [x] Fixed a stale type definition found along the way: `WallObject.type`
+      in `src/db.ts` still listed Phase 1's types (`shape`/`link`) instead
+      of Phase 2's actual `VALID_TYPES` — corrected while touching this
+      file for the seed feature.
+- [x] Playwright-verified: welcome screen, canvas with seed artwork, a
+      new sticky in the new palette, toolbar close-up — read every
+      screenshot and judged it honestly against "does this read as
+      artist-made" rather than assuming the palette swap alone was enough.
+- [x] README/PROCESS/ADR 0005 record both deviations (visual identity,
+      seed artwork) honestly, including the full 3-phase visual-direction
+      history, consistent with this session's practice throughout.
+- [x] Redeployed to Fly; confirmed the live `main` branch's object count
+      went from 6 to 12 (seed added, nothing lost) rather than reset;
+      `pnpm check` 29/29 against the live URL; live screenshot confirms
+      fonts load correctly over the real network and the seed artwork
+      coexists correctly with real marks already on the live canvas.
+
 ### Current task
-- Goal: none — Phase 3 is deployed, tested, and documented. Open items are
-  explicitly-deferred known limitations (minimap at low zoom, sticky
-  auto-offset on tight placement), not in-progress work.
+- Goal: none — Phase 4 is deployed, tested, and documented. Open items are
+  explicitly-deferred known limitations, not in-progress work.
 - Files being changed: none
-- Last known state: complete for this session
+- Last known state: complete for this session, pending final CI confirmation
 
 ## Resume instructions
 Read this file, inspect `git status`, inspect the last commit and continue from the exact next task. Do not repeat completed work. If resuming Phase 2 specifically: the server-side work (commit `1bc744c`) is done and tested; the frontend rewrite is written but not yet visually verified — verify it first before adding anything further.
