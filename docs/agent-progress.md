@@ -81,32 +81,42 @@
       yet to validate (none added so far).
 - [x] `pnpm check` re-run clean (11/11) after the documentation changes.
 
+## Completed and verified (continued — Docker build)
+- [x] `docker build -t wall-local .` succeeds cleanly with the real
+      `Dockerfile` (node:24-slim, pnpm install --prod, no compiler).
+- [x] `docker run --rm -d -p 8082:8080 --tmpfs /data -e PORT=8080 wall-local`
+      (matching how CI runs it against a throwaway `/data`) started and
+      served `/` (200) and `/readme/` (full README) within ~2 seconds.
+- [x] `APP_URL=http://localhost:8082 pnpm check` — 11/11 passed against the
+      actual Docker image, not just the bare `node src/server.ts` process.
+- [x] `docker stats` showed ~48MB resident — comfortably inside the
+      256MB/shared-cpu-1x Fly machine size.
+
 ## Current task
-- Goal: Build and run the Docker image locally the way CI does, then attempt
-  the Fly deploy and verify the live URL and `/readme/` over real HTTP.
-- Files being changed: none expected (verification step); `docs/testing/multi-user-test.md` to follow
+- Goal: Attempt `flyctl deploy` and verify the live deployment over real HTTP.
+- Files being changed: none expected
 - Last known state: not started
 
 ## Checks run
-- Command: `pnpm check` (against `node src/server.ts` on :8080, after doc changes)
+- Command: `docker build -t wall-local .`
+- Result: success
+- Command: `APP_URL=http://localhost:8082 pnpm check` (against the Docker container)
 - Result: 11/11 passed
 - Command: `node scripts/check-evidence.ts`
 - Result: all checks passed
 
 ## Blockers
 - Blocker: none currently
-- Safe next action: proceed to Docker build verification, then Fly deploy
+- Safe next action: attempt the Fly deploy
 
 ## Exact next task
-1. `docker build -t wall-local .` then
-   `docker run --rm -p 8080:8080 --tmpfs /data -e PORT=8080 wall-local`
-   and re-run `pnpm check` against it.
-2. Commit this hour's documentation + any Docker fixes.
-3. Attempt `flyctl deploy --remote-only --ha=false -a comp4020-final-tejastagra`
+1. Attempt `flyctl deploy --remote-only --ha=false -a comp4020-final-tejastagra`
    from this repo (token is in `mise.local.toml`, not printed).
-4. Verify the live URL and `/readme/` over real HTTP with curl.
-5. Inspect `flyctl logs` for the six structured event types.
-6. Write `docs/testing/multi-user-test.md` with real results (marking
+2. Verify the live URL and `/readme/` over real HTTP with curl — do not
+   trust the deploy command's exit code alone.
+3. Inspect `flyctl logs -a comp4020-final-tejastagra` for the six structured
+   event types after exercising the app against the live URL.
+4. Write `docs/testing/multi-user-test.md` with real results (marking
    anything requiring two live browser profiles as `Not run` until a human
    does that part).
 
