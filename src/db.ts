@@ -12,6 +12,8 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   version: number;
+  ownerId: string;
+  ownerName: string;
 }
 
 // fly.toml mounts the volume at /data; that's the only storage that survives
@@ -28,9 +30,19 @@ export function openDb(path: string = DB_PATH): DatabaseSync {
       completed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 1
+      version INTEGER NOT NULL DEFAULT 1,
+      owner_id TEXT NOT NULL DEFAULT '',
+      owner_name TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Crit 9's deployed volume already has a `tasks` table without owner
+  // columns; CREATE TABLE IF NOT EXISTS leaves it untouched, so add them here
+  // if they're missing. Pre-existing rows get no owner, which correctly means
+  // nobody may edit or delete them until this runs — they predate ownership.
+  const columns = db.prepare("PRAGMA table_info(tasks)").all() as { name: string }[];
+  const names = new Set(columns.map((c) => c.name));
+  if (!names.has("owner_id")) db.exec("ALTER TABLE tasks ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''");
+  if (!names.has("owner_name")) db.exec("ALTER TABLE tasks ADD COLUMN owner_name TEXT NOT NULL DEFAULT ''");
   return db;
 }
 
@@ -43,6 +55,8 @@ function rowToTask(row: Record<string, unknown>): Task {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     version: row.version as number,
+    ownerId: row.owner_id as string,
+    ownerName: row.owner_name as string,
   };
 }
 
@@ -63,15 +77,15 @@ export class TaskStore {
     return row ? rowToTask(row as Record<string, unknown>) : undefined;
   }
 
-  create(title: string, description: string | null): Task {
+  create(title: string, description: string | null, ownerId: string, ownerName: string): Task {
     const now = new Date().toISOString();
     const id = randomUUID();
     this.db
       .prepare(
-        `INSERT INTO tasks (id, title, description, completed, created_at, updated_at, version)
-         VALUES (?, ?, ?, 0, ?, ?, 1)`,
+        `INSERT INTO tasks (id, title, description, completed, created_at, updated_at, version, owner_id, owner_name)
+         VALUES (?, ?, ?, 0, ?, ?, 1, ?, ?)`,
       )
-      .run(id, title, description, now, now);
+      .run(id, title, description, now, now, ownerId, ownerName);
     return this.get(id)!;
   }
 
