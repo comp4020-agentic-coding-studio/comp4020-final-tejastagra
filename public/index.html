@@ -13,6 +13,19 @@
       <span id="connection" class="connection" role="status" aria-live="polite">connecting…</span>
     </header>
 
+    <form id="rename-form" class="rename-form" aria-label="Your name">
+      <span id="whoami" class="whoami" role="status" aria-live="polite">you: …</span>
+      <input
+        id="name-input"
+        name="name"
+        type="text"
+        placeholder="Your name"
+        aria-label="Your display name"
+        maxlength="40"
+      />
+      <button type="submit">Set name</button>
+    </form>
+
     <form id="create-form" class="create-form" aria-label="Create a task">
       <input
         id="title-input"

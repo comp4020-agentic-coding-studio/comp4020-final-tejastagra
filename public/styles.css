@@ -40,6 +40,30 @@ body {
 .connection[data-state="online"] { background: #dcfce7; color: #166534; }
 .connection[data-state="offline"] { background: #fee2e2; color: #991b1b; }
 
+.rename-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+.rename-form .whoami { color: var(--muted); }
+.rename-form input {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+}
+.rename-form button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
 .create-form {
   display: flex;
   gap: 0.5rem;
@@ -110,6 +134,7 @@ body {
   border-radius: 0.6rem;
 }
 .task.is-completed .task-title { text-decoration: line-through; color: var(--muted); }
+.task.is-readonly { opacity: 0.75; }
 
 .task-checkbox { margin-top: 0.2rem; width: 1.1rem; height: 1.1rem; }
 
@@ -135,6 +160,6 @@ body {
 
 @media (prefers-color-scheme: dark) {
   body { background: #0b0b0c; color: #f3f4f6; }
-  .task, .create-form input, .filter-btn { background: #17181a; border-color: #2a2b2e; color: inherit; }
+  .task, .create-form input, .filter-btn, .rename-form input, .rename-form button { background: #17181a; border-color: #2a2b2e; color: inherit; }
   .connection { background: #1f2023; }
 }

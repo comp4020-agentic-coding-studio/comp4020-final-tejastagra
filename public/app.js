@@ -6,6 +6,8 @@
 /** @type {Map<string, any>} */
 const tasks = new Map();
 let filter = "all";
+/** @type {{id: string, name: string} | null} */
+let me = null;
 
 const listEl = document.getElementById("task-list");
 const emptyEl = document.getElementById("empty-state");
@@ -15,6 +17,40 @@ const connEl = document.getElementById("connection");
 const form = document.getElementById("create-form");
 const titleInput = document.getElementById("title-input");
 const descInput = document.getElementById("description-input");
+const whoEl = document.getElementById("whoami");
+const renameForm = document.getElementById("rename-form");
+const nameInput = document.getElementById("name-input");
+
+async function loadMe() {
+  try {
+    const res = await fetch("/api/me");
+    if (!res.ok) throw new Error(`me failed: ${res.status}`);
+    me = await res.json();
+    whoEl.textContent = `you: ${me.name}`;
+    nameInput.value = me.name;
+  } catch {
+    showError("Couldn't identify this session. Reload to try again.");
+  }
+}
+
+renameForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = nameInput.value.trim();
+  if (!name) return;
+  try {
+    const res = await fetch("/api/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error(`rename failed: ${res.status}`);
+    me = await res.json();
+    whoEl.textContent = `you: ${me.name}`;
+    render();
+  } catch {
+    showError("Couldn't update your name. Try again.");
+  }
+});
 
 function showError(message) {
   errorEl.textContent = message;
@@ -43,16 +79,19 @@ function render() {
   emptyEl.hidden = visible.length > 0;
 
   for (const task of visible) {
+    const mine = me != null && task.ownerId === me.id;
+
     const li = document.createElement("li");
-    li.className = "task" + (task.completed ? " is-completed" : "");
+    li.className = "task" + (task.completed ? " is-completed" : "") + (mine ? "" : " is-readonly");
     li.dataset.id = task.id;
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.className = "task-checkbox";
     checkbox.checked = task.completed;
+    checkbox.disabled = !mine;
     checkbox.setAttribute("aria-label", task.completed ? "Reopen task" : "Complete task");
-    checkbox.addEventListener("change", () => toggleTask(task));
+    if (mine) checkbox.addEventListener("change", () => toggleTask(task));
 
     const body = document.createElement("div");
     body.className = "task-body";
@@ -68,17 +107,24 @@ function render() {
     }
     const meta = document.createElement("div");
     meta.className = "task-meta";
-    meta.textContent = task.completed ? `completed · created ${timeAgo(task.createdAt)}` : `created ${timeAgo(task.createdAt)}`;
+    const owner = mine ? "you" : task.ownerName;
+    meta.textContent = task.completed
+      ? `completed · created by ${owner} · ${timeAgo(task.createdAt)}`
+      : `created by ${owner} · ${timeAgo(task.createdAt)}`;
     body.appendChild(meta);
 
-    const del = document.createElement("button");
-    del.className = "task-delete";
-    del.type = "button";
-    del.textContent = "Delete";
-    del.setAttribute("aria-label", `Delete "${task.title}"`);
-    del.addEventListener("click", () => deleteTask(task));
+    li.append(checkbox, body);
 
-    li.append(checkbox, body, del);
+    if (mine) {
+      const del = document.createElement("button");
+      del.className = "task-delete";
+      del.type = "button";
+      del.textContent = "Delete";
+      del.setAttribute("aria-label", `Delete "${task.title}"`);
+      del.addEventListener("click", () => deleteTask(task));
+      li.append(del);
+    }
+
     listEl.appendChild(li);
   }
 }
@@ -224,5 +270,5 @@ function connect() {
   socket.addEventListener("error", () => socket.close());
 }
 
-loadTasks();
+loadMe().then(loadTasks);
 connect();
