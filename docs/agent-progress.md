@@ -1,12 +1,15 @@
 # Agent progress
 
 ## Current status
-- Phase: Hour 2/3 combined — core canvas, persistence, realtime, identity and
-  logging all implemented and locally verified. Starting documentation (ADRs,
-  README, PROCESS.md) next, then deploy.
+- Phase: Session complete through Hour 5/6 scope — P0, P1, P2 built, tested
+  and deployed; P3 (image/link cards) and the human two-browser crit
+  exercise are the honest remainder.
 - Last updated: 2026-10-19
-- Current git commit: 5c3250b (Hour 1 audit); this hour's work not yet committed
-- Deployment status: not yet attempted (Dockerfile replaced, untested in Docker/Fly)
+- Current git commit: 609e8d9 at last check (this file's own commit follows)
+- Deployment status: **deployed and verified** at
+  https://comp4020-final-tejastagra.fly.dev/ — `pnpm check` (11/11) passes
+  against the live URL; `/`, `/readme/` confirmed 200 over real HTTP;
+  `flyctl logs` shows all six required structured event types.
 
 ## Completed and verified
 - [x] Repository audit (Hour 1) — see `docs/implementation-audit.md`.
@@ -124,12 +127,30 @@
       for the multi-user test document rather than asserted as fully
       understood.
 
+## Completed and verified (continued — multi-user test document)
+- [x] `docs/testing/multi-user-test.md` written with real results against
+      the live deployment: scenarios 1-4, 7, 8, 11, 12 pass with scripted
+      WebSocket/HTTP clients standing in for separate browsers; scenarios 5
+      and 6 pass via their scripted-close equivalent; scenario 9 (multiple
+      Fly machines) deliberately not run (documented why — this
+      persistence design doesn't support it, matches the known limitation
+      in `README.md`); scenario 10 (restart) verified locally/Docker, not
+      repeated against the live single machine to avoid disrupting it.
+- [x] Explicitly flagged as outstanding: the brief's own human,
+      two-real-Chrome-profile crit exercise hasn't happened in this agentic
+      session (no browser automation available) — recorded as a genuine
+      gap, not folded into a false "Pass."
+- [x] Final `pnpm check` run against the live URL: 11/11 passed.
+- [x] `pnpm check:evidence` passes.
+- [x] `git status --short` / `git diff --cached` reviewed before commit —
+      no secrets, no accidental changes.
+
 ## Current task
-- Goal: Write `docs/testing/multi-user-test.md` with the real scenario
-  matrix, marking anything that needs two live human-driven browser
-  profiles as `Not run`.
-- Files being changed: `docs/testing/multi-user-test.md`
-- Last known state: not started
+- Goal: none — session work is at a stable, documented, deployed
+  checkpoint. If resumed, the next priorities are P3 (image/link cards)
+  and the human two-browser crit verification.
+- Files being changed: none
+- Last known state: complete for this session
 
 ## Checks run
 - Command: `docker build -t wall-local .`
