@@ -2,6 +2,12 @@ node_modules/
 dist/
 *.log
 
+# local dev database/uploads (WALL_DB_PATH / WALL_UPLOADS_PATH defaults
+# when running node src/server.ts directly, outside Docker/Fly)
+local-wall.db
+local-wall.db-*
+local-uploads/
+
 # editor and OS junk
 .DS_Store
 ._*
