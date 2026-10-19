@@ -50,8 +50,10 @@ The Wall is good if:
 - **Fork independence.** A fork is a snapshot at the moment it's taken.
   Nothing flows back to the parent, forward to children of the fork, or
   sideways to siblings, ever.
-- **Visual craft.** A white/warm-white open canvas, a compact and
-  contextual tool palette, no generic dashboard chrome.
+- **Visual craft.** A confident, modular canvas interface: an infinite
+  pan/zoom "camera" over a dot-grid world, a floating compact tool palette,
+  and object cards (sticky notes, music, embeds, images) with consistent
+  rounded corners and drop shadows.
 
 ## Deliberate non-goals
 
@@ -67,13 +69,30 @@ The Wall is good if:
   from this repo's `spec/README.md` and `PROCESS.md`) — these set the hard
   requirements (persistence, realtime, identity/logging, fork isolation)
   that the principles above are built to satisfy.
-- Figma's and Google Jamboard's live-cursor and direct-manipulation patterns
-  were used as a reference point for *what to avoid cloning* (see
-  `docs/implementation-audit.md`'s stack-choice reasoning and ADR 0001) —
-  consulted for contrast, not copied.
+- FigJam's visual language and interaction model (infinite pan/zoom canvas,
+  floating toolbar, sticky-note cards, coloured presence cursors) was
+  consulted directly as the visual reference for this build's second phase,
+  at the student's explicit request — see "A note on the visual direction"
+  below for why that's a deliberate departure from this project's original
+  design principle, not an oversight.
 
 No external design-system or UI-kit was used; the interface in
-`public/styles.css` is hand-written.
+`public/styles.css` is hand-written, including the FigJam-referenced
+styling — no FigJam/Figma assets, code, or CSS were copied.
+
+## A note on the visual direction
+
+The final project brief's own design principles (and this README's
+original "Distinct art direction... do not clone Figma" language from
+Phase 1 of this build) explicitly warned against cloning FigJam. Partway
+through the build, the student directing this work asked for the opposite:
+a visual identity that directly matches FigJam, after being told plainly
+that this conflicts with the brief. That request is followed here, honestly
+recorded rather than hidden — the "visual craft" principle above has been
+updated to describe what was actually built, not what the original brief
+asked for. A marker comparing this submission against the brief's
+"don't clone Figma" line should read this note as the explanation, not find
+out about the conflict by noticing the resemblance.
 
 ## Evidence for the principles
 
@@ -87,17 +106,25 @@ No external design-system or UI-kit was used; the interface in
   and ADR 0003.
 - Identity: `spec/branches.test.ts` asserts two independent HTTP sessions
   (two cookie jars) get distinct `created_by` ids.
+- Modular object types: `spec/objects.test.ts` covers valid/invalid cases
+  for sticky notes, music links, embeds and image uploads, including that
+  uploaded bytes are checked against real image magic bytes, not the
+  client's claimed file type.
 
 ## Known limitations and current status
 
-- No image upload or link/music cards yet — deferred as P3 per the
-  project's own prioritisation (see `docs/implementation-audit.md`). The
-  object schema (`type` field in `src/db.ts`) already allows for `image`
-  and `link` types to be added without a schema migration.
+- Image upload, music cards (Spotify/YouTube/SoundCloud) and generic embeds
+  are implemented. Embeds are deliberately restricted to a small, fixed
+  hostname allow-list (`src/links.ts`), not arbitrary iframe embedding —
+  see ADR 0004 for why arbitrary embedding is a real attack surface this
+  app doesn't take on.
 - Same-object conflicts use last-write-wins, not a merge — see ADR 0001 for
   why, and what that means in practice.
 - No per-object ownership or moderation — anyone on a branch can edit or
   delete any mark on that branch; see ADR 0002 for the reasoning.
+- An embedded iframe (music or generic embed) doesn't respond to pointer
+  events until double-clicked, so dragging the card it's in doesn't fight
+  with interacting with the embedded content.
 - This is a from-scratch build completing crits 8–10 retrospectively in one
   session rather than across the original three weeks — see `PROCESS.md`
   and `reflections/crit-8.md` for the honest account of why.

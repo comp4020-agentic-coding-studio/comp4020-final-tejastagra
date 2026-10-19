@@ -17,14 +17,61 @@ crits 8, 9 and 10 retrospectively rather than across their original weeks.
 Plain Node.js (`node:http`, no framework), the `ws` package for WebSocket
 broadcast, and Node 24's built-in `node:sqlite` (`DatabaseSync`) for
 persistence — no ORM, no separately-installed SQLite driver. The frontend is
-hand-written HTML/CSS/vanilla JS using the `<canvas>` element, with no build
-step. Full reasoning in `docs/implementation-audit.md`'s "chosen
-implementation path" section; in short, this keeps the Docker image small
-and compiler-free (no native build step for persistence), fits comfortably
-inside the course's 256MB/shared-cpu-1x/one-volume constraint, and a
-hand-written canvas interface was the more direct way to satisfy the
-brief's "no generic SaaS template, don't clone Figma" instruction than
-reaching for a component library would have been.
+hand-written HTML/CSS/vanilla JS, with no build step. Full reasoning in
+`docs/implementation-audit.md`'s "chosen implementation path" section; in
+short, this keeps the Docker image small and compiler-free (no native build
+step for persistence), and fits comfortably inside the course's
+256MB/shared-cpu-1x/one-volume constraint.
+
+Phase 1 of the build (crits 8-10) used this reasoning to also justify a
+hand-written, non-FigJam visual style, in line with the brief's "no generic
+SaaS template, don't clone Figma" instruction. Phase 2 (below) changed that
+visual direction at the student's explicit request — the stack choice
+itself (no framework, no build step) didn't change, only what's drawn with
+it.
+
+## Phase 2: FigJam-style visual overhaul and modular object types
+
+After the Phase 1 build was deployed and verified (commit `260c78f`), the
+student asked for two changes: match FigJam's visual language directly
+(acknowledged as contradicting the brief's own design principle — see
+README.md's "A note on the visual direction"), and add real modular object
+types beyond freehand strokes and plain text — sticky notes, music embeds
+(Spotify/YouTube/SoundCloud), generic iframe embeds, and image upload.
+
+**Canvas model change.** The frontend moved from a fixed-viewport
+`<canvas>` element (strokes drawn as 2D bitmap paint, text as absolutely-
+positioned `contenteditable` divs) to an infinite pan/zoom "camera": a
+`cam = {x, y, scale}` object drives one CSS transform on a `#camera` div
+that wraps both an SVG layer (strokes, now vector `<path>` elements instead
+of canvas pixels) and a card layer (every other object type). This was the
+natural way to get pan/zoom "for free" across every object type at once,
+and as a side effect made strokes individually selectable/addressable the
+same way every other object already was — previously a stroke was baked
+into a shared bitmap with no way to reference it after the fact except by
+its stored data.
+
+**New object types, server-validated.** `src/links.ts` classifies music
+URLs against Spotify/YouTube/SoundCloud patterns and checks generic embed
+URLs against a fixed hostname allow-list; `src/uploads.ts` decodes,
+magic-byte-validates (never trusting the client's declared MIME type), and
+size-caps image uploads before writing them to the same Fly volume the
+SQLite file lives on. Full reasoning: `docs/adr/0004-embeds-and-uploads.md`.
+
+**Verification.** `spec/objects.test.ts` adds 13 tests (valid/invalid cases
+per type, plus a check that objects already shaped under the old `type:
+"text"` schema still round-trip — no breaking change for data already on
+the live Fly volume). Since no project skill covered driving this app with
+a real browser, a one-off Playwright script (not committed to the repo,
+built under `/tmp/pw-driver`) actually opened the rewritten canvas in
+headless Chromium and exercised every new interaction: placing a sticky,
+drawing a stroke, zooming, dragging a card (verified it moves by the exact
+pixel delta dragged and the new position survives a page reload), adding a
+Spotify music card (the real embedded player rendered), adding a Figma
+embed card (the card chrome rendered correctly; a 403 inside it was
+Figma's own response to a nonexistent test file path, not an app bug), and
+uploading an image (persisted correctly after a full page reload). Zero
+console errors across every check.
 
 ## Architecture
 
@@ -50,10 +97,13 @@ See `docs/adr/0001-realtime-and-conflicts.md` (WebSocket transport,
 server-accepted last-write-wins on same-object edits),
 `docs/adr/0002-identity-and-permissions.md` (anonymous cookie identity,
 no per-object ownership — anyone on a branch may edit anything on it, by
-product design, not oversight), and
+product design, not oversight),
 `docs/adr/0003-branches-and-forks.md` (eager snapshot-copy fork, objects
 keyed by `(branch_id, id)` so a forked object keeps its original id in the
-new branch).
+new branch), and `docs/adr/0004-embeds-and-uploads.md` (image storage on
+the Fly volume rather than in the database, magic-byte upload validation,
+a fixed allow-list for embeds rather than arbitrary iframe embedding, and
+the iframe sandbox attributes chosen).
 
 ## How the agent was directed and corrected
 
@@ -113,11 +163,10 @@ running the app and its test suite before being written down, per the
 ## Current limitations and next steps
 
 See README.md's "Known limitations and current status" section for the
-product-facing list (no image/link cards yet, last-write-wins conflict
-policy, no per-object ownership). Technically, the next steps in priority
-order are: Docker build verification, Fly deploy and live-URL verification,
-the lecture multi-user test document, and the three crit reflections — see
-`docs/agent-progress.md` for exactly where this session is in that list.
+product-facing list (last-write-wins conflict policy, no per-object
+ownership, embeds restricted to a fixed allow-list). See
+`docs/agent-progress.md`'s Phase 2 section for exactly where this part of
+the build stands and the exact next task.
 
 ## Multi-user testing with Fly logs
 
