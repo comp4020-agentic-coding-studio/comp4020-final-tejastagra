@@ -68,8 +68,16 @@ it("two independent sessions get distinct identities", async () => {
 
 it("a fork is isolated: parent edits after fork don't appear, fork edits don't affect parent", async () => {
   const client = new Client();
-  // Start from a fresh parent branch with one object, so the counts are predictable.
+  // freshBranch forks off `main`, which is never guaranteed to be empty —
+  // against a long-lived deployed server `main` accumulates real objects
+  // from actual use. So this test counts objects before/after rather than
+  // assuming the parent starts at zero.
   const parentId = await freshBranch(client);
+  const before = await client
+    .request(`/api/branches/${parentId}/objects`)
+    .then((r) => r.json());
+  const countBeforeFork = before.objects.length;
+
   const seed = await client
     .request(`/api/branches/${parentId}/objects`, {
       method: "POST",
@@ -92,8 +100,12 @@ it("a fork is isolated: parent edits after fork don't appear, fork edits don't a
   const forkObjects = await client
     .request(`/api/branches/${fork.id}/objects`)
     .then((r) => r.json());
-  expect(forkObjects.objects).toHaveLength(1);
-  expect(forkObjects.objects[0].data).toContain("seed");
+  // The fork should have exactly what the parent had at fork time
+  // (countBeforeFork inherited objects + the seed), and nothing from the
+  // parent's post-fork edit.
+  expect(forkObjects.objects).toHaveLength(countBeforeFork + 1);
+  expect(forkObjects.objects.some((o: any) => o.id === seed.id && o.data.includes("seed"))).toBe(true);
+  expect(forkObjects.objects.some((o: any) => o.data.includes("after-fork"))).toBe(false);
 
   // Fork edit on the inherited object shouldn't touch the parent's copy.
   await client.request(`/api/branches/${fork.id}/objects/${seed.id}`, {
