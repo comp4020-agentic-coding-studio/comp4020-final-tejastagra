@@ -64,33 +64,51 @@
 - [ ] Accessibility pass (keyboard-only full flow, contrast check) — only
       partially done (shortcuts + focus-visible exist, not exhaustively tested).
 
+## Completed and verified (continued — Hour 4/5: documentation)
+- [x] `docs/adr/0001-realtime-and-conflicts.md`,
+      `docs/adr/0002-identity-and-permissions.md`,
+      `docs/adr/0003-branches-and-forks.md` written.
+- [x] `README.md` rewritten (definition of good, principles, non-goals,
+      sources consulted, evidence, limitations, run instructions).
+- [x] `PROCESS.md` rewritten (real stack/architecture account, the two
+      bugs found by testing, the realtime test race and its fix).
+- [x] `CLAUDE.md` written (this session's own harness rules).
+- [x] `reflections/crit-8.md`, `crit-9.md`, `crit-10.md` written — each
+      states plainly this is a retrospective, one-session account, not a
+      report from the original weeks.
+- [x] `node scripts/check-evidence.ts` passes: reflections found, no
+      leftover `TEMPLATE:` comment in `PROCESS.md`, no commit-link citations
+      yet to validate (none added so far).
+- [x] `pnpm check` re-run clean (11/11) after the documentation changes.
+
 ## Current task
-- Goal: Write the three ADRs (realtime/concurrency, identity/permissions,
-  persistence/deployment), then README.md and PROCESS.md, then attempt the
-  Docker build and Fly deploy.
-- Files being changed: `docs/adr/*.md`, `README.md`, `PROCESS.md`
+- Goal: Build and run the Docker image locally the way CI does, then attempt
+  the Fly deploy and verify the live URL and `/readme/` over real HTTP.
+- Files being changed: none expected (verification step); `docs/testing/multi-user-test.md` to follow
 - Last known state: not started
 
 ## Checks run
-- Command: `pnpm check` (against `node src/server.ts` on :8080)
+- Command: `pnpm check` (against `node src/server.ts` on :8080, after doc changes)
 - Result: 11/11 passed
+- Command: `node scripts/check-evidence.ts`
+- Result: all checks passed
 
 ## Blockers
 - Blocker: none currently
-- Safe next action: proceed to documentation, then Docker/Fly verification
+- Safe next action: proceed to Docker build verification, then Fly deploy
 
 ## Exact next task
-1. Write `docs/adr/0001-realtime-and-conflicts.md`,
-   `docs/adr/0002-identity-and-permissions.md`,
-   `docs/adr/0003-branches-and-forks.md`.
-2. Replace `README.md` and `PROCESS.md` template content with the real
-   account (check `pnpm check:evidence` passes).
-3. Build and run the Docker image locally (`docker build`, then
-   `docker run --tmpfs /data` matching how CI runs it) and re-run
-   `pnpm check` against it.
-4. Commit this hour's work once the Docker build is verified.
-5. Attempt `flyctl deploy --remote-only --ha=false -a comp4020-final-tejastagra`
-   and verify the live URL and `/readme/` over real HTTP.
+1. `docker build -t wall-local .` then
+   `docker run --rm -p 8080:8080 --tmpfs /data -e PORT=8080 wall-local`
+   and re-run `pnpm check` against it.
+2. Commit this hour's documentation + any Docker fixes.
+3. Attempt `flyctl deploy --remote-only --ha=false -a comp4020-final-tejastagra`
+   from this repo (token is in `mise.local.toml`, not printed).
+4. Verify the live URL and `/readme/` over real HTTP with curl.
+5. Inspect `flyctl logs` for the six structured event types.
+6. Write `docs/testing/multi-user-test.md` with real results (marking
+   anything requiring two live browser profiles as `Not run` until a human
+   does that part).
 
 ## Resume instructions
 Read this file, inspect `git status`, inspect the last commit and continue from the exact next task. Do not repeat completed work.
