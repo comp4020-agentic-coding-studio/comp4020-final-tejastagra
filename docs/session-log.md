@@ -46,3 +46,12 @@ in what order — not a substitute for `PROCESS.md`/`docs/agent-progress.md`.
 - Added 2 realtime tests for nickname broadcast + sanitization
 - Investigated a one-off EPIPE flake in the oversized-image test — root-caused as an inherent trade-off of the earlier connection-poisoning fix, documented it, made the test accept both valid outcomes
 - pnpm check: 29/29, stable across 5 runs; updated README/PROCESS/ADR 0002 with the onboarding note
+- User: this still looks generic, not artist-made — wants bold/purposeful/warm (Apple Garamond reference), seeded artwork people build over
+- Asked 2 clarifying questions (art direction reference, typography approach) — got answers (Apple Garamond, Fraunces+Instrument Sans)
+- Full style rewrite: public/styles.css (warm paper palette, Fraunces/Instrument Sans, hard stamped shadows instead of soft blur, toolbar redrawn as solid ledge not floating pill)
+- Updated palette swatches + STICKY_COLORS server allow-list + STROKE_INK map to match (ochre/terracotta/sage/plum/paper)
+- Wrote src/seed.ts: hand-plotted seed artwork (hills, sun, welcome sticky), idempotent insertion on server startup via sentinel id
+- Verified idempotency directly: restarted server twice, real object survived, no duplication; forked main, confirmed fork inherits seed + real object via existing fork mechanism
+- Visual check with Playwright: welcome screen, canvas-with-seed, new sticky, toolbar — judged honestly, genuinely reads as a considered identity now
+- pnpm check: 29/29 stable across 3 runs
+- Wrote ADR 0005 (seed artwork), updated README/PROCESS with the honest 3-phase visual-direction history + seed-artwork deviation

@@ -41,7 +41,7 @@ it("accepts a sticky with an allow-listed colour", async () => {
     type: "sticky",
     x: 0,
     y: 0,
-    data: { text: "pin this", color: "#fff2a8" },
+    data: { text: "pin this", color: "#e8c87a" },
   });
   expect(res.status).toBe(201);
 });

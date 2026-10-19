@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer, type WebSocket } from "ws";
 
 import { openDb, Store } from "./db.ts";
+import { ensureSeedArtwork } from "./seed.ts";
 import { identify, sanitiseNickname, shortLabel } from "./identity.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { makeLogger } from "./log.ts";
@@ -26,6 +27,7 @@ const PUBLIC_DIR = join(ROOT, "public");
 
 const db = openDb(DB_PATH);
 const store = new Store(db);
+ensureSeedArtwork(store);
 const log = makeLogger(store);
 
 const MIME: Record<string, string> = {
@@ -108,7 +110,10 @@ const MAX_DATA_LENGTH = 200_000; // bytes of JSON-encoded `data`, generous for a
 const MAX_BODY_BYTES = 1_000_000;
 const MAX_IMAGE_BODY_BYTES = 3_000_000; // base64 overhead over the 2MB decoded image cap
 
-const STICKY_COLORS = new Set(["#fff2a8", "#ffd1e6", "#bfe3ff", "#c8f2d4", "#ffdcb0"]);
+// Matches public/index.html's palette swatches exactly (ochre, terracotta,
+// sage, plum, paper) — a considered, specific warm set, not a stock
+// Post-it-note palette.
+const STICKY_COLORS = new Set(["#e8c87a", "#d98a6f", "#8fa088", "#9a7ba0", "#e6ddc7"]);
 
 // Per-type `data` validation, run after the shared shape checks below. Each
 // function either returns the (possibly server-normalised) data to store, or

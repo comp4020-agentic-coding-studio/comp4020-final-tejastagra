@@ -14,7 +14,7 @@ export interface Branch {
 export interface WallObject {
   id: string;
   branch_id: string;
-  type: "text" | "stroke" | "shape" | "image" | "link";
+  type: "text" | "stroke" | "sticky" | "image" | "music" | "embed";
   x: number;
   y: number;
   data: string; // JSON-encoded, shape depends on `type`

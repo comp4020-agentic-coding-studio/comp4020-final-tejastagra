@@ -21,20 +21,21 @@ const imageInput = document.getElementById("image-input");
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 let tool = "select";
-let color = "#fff2a8"; // selected palette colour, used for sticky backgrounds
+let color = "#e8c87a"; // selected palette colour, used for sticky backgrounds
 
-// The palette is a set of pastel sticky-note backgrounds; a stroke drawn in
-// the raw pastel would barely show against the light canvas, so each entry
-// maps to a bold "ink" version for strokes. Falls back to a near-black ink
-// if a colour outside this fixed set is ever selected.
+// The palette (ochre, terracotta, sage, plum, paper) is chosen for sticky
+// backgrounds; a stroke drawn in the raw swatch would barely show against
+// the paper canvas, so each entry maps to a bold "ink" version for
+// strokes. Falls back to the near-black ink if a colour outside this
+// fixed set is ever selected.
 const STROKE_INK = {
-  "#fff2a8": "#8a6d00",
-  "#ffd1e6": "#a3245c",
-  "#bfe3ff": "#19588f",
-  "#c8f2d4": "#1f7a42",
-  "#ffdcb0": "#9a5200",
+  "#e8c87a": "#8a6424",
+  "#d98a6f": "#8a3a22",
+  "#8fa088": "#3d4d35",
+  "#9a7ba0": "#4a2f52",
+  "#e6ddc7": "#5c5247",
 };
-const DEFAULT_INK = "#1b1d23";
+const DEFAULT_INK = "#2b241c";
 function currentStrokeColor() {
   return STROKE_INK[color] ?? DEFAULT_INK;
 }

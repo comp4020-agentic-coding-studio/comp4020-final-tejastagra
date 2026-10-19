@@ -52,10 +52,12 @@ The Wall is good if:
 - **Fork independence.** A fork is a snapshot at the moment it's taken.
   Nothing flows back to the parent, forward to children of the fork, or
   sideways to siblings, ever.
-- **Visual craft.** A confident, modular canvas interface: an infinite
-  pan/zoom "camera" over a dot-grid world, a floating compact tool palette,
-  and object cards (sticky notes, music, embeds, images) with consistent
-  rounded corners and drop shadows.
+- **Visual craft.** A warm, paper-toned canvas with its own specific
+  typographic and colour identity (an italic serif display face, a
+  considered ochre/terracotta/sage/plum palette, hard offset "stamped"
+  shadows instead of soft component-library blur) — an infinite pan/zoom
+  "camera" underneath, but dressed as something made with a point of view,
+  not assembled from a design system's defaults.
 
 ## Deliberate non-goals
 
@@ -73,28 +75,52 @@ The Wall is good if:
   that the principles above are built to satisfy.
 - FigJam's visual language and interaction model (infinite pan/zoom canvas,
   floating toolbar, sticky-note cards, coloured presence cursors) was
-  consulted directly as the visual reference for this build's second phase,
-  at the student's explicit request — see "A note on the visual direction"
-  below for why that's a deliberate departure from this project's original
-  design principle, not an oversight.
+  consulted directly as the visual reference for this build's second
+  phase, at the student's explicit request, then deliberately moved away
+  from again in a third phase — see "A note on the visual direction" below
+  for the full, honest sequence.
+- **Apple Garamond** was given as the explicit reference point for the
+  third-phase visual identity: warm, purposeful, contemporary type doing
+  real work, not a system-UI sans or a generic SaaS accent colour. The
+  actual typefaces used (Fraunces for display, Instrument Sans for body)
+  are not Garamond itself — they're the closest free, web-servable
+  typefaces chosen to carry that same warm/purposeful/editorial feeling
+  into a browser canvas.
 
 No external design-system or UI-kit was used; the interface in
-`public/styles.css` is hand-written, including the FigJam-referenced
-styling — no FigJam/Figma assets, code, or CSS were copied.
+`public/styles.css` is hand-written throughout every phase — no FigJam/
+Figma assets, code, or CSS were ever copied.
 
 ## A note on the visual direction
 
-The final project brief's own design principles (and this README's
-original "Distinct art direction... do not clone Figma" language from
-Phase 1 of this build) explicitly warned against cloning FigJam. Partway
-through the build, the student directing this work asked for the opposite:
-a visual identity that directly matches FigJam, after being told plainly
-that this conflicts with the brief. That request is followed here, honestly
-recorded rather than hidden — the "visual craft" principle above has been
-updated to describe what was actually built, not what the original brief
-asked for. A marker comparing this submission against the brief's
-"don't clone Figma" line should read this note as the explanation, not find
-out about the conflict by noticing the resemblance.
+This project's visual identity changed twice, each time at the student's
+explicit direction, each time recorded honestly here rather than presented
+as if it were the plan from the start:
+
+1. **Phase 1** (original build): a restrained, hand-written interface
+   following the brief's own "distinct art direction, don't clone Figma"
+   principle.
+2. **Phase 2**: the student asked for a visual identity that directly
+   matches FigJam — after being told plainly this contradicts the brief's
+   principle above, the request was followed anyway.
+3. **Phase 3** (current): the student called the FigJam-style result
+   "generic SaaS software" and asked for something that reads as
+   artist-made, giving Apple Garamond as a reference point for a warm,
+   purposeful, contemporary (not FigJam/Notion/Linear-generic, and not
+   punk/zine) identity. The palette, type, shadow and chrome treatment
+   described in "visual craft" above is that third pass.
+
+Separately, and also at explicit request: the canvas now opens with a
+small hand-authored seed artwork (see `docs/adr/0005-seed-artwork.md`)
+rather than a truly blank page, which directly reverses the brief's
+"canvas must be open-ended... no pre-made mural background" principle.
+Followed anyway, after being told so, for the same reason as the above —
+this is the student's own project and explicit direction overrides this
+agent's adherence to the original brief once stated plainly. A marker
+comparing this submission against the brief's original design principles
+should read this section as the explanation for every visual/content
+decision that departs from them, not discover the departures by comparison
+alone.
 
 ## Evidence for the principles
 
@@ -137,6 +163,9 @@ out about the conflict by noticing the resemblance.
   stacks them with no automatic spacing or offset — each note is a
   correctly independent object (no data corruption), but they visually
   overlap until dragged apart. A deliberate scope cut, not an oversight.
+- The `main` branch (and therefore every fork of it) starts with a small,
+  fixed, hand-authored seed artwork rather than a blank canvas — see ADR
+  0005 and "A note on the visual direction" above for why.
 - This is a from-scratch build completing crits 8–10 retrospectively in one
   session rather than across the original three weeks — see `PROCESS.md`
   and `reflections/crit-8.md` for the honest account of why.

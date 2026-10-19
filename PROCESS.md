@@ -216,6 +216,52 @@ in both `src/server.ts` and the test itself, and the test now accepts
 either a `400` or the specific network errors this trade-off can produce,
 rather than treating the non-deterministic case as a bug to paper over.
 
+## Phase 4: a real visual identity, and a seeded canvas
+
+The FigJam-style pass (Phase 2) and the onboarding pass (Phase 3) both
+shipped something the student directly called out as "generic SaaS
+software" — Inter-adjacent system fonts, a stock SaaS-purple accent,
+soft-blurred drop shadows on uniform rounded-rect cards, a floating pill
+toolbar with glyph-only icon buttons. All individually reasonable choices,
+collectively indistinguishable from any Linear/Notion/Figma-adjacent
+product's default component library. Not a matter of taste — a genuine
+miss against "should feel like an artist made it."
+
+Given a concrete reference point (Apple Garamond: warm, purposeful,
+contemporary, explicitly not modern-SaaS and not punk/zine), this phase
+replaced the type system (Fraunces, a warm optical-sized serif, for
+display type; Instrument Sans for body/UI text — both loaded via a single
+Google Fonts link, no new build tooling), the colour palette (ochre/
+terracotta/sage/plum/paper — a specific considered set, not the previous
+pastel Post-it palette or purple accent), and the chrome treatment (hard
+offset "stamped" shadows instead of soft blur; the toolbar redrawn as a
+solid ledge rather than a floating glass pill; the welcome screen as a
+large italic-serif title card). `STICKY_COLORS` in `src/server.ts` and the
+matching client-side swatches/`STROKE_INK` map in `public/app.js` were
+updated together — these two lists must stay in sync, since the server
+rejects any colour the client doesn't also offer.
+
+The student also asked, separately, for the canvas to open with a
+pre-made seed artwork that visitors build over — a direct, acknowledged
+reversal of the brief's "open-ended, no pre-made mural" principle (see
+`docs/adr/0005-seed-artwork.md` and README.md's note on this). Implemented
+as a small hand-plotted line illustration (hills, a sun, a welcoming
+sticky note — real coordinates chosen by hand, not generated) inserted
+idempotently on server startup, checked by a fixed sentinel object id so a
+restart never duplicates it and a student's real contribution is never
+touched. Verified directly: created a real object, restarted the server
+twice, confirmed the object count only grew by the real addition; forked
+`main` and confirmed the fork inherited both the seed artwork and the real
+object, for free, through the existing fork mechanism (ADR 0003) — no
+separate seeding logic was needed for forks.
+
+Verified visually with the same Playwright-driven approach as prior
+phases: screenshotted the welcome screen, the canvas with the seed artwork
+visible, a newly-placed sticky in the new palette, and the redesigned
+toolbar — read each one and judged it honestly against "does this read as
+artist-made" before considering the pass done, rather than assuming a
+palette swap alone would satisfy the complaint.
+
 ## Current limitations and next steps
 
 See README.md's "Known limitations and current status" section for the
