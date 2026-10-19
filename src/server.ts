@@ -10,9 +10,17 @@ import { identify, shortLabel } from "./identity.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { makeLogger } from "./log.ts";
 import { addClient, removeClient, broadcastToBranch, type Client } from "./realtime.ts";
+import { classifyMusicUrl, isAllowedEmbedUrl } from "./links.ts";
+import {
+  ImageTooLargeError,
+  UnsupportedImageError,
+  resolveUploadPath,
+  saveImage,
+} from "./uploads.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DB_PATH = process.env.WALL_DB_PATH ?? "/data/wall.db";
+const UPLOADS_ROOT = process.env.WALL_UPLOADS_PATH ?? "/data/uploads";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
 
@@ -27,6 +35,9 @@ const MIME: Record<string, string> = {
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
 };
 
 function serveStatic(req: IncomingMessage, res: ServerResponse, path: string): void {
@@ -52,27 +63,73 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
     .end(JSON.stringify(body));
 }
 
-async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+async function readJsonBody(req: IncomingMessage, maxBytes: number): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > 1_000_000) throw new Error("body too large");
+    if (size > maxBytes) throw new Error("body too large");
     chunks.push(chunk);
   }
   if (chunks.length === 0) return {};
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-const VALID_TYPES = new Set(["text", "stroke", "shape", "image", "link"]);
+const VALID_TYPES = new Set(["text", "stroke", "sticky", "image", "music", "embed"]);
 const MAX_DATA_LENGTH = 200_000; // bytes of JSON-encoded `data`, generous for a stroke path
+const MAX_BODY_BYTES = 1_000_000;
+const MAX_IMAGE_BODY_BYTES = 3_000_000; // base64 overhead over the 2MB decoded image cap
+
+const STICKY_COLORS = new Set(["#fff2a8", "#ffd1e6", "#bfe3ff", "#c8f2d4", "#ffdcb0"]);
+
+// Per-type `data` validation, run after the shared shape checks below. Each
+// function either returns the (possibly server-normalised) data to store, or
+// a string rejection reason.
+function validateTypedData(type: string, data: any): { data: unknown } | { error: string } {
+  switch (type) {
+    case "text":
+    case "sticky": {
+      if (typeof data.text !== "string") return { error: "data.text must be a string" };
+      if (type === "sticky" && !STICKY_COLORS.has(data.color)) {
+        return { error: `data.color must be one of ${[...STICKY_COLORS].join(", ")}` };
+      }
+      return { data: { text: data.text, color: data.color ?? "#1c1a17" } };
+    }
+    case "stroke": {
+      if (!Array.isArray(data.points)) return { error: "data.points must be an array" };
+      return { data };
+    }
+    case "music": {
+      if (typeof data.url !== "string") return { error: "data.url must be a string" };
+      const platform = classifyMusicUrl(data.url);
+      if (!platform) {
+        return { error: "data.url must be a Spotify, YouTube or SoundCloud link" };
+      }
+      return { data: { url: data.url, platform } };
+    }
+    case "embed": {
+      if (typeof data.url !== "string") return { error: "data.url must be a string" };
+      if (!isAllowedEmbedUrl(data.url)) {
+        return { error: "data.url is not on the embed allow-list" };
+      }
+      return { data: { url: data.url } };
+    }
+    case "image":
+      // handled separately in the POST /objects route — image data arrives
+      // as a base64 upload and is replaced with a saved-file reference
+      // before it ever reaches validateTypedData.
+      return { data };
+    default:
+      return { error: `unknown type ${type}` };
+  }
+}
 
 function validateObjectInput(body: any): string | null {
   if (!body || typeof body !== "object") return "body must be an object";
   if (!VALID_TYPES.has(body.type)) return `type must be one of ${[...VALID_TYPES].join(", ")}`;
   if (typeof body.x !== "number" || typeof body.y !== "number") return "x and y must be numbers";
   if (!Number.isFinite(body.x) || !Number.isFinite(body.y)) return "x and y must be finite";
-  if (body.data === undefined) return "data is required";
+  if (body.data === undefined || typeof body.data !== "object") return "data is required";
   const encoded = JSON.stringify(body.data);
   if (encoded.length > MAX_DATA_LENGTH) return "data exceeds the size limit";
   return null;
@@ -121,9 +178,13 @@ async function handleApi(
     if (method === "POST") {
       let body: any;
       try {
-        body = await readJsonBody(req);
+        // An image upload's base64 payload needs a higher cap than every
+        // other type's small JSON `data`; peek the content-length-agnostic
+        // way (read under the larger cap, then re-check per-type below) is
+        // unnecessary here since we only raise the cap, never lower it.
+        body = await readJsonBody(req, MAX_IMAGE_BODY_BYTES);
       } catch {
-        sendJson(res, 400, { error: "invalid JSON body" });
+        sendJson(res, 400, { error: "invalid JSON or body too large" });
         return true;
       }
       const err = validateObjectInput(body);
@@ -139,6 +200,47 @@ async function handleApi(
         sendJson(res, 400, { error: err });
         return true;
       }
+
+      let storedData: unknown;
+      if (body.type === "image") {
+        try {
+          if (typeof body.data.imageBase64 !== "string") {
+            throw new UnsupportedImageError("data.imageBase64 is required");
+          }
+          storedData = saveImage(UPLOADS_ROOT, branchId, body.data.imageBase64);
+        } catch (e) {
+          const reason =
+            e instanceof ImageTooLargeError || e instanceof UnsupportedImageError
+              ? e.message
+              : "could not process image";
+          log({
+            event: "action_rejected",
+            user_id: userId,
+            branch_id: branchId,
+            outcome: "rejected",
+            reason,
+            request_id: requestId,
+          });
+          sendJson(res, 400, { error: reason });
+          return true;
+        }
+      } else {
+        const typed = validateTypedData(body.type, body.data);
+        if ("error" in typed) {
+          log({
+            event: "action_rejected",
+            user_id: userId,
+            branch_id: branchId,
+            outcome: "rejected",
+            reason: typed.error,
+            request_id: requestId,
+          });
+          sendJson(res, 400, { error: typed.error });
+          return true;
+        }
+        storedData = typed.data;
+      }
+
       const now = Date.now();
       const obj = store.createObject({
         id: randomUUID(),
@@ -146,7 +248,7 @@ async function handleApi(
         type: body.type,
         x: body.x,
         y: body.y,
-        data: JSON.stringify(body.data),
+        data: JSON.stringify(storedData),
         created_by: userId,
         created_at: now,
         updated_at: now,
@@ -191,7 +293,7 @@ async function handleApi(
     if (method === "PATCH") {
       let body: any;
       try {
-        body = await readJsonBody(req);
+        body = await readJsonBody(req, MAX_BODY_BYTES);
       } catch {
         sendJson(res, 400, { error: "invalid JSON body" });
         return true;
@@ -363,6 +465,29 @@ const server = createServer(async (req, res) => {
     });
     if (handled) return;
     sendJson(res, 404, { error: "not found" });
+    return;
+  }
+
+  const uploadMatch = pathname.match(/^\/uploads\/([^/]+)\/([^/]+)$/);
+  if (uploadMatch) {
+    const [, branchId, file] = uploadMatch;
+    const full = resolveUploadPath(UPLOADS_ROOT, branchId, file);
+    if (!full) {
+      res.writeHead(404).end("Not found");
+      return;
+    }
+    readFile(full, (err, data) => {
+      if (err) {
+        res.writeHead(404).end("Not found");
+        return;
+      }
+      res
+        .writeHead(200, {
+          "Content-Type": MIME[extname(full)] ?? "application/octet-stream",
+          "Cache-Control": "public, max-age=31536000, immutable",
+        })
+        .end(data);
+    });
     return;
   }
 
