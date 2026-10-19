@@ -7,6 +7,35 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <div id="welcome-overlay" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <div class="welcome-card">
+        <h1 id="welcome-title">The Wall</h1>
+        <p class="welcome-tag">A living, open canvas for the ANU community.</p>
+        <p>
+          Leave a creative trace, draw, write, drop in a song or a link — see
+          other people doing the same, live. Nobody needs an account or a
+          real name to take part; nobody is ranked, liked or followed here.
+        </p>
+        <p>
+          <strong>Forking</strong> makes your own independent copy of this
+          canvas. Nothing you do after forking affects the original, and
+          nothing that happens on the original affects your fork — it's a
+          clean break, a new space to take in your own direction.
+        </p>
+        <label class="welcome-field">
+          What should people call you here? <span class="optional">(optional)</span>
+          <input
+            type="text"
+            id="nickname-input"
+            maxlength="24"
+            placeholder="Anonymous"
+            autocomplete="off"
+          />
+        </label>
+        <button id="welcome-continue" class="welcome-button">Enter the wall</button>
+      </div>
+    </div>
+
     <div id="app">
       <div id="canvas-wrap">
         <div id="camera">
@@ -19,6 +48,7 @@
       <header class="topbar">
         <h1>The Wall</h1>
         <span class="who" id="who"></span>
+        <button id="help-btn" class="help-btn" title="About The Wall" aria-label="About The Wall">?</button>
       </header>
 
       <div class="toolbar" role="toolbar" aria-label="Canvas tools">

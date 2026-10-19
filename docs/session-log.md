@@ -36,3 +36,13 @@ in what order — not a substitute for `PROCESS.md`/`docs/agent-progress.md`.
 - Live pnpm check found a real test bug: fork-isolation test assumed main starts empty (false once main had real objects from testing) — fixed by counting before/after instead
 - Re-verified 27/27 against live URL + checked flyctl logs for new rejection reasons
 - Answered user's question: added .gitignore entries + gave the direct local-run command (no Docker/Fly needed for dev)
+- User: this is too generalist, needs welcome screen + name entry + explain the project + explain fork + fancier background
+- Asked 2 clarifying questions (nickname vs account, welcome every-visit vs first-time) — got answers, planned the feature
+- Added server-side nickname support: src/identity.ts (sanitiseNickname), src/realtime.ts (Client.nickname), src/server.ts (cursor handling uses displayLabel)
+- Added welcome overlay (public/index.html), gradient atmosphere background + overlay styles (public/styles.css)
+- Wired nickname localStorage + gated app boot behind welcome dismissal + help button (public/app.js)
+- Found + fixed a real XSS risk while building this: showCursor used innerHTML with the label interpolated raw — safe when label was always server-generated, not safe once it could be an arbitrary nickname. Fixed to textContent-based DOM construction before it ever shipped.
+- Verified with Playwright: welcome shows once, nickname persists + displays, reload skips it, "?" reopens it, two contexts see each other's nicknamed cursors, keyboard-only flow works
+- Added 2 realtime tests for nickname broadcast + sanitization
+- Investigated a one-off EPIPE flake in the oversized-image test — root-caused as an inherent trade-off of the earlier connection-poisoning fix, documented it, made the test accept both valid outcomes
+- pnpm check: 29/29, stable across 5 runs; updated README/PROCESS/ADR 0002 with the onboarding note

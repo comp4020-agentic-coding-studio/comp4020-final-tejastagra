@@ -145,3 +145,35 @@ it("a late-joining session receives the current state snapshot", async () => {
   expect(snapshot.objects.some((o: any) => o.data.includes("already-here"))).toBe(true);
   late.close();
 });
+
+it("a cursor ping's nickname is broadcast to other clients on the branch", async () => {
+  const branchId = await freshBranch();
+  const a = await connect(branchId);
+  const b = await connect(branchId);
+  await nextMessage(a, (m) => m.type === "snapshot");
+  await nextMessage(b, (m) => m.type === "snapshot");
+
+  a.send(JSON.stringify({ type: "cursor", x: 10, y: 20, nickname: "Aurora" }));
+  const seen = await nextMessage(b, (m) => m.type === "cursor");
+  expect(seen.userId).toBe("Aurora");
+
+  a.close();
+  b.close();
+});
+
+it("an overlong or control-character nickname is sanitised before broadcast", async () => {
+  const branchId = await freshBranch();
+  const a = await connect(branchId);
+  const b = await connect(branchId);
+  await nextMessage(a, (m) => m.type === "snapshot");
+  await nextMessage(b, (m) => m.type === "snapshot");
+
+  const tooLong = "x".repeat(100);
+  a.send(JSON.stringify({ type: "cursor", x: 0, y: 0, nickname: `${tooLong}\u0000<script>` }));
+  const seen = await nextMessage(b, (m) => m.type === "cursor");
+  expect(seen.userId.length).toBeLessThanOrEqual(24);
+  expect(seen.userId).not.toContain("\u0000");
+
+  a.close();
+  b.close();
+});

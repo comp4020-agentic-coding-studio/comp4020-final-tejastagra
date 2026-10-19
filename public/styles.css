@@ -35,9 +35,16 @@ body {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* A soft, fixed atmosphere wash sits under the dot grid so the canvas
+     reads as a place rather than a flat utility background — the dots
+     (useful for spatial orientation while panning/zooming) stay on top,
+     unscaled by the wash itself. */
   background-color: var(--canvas-bg);
-  background-image: radial-gradient(var(--dot) 1.4px, transparent 1.4px);
-  background-size: 28px 28px;
+  background-image: radial-gradient(var(--dot) 1.4px, transparent 1.4px),
+    radial-gradient(ellipse 80% 60% at 20% 15%, #efe9ff 0%, transparent 60%),
+    radial-gradient(ellipse 70% 55% at 85% 85%, #e4f4ef 0%, transparent 60%);
+  background-size: 28px 28px, 100% 100%, 100% 100%;
+  background-attachment: fixed, fixed, fixed;
   cursor: grab;
 }
 
@@ -110,6 +117,131 @@ body {
   padding: 0.3rem 0.7rem;
   border-radius: 999px;
   pointer-events: auto;
+}
+
+.help-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  box-shadow: var(--panel-shadow);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.help-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* --- Welcome overlay --- */
+
+#welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: radial-gradient(ellipse 90% 70% at 25% 20%, #efe9ff 0%, transparent 55%),
+    radial-gradient(ellipse 80% 65% at 80% 85%, #e4f4ef 0%, transparent 55%), var(--canvas-bg);
+}
+
+#welcome-overlay[hidden] {
+  display: none;
+}
+
+.welcome-card {
+  max-width: 30rem;
+  width: 100%;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  border-radius: 20px;
+  padding: 2.2rem 2.4rem;
+}
+
+.welcome-card h1 {
+  margin: 0 0 0.3rem;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.welcome-card .welcome-tag {
+  margin: 0 0 1.2rem;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.welcome-card p {
+  margin: 0 0 1rem;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.welcome-field {
+  display: block;
+  margin: 1.4rem 0 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.welcome-field .optional {
+  font-weight: 400;
+}
+
+.welcome-field input {
+  display: block;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  font: inherit;
+  font-size: 1rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.welcome-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.welcome-button {
+  width: 100%;
+  padding: 0.75rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.welcome-button:hover {
+  filter: brightness(1.08);
+}
+
+.welcome-button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .welcome-card {
+    padding: 1.6rem 1.4rem;
+  }
 }
 
 /* --- Floating pill toolbar --- */

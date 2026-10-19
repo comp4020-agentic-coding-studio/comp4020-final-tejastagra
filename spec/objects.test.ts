@@ -145,13 +145,24 @@ it("rejects an oversized image payload", async () => {
     Buffer.from("89504e470d0a1a0a", "hex"),
     Buffer.alloc(3 * 1024 * 1024, 0),
   ]).toString("base64");
-  const res = await createObject(branchId, {
-    type: "image",
-    x: 0,
-    y: 0,
-    data: { imageBase64: oversized },
-  });
-  expect(res.status).toBe(400);
+  // The server closes the connection as soon as it sees the body is too
+  // large, rather than draining the rest of a multi-MB payload just to
+  // discard it (see src/server.ts's sendJsonAndCloseConnection). Depending
+  // on exact timing, the client can observe that either as this clean 400
+  // response, or as the underlying connection erroring out (e.g. EPIPE)
+  // while still mid-upload — both mean the same thing: the body was
+  // rejected for being too large, so both are accepted here.
+  try {
+    const res = await createObject(branchId, {
+      type: "image",
+      x: 0,
+      y: 0,
+      data: { imageBase64: oversized },
+    });
+    expect(res.status).toBe(400);
+  } catch (e) {
+    expect(String(e)).toMatch(/EPIPE|ECONNRESET|fetch failed/);
+  }
 });
 
 // Regression test for a real, fixed vulnerability: PATCH used to skip the

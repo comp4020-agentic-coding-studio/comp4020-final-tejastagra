@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer, type WebSocket } from "ws";
 
 import { openDb, Store } from "./db.ts";
-import { identify, shortLabel } from "./identity.ts";
+import { identify, sanitiseNickname, shortLabel } from "./identity.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { makeLogger } from "./log.ts";
 import { addClient, removeClient, broadcastToBranch, type Client } from "./realtime.ts";
@@ -89,6 +89,14 @@ async function readJsonBody(req: IncomingMessage, maxBytes: number): Promise<unk
 // would time out. Telling the client to close the connection, then
 // destroying the socket once the error response is flushed, is what
 // actually prevents that — rejecting the response alone isn't enough.
+// Trade-off, not a bug: closing the connection this early (rather than
+// draining the rest of a multi-MB body just to discard it, which would
+// reopen the DoS cost this is meant to avoid) means a client that's still
+// mid-upload when this fires can see either this clean 400 response or a
+// lower-level connection error (e.g. EPIPE), depending on exactly how much
+// of its body was still in flight. Both are acceptable outcomes for "your
+// request was too large" — see spec/objects.test.ts's oversized-upload
+// test, which accepts either.
 function sendJsonAndCloseConnection(res: ServerResponse, status: number, body: unknown): void {
   res.setHeader("Connection", "close");
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
@@ -562,6 +570,10 @@ const server = createServer(async (req, res) => {
   serveStatic(req, res, pathname.replace(/^\//, ""));
 });
 
+function displayLabel(client: Client): string {
+  return client.nickname || shortLabel(client.userId);
+}
+
 const wss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req, socket, head) => {
@@ -609,9 +621,12 @@ wss.on("connection", (ws: WebSocket, _req: IncomingMessage, ctx: { userId: strin
       return;
     }
     if (msg?.type === "cursor") {
+      if (typeof msg.nickname === "string") {
+        client.nickname = sanitiseNickname(msg.nickname);
+      }
       broadcastToBranch(
         ctx.branchId,
-        { type: "cursor", userId: shortLabel(ctx.userId), x: msg.x, y: msg.y },
+        { type: "cursor", userId: displayLabel(client), x: msg.x, y: msg.y },
         client,
       );
     }
@@ -620,7 +635,7 @@ wss.on("connection", (ws: WebSocket, _req: IncomingMessage, ctx: { userId: strin
   ws.on("close", () => {
     removeClient(client);
     log({ event: "user_leave", user_id: ctx.userId, branch_id: ctx.branchId, outcome: "ok" });
-    broadcastToBranch(ctx.branchId, { type: "presence_left", userId: shortLabel(ctx.userId) });
+    broadcastToBranch(ctx.branchId, { type: "presence_left", userId: displayLabel(client) });
   });
 });
 

@@ -36,3 +36,18 @@ export function identify(req: IncomingMessage, res: ServerResponse): string {
 export function shortLabel(id: string): string {
   return id.slice(0, 8);
 }
+
+const MAX_NICKNAME_LENGTH = 24;
+
+// A nickname is purely cosmetic, sent fresh with every cursor ping, never
+// persisted and never a stand-in for the real (HttpOnly cookie) identity
+// anything is logged or permissioned against. Still sanitised before ever
+// being broadcast to other clients: capped in length and stripped of
+// control/non-printable characters, the same caution this app applies to
+// every other client-supplied string.
+export function sanitiseNickname(raw: string): string {
+  return raw
+    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .trim()
+    .slice(0, MAX_NICKNAME_LENGTH);
+}

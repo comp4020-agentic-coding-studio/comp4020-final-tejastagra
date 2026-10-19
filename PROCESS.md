@@ -160,6 +160,62 @@ running the app and its test suite before being written down, per the
   predicate, rather than only listening for what arrives after the check
   starts.
 
+## Phase 3: onboarding, nicknames and art-direction pass
+
+After Phase 2 shipped (deployed and verified), the user pointed out a real
+gap that Phase 2's own tests couldn't catch: a stranger lands on an empty
+canvas with no explanation of what the project is or what forking means,
+and the canvas background itself read as a flat utility screen rather than
+"this is your digital space" — a direct miss against the brief's "a
+stranger can use the core interaction without the developer operating the
+UI" requirement.
+
+Added a first-visit welcome overlay (`public/index.html`'s
+`#welcome-overlay`) explaining the project and fork in the same honest
+language already written for README.md, an optional nickname field, and a
+persistent "?" button to reopen it. The welcome gates the app's boot
+sequence (`public/app.js`'s `boot()`) so nobody interacts with a canvas
+they haven't been oriented to. A soft gradient wash was added behind the
+existing dot grid (`public/styles.css`) so the canvas itself reads as a
+place rather than a blank tool.
+
+Nicknames are deliberately a display-only layer on top of the existing
+anonymous identity, not a second identity system — see ADR 0002's new
+section on this. Stored in `localStorage`, sent fresh with every ephemeral
+cursor ping, sanitised server-side (`src/identity.ts`'s
+`sanitiseNickname`), never persisted as part of any durable object or
+logged in place of the real pseudonymous id.
+
+One real security issue was caught and fixed while building this: the
+existing cursor-label rendering (`public/app.js`'s `showCursor`) used
+`innerHTML` with the label interpolated directly into the string — safe
+when the label was always a server-generated hex string, but a genuine
+stored/reflected-XSS path the moment that label could be an arbitrary
+client-supplied nickname. Fixed before it ever shipped by switching to
+`textContent`-based DOM construction, consistent with how every other
+user-supplied string in this app is rendered.
+
+Verified with a Playwright-driven headless Chromium (same pattern as
+Phase 2): welcome screen shows on first visit, nickname saves and shows as
+"you: <nickname>", a page reload skips straight to the canvas, the "?"
+button reopens the welcome with the nickname pre-filled, two separate
+browser contexts with different nicknames see each other's cursor labels
+correctly, and keyboard-only interaction (initial focus on the nickname
+field, Enter to submit) works. `pnpm check`: 29/29, stable across 5
+repeated runs (one single flake was investigated, not dismissed — see
+below).
+
+One test flake investigated rather than hand-waved: `spec/objects.test.ts`'s
+oversized-image test occasionally saw the client's own `fetch` throw an
+`EPIPE` instead of receiving the expected `400` response. This is an
+inherent trade-off of the connection-poisoning fix from Phase 2 (closing
+the connection as soon as an oversized body is detected, rather than
+draining the rest of a multi-MB payload just to discard it) — depending on
+exact timing, a client still mid-upload can see either outcome. Documented
+in both `src/server.ts` and the test itself, and the test now accepts
+either a `400` or the specific network errors this trade-off can produce,
+rather than treating the non-deterministic case as a bug to paper over.
+
 ## Current limitations and next steps
 
 See README.md's "Known limitations and current status" section for the

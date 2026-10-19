@@ -45,6 +45,43 @@ const strokeEls = new Map(); // id -> <path>
 
 let myLabel = "";
 
+// --- Nickname: purely cosmetic, stored client-side only. Never replaces
+// the server's own anonymous identity (the HttpOnly cookie) that grounds
+// permissions and logging — this is a display label layered on top, sent
+// fresh with every cursor ping, never persisted as part of any object. ---
+
+const NICKNAME_KEY = "wall_nickname";
+const SEEN_WELCOME_KEY = "wall_seen_welcome";
+
+function getStoredNickname() {
+  try {
+    return localStorage.getItem(NICKNAME_KEY) ?? "";
+  } catch {
+    return ""; // localStorage can throw in a private window or with blocked site data
+  }
+}
+function setStoredNickname(value) {
+  try {
+    localStorage.setItem(NICKNAME_KEY, value);
+  } catch {
+    // per-viewer convenience only; losing it just means asking again next visit
+  }
+}
+function hasSeenWelcome() {
+  try {
+    return localStorage.getItem(SEEN_WELCOME_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function markWelcomeSeen() {
+  try {
+    localStorage.setItem(SEEN_WELCOME_KEY, "1");
+  } catch {
+    // worst case, the welcome screen shows again next visit — not harmful
+  }
+}
+
 // --- Camera (world <-> screen) ---
 
 const cam = { x: 0, y: 0, scale: 1 };
@@ -361,7 +398,7 @@ function connectWs() {
     const msg = JSON.parse(ev.data);
     switch (msg.type) {
       case "snapshot":
-        myLabel = msg.you;
+        myLabel = getStoredNickname() || msg.you;
         whoEl.textContent = `you: ${myLabel}`;
         for (const obj of msg.objects) applyObject(obj);
         break;
@@ -383,14 +420,22 @@ function connectWs() {
 }
 
 const cursorEls = new Map();
-function showCursor(userId, worldX, worldY) {
-  let el = cursorEls.get(userId);
+function showCursor(label, worldX, worldY) {
+  let el = cursorEls.get(label);
   if (!el) {
     el = document.createElement("div");
     el.className = "cursor";
-    el.innerHTML = `<div class="pointer"></div><div class="label">${userId}</div>`;
+    const pointer = document.createElement("div");
+    pointer.className = "pointer";
+    const tag = document.createElement("div");
+    tag.className = "label";
+    // A label may now be a client-chosen nickname (sanitised server-side
+    // against control characters, but not HTML-escaped) — textContent,
+    // never innerHTML, so it can never be interpreted as markup.
+    tag.textContent = label;
+    el.append(pointer, tag);
     cursorLayer.appendChild(el);
-    cursorEls.set(userId, el);
+    cursorEls.set(label, el);
   }
   el.style.left = `${worldX * cam.scale + cam.x}px`;
   el.style.top = `${worldY * cam.scale + cam.y}px`;
@@ -409,7 +454,7 @@ function sendCursor(worldX, worldY) {
   if (now - lastCursorSend < 50) return; // throttle — presence is ephemeral, not logged, but still shouldn't flood
   lastCursorSend = now;
   if (ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "cursor", x: worldX, y: worldY }));
+    ws.send(JSON.stringify({ type: "cursor", x: worldX, y: worldY, nickname: getStoredNickname() }));
   }
 }
 
@@ -706,9 +751,47 @@ document.getElementById("fork-btn").addEventListener("click", async () => {
   }
 });
 
+// --- Welcome overlay ---
+
+const welcomeOverlay = document.getElementById("welcome-overlay");
+const nicknameInput = document.getElementById("nickname-input");
+const welcomeContinue = document.getElementById("welcome-continue");
+const helpBtn = document.getElementById("help-btn");
+
+function openWelcome({ resetFocus = true } = {}) {
+  nicknameInput.value = getStoredNickname();
+  welcomeOverlay.hidden = false;
+  if (resetFocus) nicknameInput.focus();
+}
+
+function closeWelcomeAndBoot() {
+  setStoredNickname(nicknameInput.value.trim());
+  markWelcomeSeen();
+  welcomeOverlay.hidden = true;
+  boot();
+}
+
+welcomeContinue.addEventListener("click", closeWelcomeAndBoot);
+nicknameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") closeWelcomeAndBoot();
+});
+helpBtn.addEventListener("click", () => openWelcome({ resetFocus: false }));
+
 // --- Boot ---
 
-applyCameraTransform();
-loadSnapshot()
-  .then(() => connectWs())
-  .catch((e) => setStatus(`Failed to load canvas: ${e.message}`, true));
+let booted = false;
+function boot() {
+  if (booted) return;
+  booted = true;
+  applyCameraTransform();
+  loadSnapshot()
+    .then(() => connectWs())
+    .catch((e) => setStatus(`Failed to load canvas: ${e.message}`, true));
+}
+
+if (hasSeenWelcome()) {
+  welcomeOverlay.hidden = true;
+  boot();
+} else {
+  openWelcome();
+}

@@ -33,6 +33,21 @@ Every HTTP request and WebSocket upgrade resolves this cookie to a
 prefix (`shortLabel`) is shown in the UI and on presence cursors so people
 can tell each other apart without exposing the full id.
 
+### Nicknames are a display layer, not a second identity system
+
+A first-time visitor is asked for an optional nickname on a welcome screen
+(`public/index.html`'s `#welcome-overlay`). This is stored in the browser's
+own `localStorage`, never sent to the server as part of any durable
+object, and never touches `created_by`/the audit log — it is purely a
+cosmetic replacement for the short-hash label, re-sent fresh with every
+ephemeral cursor ping (`src/realtime.ts`'s `Client.nickname`,
+`src/identity.ts`'s `sanitiseNickname`) and shown on presence cursors and
+the "you: ..." pill. Sanitised server-side (length-capped, control
+characters stripped) before being broadcast to other clients, and rendered
+client-side via `textContent` rather than `innerHTML`, consistent with how
+every other client-supplied string in this app is handled — it is never
+trusted as markup just because it's "only a display name."
+
 ### What each identity may do
 
 The Wall has **no per-object ownership restriction** — anyone on a branch

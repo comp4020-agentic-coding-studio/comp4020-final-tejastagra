@@ -40,8 +40,10 @@ The Wall is good if:
 
 - **Expression over structure.** Freehand drawing and free text, not forms
   or fields.
-- **Low-friction participation.** No sign-up, no onboarding flow — open the
-  page, pick a tool, make a mark.
+- **Low-friction participation.** No sign-up, no account — a brief,
+  one-time welcome explains the space and what forking means before a
+  first-time visitor lands on the canvas, then gets out of the way for
+  every visit after. No gatekeeping, just orientation.
 - **Presence.** Real connected users' cursors are visible, scoped to the
   branch they're actually on. Never simulated or faked.
 - **Persistence.** A mark survives a refresh, a new visit days later, and a
@@ -110,6 +112,12 @@ out about the conflict by noticing the resemblance.
   for sticky notes, music links, embeds and image uploads, including that
   uploaded bytes are checked against real image magic bytes, not the
   client's claimed file type.
+- Onboarding: `spec/realtime.test.ts` verifies a cursor ping's nickname is
+  broadcast to other clients and that an overlong or control-character
+  nickname is sanitised first; manually verified with two separate browser
+  contexts that a nickname set during the welcome screen shows up on the
+  other person's cursor label, and that the welcome screen shows once per
+  browser and can be reopened via the "?" button.
 
 ## Known limitations and current status
 
