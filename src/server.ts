@@ -8,7 +8,7 @@ import { join, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { openDb, TaskStore } from "./db.ts";
-import { broadcast } from "./realtime.ts";
+import { broadcast, type RoomSocket } from "./realtime.ts";
 import { renderMarkdown } from "./markdown.ts";
 import { createIdentitiesTable, ensureIdentity, renameIdentity } from "./identity.ts";
 import { createAuditTable, logAction, recentAuditLog } from "./auditlog.ts";
@@ -34,6 +34,14 @@ function sendJson(res: import("node:http").ServerResponse, status: number, body:
   const data = JSON.stringify(body);
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(data);
+}
+
+// ADR 0003: a room is just a URL-addressable scope, named by `?room=`, no
+// creation step. Blank or absent falls back to the one room everyone used
+// before rooms existed, so a plain link still works exactly as it did.
+function roomFromUrl(url: URL): string {
+  const room = url.searchParams.get("room")?.trim();
+  return room || "general";
 }
 
 function readBody(req: import("node:http").IncomingMessage): Promise<string> {
@@ -100,9 +108,14 @@ const server = createServer(async (req, res) => {
       }
 
       if (pathname === "/api/tasks" && req.method === "GET") {
-        // Everyone may see the whole shared board — the restriction is on
-        // who may *change* a task, not who may see it (docs/adr/0002).
-        sendJson(res, 200, store.all());
+        // Everyone may see the whole shared board *within their room* — the
+        // restriction is on who may *change* a task, not who may see it
+        // (docs/adr/0002), and rooms (docs/adr/0003) are a view scope, not a
+        // permission.
+        const roomId = roomFromUrl(url);
+        const tasks = store.all(roomId);
+        console.log(`[snapshot] sent room=${roomId} count=${tasks.length} to actor=${me.id}`);
+        sendJson(res, 200, tasks);
         return;
       }
 
@@ -114,9 +127,10 @@ const server = createServer(async (req, res) => {
           return;
         }
         const description = typeof body.description === "string" ? body.description.trim() || null : null;
-        const task = store.create(title, description, me.id, me.name);
+        const roomId = roomFromUrl(url);
+        const task = store.create(title, description, me.id, me.name, roomId);
         logAction(db, { actorId: me.id, actorName: me.name, action: "create", taskId: task.id, allowed: true, detail: title });
-        broadcast(wss, { type: "created", task });
+        broadcast(wss, roomId, { type: "created", task });
         sendJson(res, 201, task);
         return;
       }
@@ -166,7 +180,7 @@ const server = createServer(async (req, res) => {
           return;
         }
         logAction(db, { actorId: me.id, actorName: me.name, action: "update", taskId: id, allowed: true, detail: JSON.stringify(changes) });
-        broadcast(wss, { type: "updated", task: result });
+        broadcast(wss, result.roomId, { type: "updated", task: result });
         sendJson(res, 200, result);
         return;
       }
@@ -202,7 +216,7 @@ const server = createServer(async (req, res) => {
           return;
         }
         logAction(db, { actorId: me.id, actorName: me.name, action: "delete", taskId: id, allowed: true, detail: null });
-        broadcast(wss, { type: "deleted", id });
+        broadcast(wss, existing.roomId, { type: "deleted", id });
         sendJson(res, 204, null);
         return;
       }
@@ -235,9 +249,18 @@ const server = createServer(async (req, res) => {
 });
 
 const wss = new WebSocketServer({ server });
-wss.on("connection", (ws) => {
-  // No per-connection state needed: clients fetch /api/tasks for the current
-  // snapshot on load/reconnect, then listen here for live diffs.
+wss.on("connection", (ws: RoomSocket, req) => {
+  // Clients fetch /api/tasks for the current snapshot on load/reconnect, then
+  // listen here for live diffs — the one thing a connection needs to
+  // remember is which room (ADR 0003) it joined with, read once here.
+  const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+  ws.roomId = roomFromUrl(url);
+  console.log(`[conn] joined room=${ws.roomId} clients=${wss.clients.size}`);
+  ws.on("close", () => {
+    // ws has already removed this socket from wss.clients by the time
+    // "close" fires, so the set's size here is the count *after* it leaves.
+    console.log(`[conn] left room=${ws.roomId} clients=${wss.clients.size}`);
+  });
   ws.on("error", () => {});
 });
 
