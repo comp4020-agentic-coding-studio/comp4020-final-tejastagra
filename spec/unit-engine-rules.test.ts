@@ -546,6 +546,15 @@ describe("R53 one Earthquake per player, and one power-up per round", () => {
   });
 });
 
+describe("R54 only an explicit earthquake: true is an Earthquake", () => {
+  it("R54 a choice with earthquake: false is a column choice, checked as one", () => {
+    const state = withBoard({ 0: "ABABAB" });
+    const notQuake = { column: 0, shield: false, earthquake: false } as unknown as Parameters<typeof validateChoice>[2];
+    expect(validateChoice(state, "A", notQuake)).toEqual({ ok: false, reason: "column_full" });
+    expect(validateChoice(newGame(), "A", { column: 1, shield: false, earthquake: false } as unknown as Parameters<typeof validateChoice>[2])).toEqual({ ok: true });
+  });
+});
+
 describe("R56 the earthquake removes the bottom row and shifts each column down one", () => {
   it("R56 removes exactly the bottom row, discs and rubble alike, and keeps the order above", () => {
     const state = withBoard({ 0: "ABA", 1: "R", 2: "BRA", 4: "AB" });
