@@ -21,21 +21,26 @@ async function twoPlayers(browser: Parameters<typeof newPlayer>[0], a = PHONE, b
 }
 
 test.describe("Play on the board", () => {
-  test("U10 to U13 tapping a column chooses it, shows the ghost disc and tapping another column changes it", async ({ browser }) => {
+  test("U12 and U13 tapping a column chooses it for good: the ghost disc locks in and a second tap changes nothing (R4)", async ({ browser }) => {
     const { one, two } = await twoPlayers(browser);
     await chooseColumn(one.page, 2);
     await expect(one.page.locator(testid("column-2"))).toHaveAttribute("aria-pressed", "true");
     await expect(one.page.locator(testid("chosen-label"))).toHaveText("Chosen");
     await expect(one.page.locator(testid("ghost-disc"))).toBeVisible();
     await expect(two.page.locator(testid("opponent-status"))).toHaveText("Ready");
-    await chooseColumn(one.page, 5); // a change of mind is allowed until the round resolves (R4)
-    await expect(one.page.locator(testid("column-5"))).toHaveAttribute("aria-pressed", "true");
-    await expect(one.page.locator(testid("column-2"))).toHaveAttribute("aria-pressed", "false");
-    await chooseColumn(two.page, 5);
+    // Locked: every column and the shield badge are off, and another tap says so and sends nothing.
+    await expect(one.page.locator(testid("shield-badge"))).toBeDisabled();
+    await one.page.locator(testid("column-5")).click({ force: true });
+    await expect(one.page.locator(testid("game-message"))).toHaveText("Your choice is locked in.");
+    await expect(one.page.locator(testid("column-5"))).toHaveAttribute("aria-pressed", "false");
+    await expect(one.page.locator(testid("column-2"))).toHaveAttribute("aria-pressed", "true");
+    await chooseColumn(two.page, 2);
     await waitForRound(one.page, 2);
-    // The changed choice is the one that counted: the crash is in column 5 (index 5), not column 2.
-    await expect(one.page.locator(testid("cell-5-0"))).toHaveAttribute("data-piece", "R");
-    await expect(one.page.locator(testid("cell-2-0"))).toHaveAttribute("data-piece", "");
+    // The first choice is the one that counted: the crash is in column 2, and column 5 is empty.
+    await expect(one.page.locator(testid("cell-2-0"))).toHaveAttribute("data-piece", "R");
+    await expect(one.page.locator(testid("cell-5-0"))).toHaveAttribute("data-piece", "");
+    // The next round opens unlocked.
+    await expect(one.page.locator(testid("column-4"))).toHaveAttribute("aria-disabled", "false");
     await one.context.close();
     await two.context.close();
   });
@@ -46,8 +51,10 @@ test.describe("Play on the board", () => {
     await expect(two.page.locator(testid("ghost-disc"))).toBeVisible();
     await two.page.locator(testid("column-1")).hover();
     const ghost = (await two.page.locator(testid("ghost-disc")).boundingBox())!;
-    const column1 = (await two.page.locator(testid("column-1")).boundingBox())!;
-    expect(Math.abs(ghost.x + ghost.width / 2 - (column1.x + column1.width / 2))).toBeLessThan(4); // it follows the pointer
+    const hole = (await two.page.locator(testid("cell-1-5")).boundingBox())!;
+    const board = (await two.page.locator(testid("board-wrap")).boundingBox())!;
+    expect(Math.abs(ghost.x + ghost.width / 2 - (hole.x + hole.width / 2)), "centred above its column").toBeLessThan(2);
+    expect(ghost.y + ghost.height, "outside the board, above it").toBeLessThanOrEqual(board.y + 1);
     // The phone has no hover and still plays: a tap chooses.
     await chooseColumn(one.page, 3);
     await expect(one.page.locator(testid("column-3"))).toHaveAttribute("aria-pressed", "true");
@@ -88,6 +95,7 @@ test.describe("Play on the board", () => {
     const { one, two } = await twoPlayers(browser);
     const badge = one.page.locator(testid("shield-badge"));
     await expect(badge).toHaveAttribute("aria-pressed", "false");
+    await expect(one.page.locator(testid("shield-label"))).toHaveText("Tap to arm shield");
     await badge.click();
     await expect(badge).toHaveAttribute("aria-pressed", "true");
     await expect(one.page.locator(testid("shield-label"))).toHaveText("Shield armed");
@@ -99,7 +107,7 @@ test.describe("Play on the board", () => {
     await chooseColumn(one.page, 3);
     await chooseColumn(two.page, 3);
     await waitForRound(one.page, 2);
-    await expect(one.page.locator(testid("shield-label"))).toHaveText("Shield spent");
+    await expect(one.page.locator(testid("shield-label"))).toHaveText("Shield used");
     await expect(two.page.locator(testid("opponent-shield"))).toHaveText("used"); // it is spent now, which is public (R20)
     await one.context.close();
     await two.context.close();
@@ -134,7 +142,6 @@ test.describe("Motion and endings", () => {
       ),
     );
     expect(Date.now() - startedAt).toBeLessThan(1_000);
-    // R22: the countdown has not shown a choice early: it only ever shows numbers and the word DROP.
     await one.context.close();
     await two.context.close();
   });
@@ -149,13 +156,12 @@ test.describe("Motion and endings", () => {
     await expect(one.page.locator(testid("end-title"))).toHaveText("YOU WIN!", { timeout: 4_000 });
     await expect(two.page.locator(testid("end-title"))).toHaveText("SO CLOSE!", { timeout: 4_000 });
     await expect(one.page.locator(testid("end-popup"))).toBeVisible();
-    // U27a: the winning line is visible beside or above the popup: four glowing discs, none covered by it.
+    // U27a: the popup is centred over the board, and the four winning discs glow behind it.
     const popup = (await one.page.locator(testid("end-popup") + " .popup-card").boundingBox())!;
-    for (let r = 0; r < 4; r++) {
-      const cell = (await one.page.locator(testid(`cell-0-${r}`)).boundingBox())!;
-      const overlap = !(cell.x + cell.width < popup.x || cell.x > popup.x + popup.width || cell.y + cell.height < popup.y || cell.y > popup.y + popup.height);
-      expect(overlap, `cell-0-${r} is not covered by the popup`).toBe(false);
-    }
+    const board = (await one.page.locator(testid("board-wrap")).boundingBox())!;
+    expect(Math.abs(popup.x + popup.width / 2 - (board.x + board.width / 2)), "popup centred over the board, sideways").toBeLessThan(4);
+    expect(popup.y, "popup inside the board").toBeGreaterThanOrEqual(board.y);
+    expect(popup.y + popup.height, "popup inside the board").toBeLessThanOrEqual(board.y + board.height);
     expect(await one.page.locator(".piece.win").count()).toBe(4);
     await one.context.close();
     await two.context.close();
@@ -179,22 +185,20 @@ test.describe("Motion and endings", () => {
     await two.context.close();
   });
 
-  test("U30 with reduced motion on, the popup still appears, there is no countdown and nothing animates", async ({ browser }) => {
+  test("U30 with reduced motion on, the popup still appears and nothing animates", async ({ browser }) => {
     const one = await newPlayer(browser, PHONE, { reducedMotion: true });
     const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
     const code = await makeGameCode(one.page);
     await one.page.goto(`/g/${code}`);
     await two.page.goto(`/g/${code}`);
     await waitForRound(one.page, 1);
-    const sawCountdown = one.page.waitForFunction(() => (document.querySelector('[data-testid="countdown"]')?.textContent ?? "") !== "", null, { timeout: 1_500 }).then(() => true, () => false);
     for (let i = 0; i < 4; i++) {
       await chooseColumn(one.page, 0);
       await chooseColumn(two.page, 1 + (i % 2));
       if (i < 3) await waitForRound(one.page, i + 2);
     }
     await expect(one.page.locator(testid("end-popup"))).toBeVisible({ timeout: 4_000 });
-    expect(await sawCountdown, "no countdown under reduced motion").toBe(false);
-    expect(await one.page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length), "no running animation").toBe(0);
+    expect(await one.page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").map((a) => `${(a.effect as KeyframeEffect).target?.className} ${(a as CSSAnimation).animationName ?? (a as CSSTransition).transitionProperty}`)), "no running animation").toEqual([]);
     await one.context.close();
     await two.context.close();
   });
@@ -268,20 +272,121 @@ test.describe("Home", () => {
   });
 });
 
+// Plays the tutorial step the player is on, as a player would: by tapping, never by skipping the action.
+async function doStep(page: Page, step: number): Promise<void> {
+  const tap = (c: number) => page.locator(testid(`tutorial-column-${c}`)).click();
+  if (step === 1 || step === 2 || step === 3) await tap(3);
+  if (step === 4) {
+    await page.locator(testid("tutorial-shield")).click();
+    await tap(3);
+  }
+  if (step === 5) await tap(4);
+  if (step <= 5) await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
+}
+
 test.describe("Tutorial", () => {
-  test("R47 and U41 to U46 a first-time visitor sees all five steps, including the crash and the shield", async ({ browser }) => {
+  test("R47 and U41 to U46 the tutorial is interactive: each step waits for the player, and Next appears only once the step is done", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
     await page.goto("/");
     await expect(page.locator(testid("tutorial"))).toBeVisible();
     const titles: string[] = [];
-    for (let i = 0; i < 5; i++) {
+    for (let step = 1; step <= 6; step++) {
       titles.push(await page.locator(testid("tutorial-title")).innerText());
-      const caption = await page.locator(testid("tutorial-caption")).innerText();
-      expect(caption.length).toBeGreaterThan(20);
-      if (i < 4) await page.click(testid("tutorial-next"));
+      expect((await page.locator(testid("tutorial-caption")).innerText()).length).toBeGreaterThan(20);
+      // Skip is always there; Next is not until the player has acted.
+      await expect(page.locator(testid("tutorial-skip"))).toBeVisible();
+      if (step <= 5) {
+        await expect(page.locator(testid("tutorial-next")), `step ${step}: no Next before acting`).toBeHidden();
+        await doStep(page, step);
+        await page.click(testid("tutorial-next"));
+      }
     }
-    expect(titles).toEqual(["Pick a column", "You both move at once", "Crash!", "Your shield", "Four in a row wins"]);
+    expect(titles).toEqual(["Pick a column", "You both move at once", "Crash!", "Power-ups: your shield", "Four in a row wins", "Ready to play"]);
     await expect(page.locator(testid("tutorial-next"))).toHaveText("Play the computer");
+    await expect(page.locator(testid("tutorial-skip"))).toHaveText("Back home");
+    await context.close();
+  });
+
+  test("U41 step 1: tapping a column locks the ghost disc in, and a second tap changes nothing", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
+    await page.goto("/");
+    await expect(page.locator(testid("tutorial-ghost"))).toBeHidden();
+    await page.locator(testid("tutorial-column-2")).click();
+    await expect(page.locator(testid("tutorial-ghost"))).toBeVisible();
+    await expect(page.locator(testid("tutorial-hint"))).toContainText("Locked in");
+    const first = (await page.locator(testid("tutorial-ghost")).boundingBox())!;
+    await page.locator(testid("tutorial-column-5")).click({ force: true });
+    const second = (await page.locator(testid("tutorial-ghost")).boundingBox())!;
+    expect(second.x).toBeCloseTo(first.x, 0);
+    await context.close();
+  });
+
+  test("U42 and U43 steps 2 and 3: both discs drop together, then the same column leaves rubble", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
+    await page.goto("/");
+    await doStep(page, 1);
+    await page.click(testid("tutorial-next"));
+    await doStep(page, 2);
+    const pieces = await page.locator(`${testid("tutorial-board")} [data-testid^="cell-"][data-piece="A"], ${testid("tutorial-board")} [data-testid^="cell-"][data-piece="B"]`).count();
+    expect(pieces, "step 2: two discs landed").toBe(2);
+    await page.click(testid("tutorial-next"));
+    await doStep(page, 3);
+    expect(await page.locator(`${testid("tutorial-board")} [data-piece="R"]`).count(), "step 3: rubble landed").toBe(1);
+    await context.close();
+  });
+
+  test("U44 step 4: the shield badge shows on the player's side, must be tapped first, and blocks the computer's win", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
+    await page.goto("/");
+    for (let step = 1; step <= 3; step++) {
+      await doStep(page, step);
+      await page.click(testid("tutorial-next"));
+    }
+    await expect(page.locator(testid("tutorial-title"))).toHaveText("Power-ups: your shield");
+    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Your shield wins one crash per game. Use it when you both need the same column.");
+    const badge = page.locator(testid("tutorial-shield"));
+    await expect(badge).toBeVisible();
+    await expect(badge).toContainText("Tap to arm shield");
+    // The wrong column, or no shield, is not accepted: the step waits and says why.
+    await page.locator(testid("tutorial-column-3")).click();
+    await expect(page.locator(testid("tutorial-hint"))).toContainText("Tap your shield first");
+    await expect(page.locator(testid("tutorial-next"))).toBeHidden();
+    await badge.click();
+    await expect(badge).toContainText("Shield armed");
+    await page.locator(testid("tutorial-column-0")).click();
+    await expect(page.locator(testid("tutorial-hint"))).toContainText("glowing column");
+    await page.locator(testid("tutorial-column-3")).click();
+    await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
+    // The player's disc landed in the column the computer needed, and the computer's was lost.
+    await expect(page.locator(`${testid("tutorial-board")} [data-testid="cell-3-0"]`)).toHaveAttribute("data-piece", "A");
+    expect(await page.locator(`${testid("tutorial-board")} [data-piece="B"]`).count(), "the computer got no fourth disc").toBe(3);
+    await expect(badge).toContainText("Shield used");
+    await context.close();
+  });
+
+  test("U45 and U46 steps 5 and 6: four in a row wins, then Play the computer or Back home", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
+    await page.goto("/");
+    for (let step = 1; step <= 5; step++) {
+      await doStep(page, step);
+      if (step === 5) expect(await page.locator(`${testid("tutorial-board")} .piece.win`).count(), "step 5 ends on four glowing discs").toBe(4);
+      await page.click(testid("tutorial-next"));
+    }
+    await expect(page.locator(testid("tutorial-title"))).toHaveText("Ready to play");
+    await page.click(testid("tutorial-skip")); // Back home
+    await expect(page.locator(testid("tutorial"))).toBeHidden();
+    await expect(page.locator(testid("home-screen"))).toBeVisible();
+    await context.close();
+  });
+
+  test("U41 no disc sits stuck in the top hole of the practice board at any step", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
+    await page.goto("/");
+    for (let step = 1; step <= 5; step++) {
+      expect(await page.locator(`${testid("tutorial-board")} [data-testid$="-5"] .piece`).count(), `step ${step} before acting: nothing in the top row`).toBe(0);
+      await doStep(page, step);
+      await page.click(testid("tutorial-next"));
+    }
     await context.close();
   });
 
@@ -300,9 +405,11 @@ test.describe("Tutorial", () => {
   test("R49 Skip ends it at any step and How to play replays it", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
     await page.goto("/");
+    await doStep(page, 1);
     await page.click(testid("tutorial-next"));
+    await doStep(page, 2);
     await page.click(testid("tutorial-next"));
-    await page.click(testid("tutorial-skip")); // at step 3
+    await page.click(testid("tutorial-skip")); // at step 3, before acting
     await expect(page.locator(testid("tutorial"))).toBeHidden();
     await page.click(testid("how-to-play"));
     await expect(page.locator(testid("tutorial"))).toBeVisible();
@@ -321,7 +428,10 @@ test.describe("Tutorial", () => {
     const before = await (await page.request.get("/api/leaderboard?limit=1000")).text();
     await page.goto("/");
     await expect(page.locator(testid("tutorial"))).toBeVisible();
-    for (let i = 0; i < 4; i++) await page.click(testid("tutorial-next"));
+    for (let step = 1; step <= 5; step++) {
+      await doStep(page, step);
+      await page.click(testid("tutorial-next"));
+    }
     await page.click(testid("tutorial-skip"));
     expect(calls, "no game was opened during the tutorial").toEqual([]);
     expect(await (await page.request.get("/api/leaderboard?limit=1000")).text()).toBe(before);
@@ -434,10 +544,9 @@ test.describe("Contrast", () => {
     await one.page.goto(`/g/${code}`);
     await two.page.goto(`/g/${code}`);
     await waitForRound(one.page, 1);
-    await chooseColumn(one.page, 2);
-    expect(await axeViolations(one.page), "game, a column chosen").toEqual([]);
     for (let i = 0; i < 4; i++) {
       await chooseColumn(one.page, 0);
+      if (i === 0) expect(await axeViolations(one.page), "game, a column chosen").toEqual([]);
       await chooseColumn(two.page, 1 + (i % 2));
       if (i < 3) await waitForRound(one.page, i + 2);
     }
@@ -500,4 +609,232 @@ test.describe("Screenshots", () => {
       await context.close();
     });
   }
+});
+
+// ---- The fix list of 27 October 2026 (docs/design/game-screen.md, ADR 0009) ----
+test.describe("Game screen layout and the waiting card", () => {
+  for (const [name, viewport] of [["phone", PHONE], ["narrow", NARROW], ["laptop", LAPTOP]] as const) {
+    test(`U10 the column highlight matches its column of holes within 2px at ${name}`, async ({ browser }) => {
+      const one = await newPlayer(browser, viewport);
+      const two = await newPlayer(browser, LAPTOP);
+      const code = await makeGameCode(one.page);
+      await one.page.goto(`/g/${code}`);
+      await two.page.goto(`/g/${code}`);
+      await waitForRound(one.page, 1);
+      for (let c = 0; c < 7; c++) {
+        // Light the column up, as hovering does, then compare it with the holes of that column.
+        await one.page.evaluate((col) => document.querySelectorAll<HTMLElement>(".column-glow").forEach((g, i) => (g.dataset.on = String(i === col))), c);
+        const glow = (await one.page.locator(testid(`column-glow-${c}`)).boundingBox())!;
+        const top = (await one.page.locator(testid(`cell-${c}-5`)).boundingBox())!;
+        const bottom = (await one.page.locator(testid(`cell-${c}-0`)).boundingBox())!;
+        const board = (await one.page.locator(".board").boundingBox())!;
+        expect(Math.abs(glow.x - top.x), `column ${c} left edge`).toBeLessThanOrEqual(2);
+        expect(Math.abs(glow.x + glow.width - (top.x + top.width)), `column ${c} right edge`).toBeLessThanOrEqual(2);
+        expect(glow.y, `column ${c} starts at the board face, not above it`).toBeGreaterThanOrEqual(board.y);
+        expect(glow.y + glow.height, `column ${c} ends at the bottom hole's row, not on the feet`).toBeLessThanOrEqual(board.y + board.height);
+        expect(glow.y, `column ${c} top`).toBeLessThanOrEqual(top.y);
+        expect(glow.y + glow.height, `column ${c} bottom`).toBeGreaterThanOrEqual(bottom.y + bottom.height - 2);
+      }
+      await one.context.close();
+      await two.context.close();
+    });
+  }
+
+  for (const [name, viewport] of [["phone", PHONE], ["laptop", LAPTOP]] as const) {
+    test(`U59 the game group is centred on the screen within 16px at ${name}`, async ({ browser }) => {
+      const one = await newPlayer(browser, viewport);
+      const two = await newPlayer(browser, LAPTOP);
+      const code = await makeGameCode(one.page);
+      await one.page.goto(`/g/${code}`);
+      await two.page.goto(`/g/${code}`);
+      await waitForRound(one.page, 1);
+      const players = (await one.page.locator(testid("players")).boundingBox())!;
+      const board = (await one.page.locator(testid("board-wrap")).boundingBox())!;
+      const round = (await one.page.locator(testid("round-line")).boundingBox())!;
+      const left = Math.min(players.x, board.x);
+      const right = Math.max(players.x + players.width, board.x + board.width);
+      expect(Math.abs((left + right) / 2 - viewport.width / 2), "panels and board together are centred").toBeLessThanOrEqual(16);
+      expect(Math.abs(round.x + round.width / 2 - (left + right) / 2) < 140 || Math.abs(round.x + round.width / 2 - (board.x + board.width / 2)) <= 16, "round number sits centred with the board").toBe(true);
+      if (viewport.width >= 900) {
+        expect(players.x + players.width, "panels sit to the left of the board").toBeLessThanOrEqual(board.x);
+        expect(Math.abs(round.x + round.width / 2 - (board.x + board.width / 2)), "round number centred over the board").toBeLessThanOrEqual(16);
+      } else {
+        expect(players.y + players.height, "panels sit above the board").toBeLessThanOrEqual(board.y);
+      }
+      await one.context.close();
+      await two.context.close();
+    });
+  }
+
+  test("U54 and R51 the waiting card is compact and centred, with no timer, round number or opponent status, and 'Get ready' follows the second player", async ({ browser }) => {
+    const host = await newPlayer(browser, PHONE);
+    const code = await makeGameCode(host.page);
+    await host.page.goto(`/g/${code}`);
+    const card = (await host.page.locator(testid("waiting-panel")).boundingBox())!;
+    expect(card.width).toBeLessThanOrEqual(480);
+    const board = (await host.page.locator(testid("board-wrap")).boundingBox())!;
+    expect(Math.abs(card.x + card.width / 2 - (board.x + board.width / 2))).toBeLessThanOrEqual(4);
+    for (const id of ["copy-link", "share"]) {
+      const box = (await host.page.locator(testid(id)).boundingBox())!;
+      expect(box.height, `${id} is a normal-sized button`).toBeLessThanOrEqual(64);
+      expect(box.height).toBeGreaterThanOrEqual(43.5);
+    }
+    for (const id of ["timer", "round-line", "players"]) await expect(host.page.locator(testid(id)), `${id} is not shown while waiting`).toBeHidden();
+    // Waiting alone, nothing happens: the round number and timer stay hidden past the old timer's length.
+    await host.page.waitForTimeout(1_500);
+    await expect(host.page.locator(testid("waiting-panel"))).toBeVisible();
+    const guest = await newPlayer(browser, LAPTOP);
+    await guest.page.goto(`/g/${code}`);
+    await expect(host.page.locator(testid("waiting-panel"))).toBeHidden({ timeout: 3_000 });
+    await expect(host.page.locator(testid("get-ready"))).toBeVisible();
+    await expect(host.page.locator(testid("timer"))).toBeVisible();
+    await host.context.close();
+    await guest.context.close();
+  });
+
+  test("U57 each panel shows the real nickname, and the opponent is named Computer in a computer game", async ({ browser }) => {
+    const { one, two } = await twoPlayers(browser);
+    const mine = await one.page.locator(testid("name-you")).innerText();
+    const theirs = await one.page.locator(testid("name-opponent")).innerText();
+    expect(mine).not.toBe("You");
+    expect(mine).toMatch(/#[0-9a-f]{4}$/);
+    expect(theirs).toBe(await two.page.locator(testid("name-you")).innerText());
+    expect(await two.page.locator(testid("name-opponent")).innerText()).toBe(mine);
+    await one.context.close();
+    await two.context.close();
+    const solo = await newPlayer(browser, PHONE);
+    await solo.page.goto("/");
+    await solo.page.tap(testid("play-computer"));
+    await solo.page.waitForURL(/\/g\/[A-Z2-9]{6}$/);
+    await expect(solo.page.locator(testid("name-opponent"))).toHaveText("Computer");
+    await solo.context.close();
+  });
+
+  test("U25 and U56 the timer is a slim bar that drains, turns orange at 5 seconds and red at 3, and restarts each round", async ({ browser }) => {
+    const { one, two } = await twoPlayers(browser);
+    const bar = one.page.locator(testid("timer"));
+    await expect(bar).toBeVisible();
+    const box = (await bar.boundingBox())!;
+    expect(box.height).toBeLessThanOrEqual(16);
+    const fill = async () => Number(await bar.evaluate((el) => getComputedStyle(el).getPropertyValue("--left")));
+    const early = await fill();
+    await one.page.waitForTimeout(700);
+    expect(await fill()).toBeLessThan(early);
+    await expect(bar).toHaveAttribute("data-urgency", "warn", { timeout: 6_000 });
+    await expect(bar).toHaveAttribute("data-urgency", "urgent", { timeout: 4_000 });
+    // The round timed out (R18, 10 seconds), so the next round starts with a full bar again.
+    await waitForRound(one.page, 2);
+    expect(await fill()).toBeGreaterThan(0.8);
+    // Both choosing resolves the round at once, so the bar restarts rather than running down.
+    await chooseColumn(one.page, 1);
+    await chooseColumn(two.page, 3);
+    await waitForRound(one.page, 3);
+    expect(await fill()).toBeGreaterThan(0.8);
+    await one.context.close();
+    await two.context.close();
+  });
+
+  test("U27a no popup title overflows its popup, at either viewport, for every kind of ending", async ({ browser }) => {
+    for (const viewport of [PHONE, NARROW, LAPTOP]) {
+      const { context, page } = await newPlayer(browser, viewport);
+      await page.goto(`/g/${await makeGameCode(page)}`);
+      for (const title of ["GAME ABANDONED", "YOU WIN!", "SO CLOSE!", "IT'S A DRAW!", "GAME OVER"]) {
+        const result = await page.evaluate((text) => {
+          document.querySelector<HTMLElement>('[data-testid="end-popup"]')!.hidden = false;
+          document.querySelector<HTMLElement>('[data-testid="waiting-panel"]')!.hidden = true;
+          const el = document.querySelector<HTMLElement>('[data-testid="end-title"]')!;
+          el.textContent = text;
+          const card = document.querySelector<HTMLElement>(".popup-card")!;
+          const t = el.getBoundingClientRect();
+          const c = card.getBoundingClientRect();
+          return { overflowX: el.scrollWidth > el.clientWidth + 1, inside: t.left >= c.left - 1 && t.right <= c.right + 1, lines: Math.round(t.height / parseFloat(getComputedStyle(el).lineHeight)) };
+        }, title);
+        expect(result.overflowX, `${title} at ${viewport.width}`).toBe(false);
+        expect(result.inside, `${title} inside the popup at ${viewport.width}`).toBe(true);
+        expect(result.lines, `${title} on one or two lines at ${viewport.width}`).toBeLessThanOrEqual(2);
+      }
+      await context.close();
+    }
+  });
+
+  test("U16 the shield badge says what to do, and the info button opens the explanation", async ({ browser }) => {
+    const { one, two } = await twoPlayers(browser);
+    await expect(one.page.locator(testid("shield-label"))).toHaveText("Tap to arm shield");
+    await expect(one.page.locator(testid("shield-help"))).toBeHidden();
+    const info = (await one.page.locator(testid("shield-info")).boundingBox())!;
+    expect(info.width).toBeGreaterThanOrEqual(43.5);
+    expect(info.height).toBeGreaterThanOrEqual(43.5);
+    await one.page.locator(testid("shield-info")).click();
+    await expect(one.page.locator(testid("shield-help"))).toContainText("Your shield wins one crash per game.");
+    await expect(one.page.locator(testid("shield-help"))).toContainText("to block their winning move or to take yours.");
+    await one.context.close();
+    await two.context.close();
+  });
+
+  test("U19 there is no countdown: the disc is placed within a second and no countdown element exists", async ({ browser }) => {
+    const { one, two } = await twoPlayers(browser);
+    expect(await one.page.locator(testid("countdown")).count()).toBe(0);
+    await chooseColumn(one.page, 1);
+    const startedAt = Date.now();
+    await chooseColumn(two.page, 4);
+    await one.page.waitForFunction(() => document.querySelector('[data-testid="cell-1-0"]')?.getAttribute("data-piece") === "A", null, { timeout: 1_000 });
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    await one.context.close();
+    await two.context.close();
+  });
+});
+
+test.describe("Forms and lists stay narrow and centred (U60)", () => {
+  test("U60 no input or list on any screen is wider than 560px on a laptop, and each is centred", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, LAPTOP);
+    for (const path of ["/", "/leaderboard", "/account"]) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      if (path === "/") {
+        await page.click(testid("join-toggle"));
+        await page.click(testid("rename"));
+      }
+      const wide = await page.evaluate(() => {
+        const found: string[] = [];
+        for (const el of document.querySelectorAll<HTMLElement>("input, textarea, select, ol.rows, ul.rows, form, .panel.form")) {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0) continue;
+          if (r.width > 560.5) found.push(`${el.tagName.toLowerCase()}.${el.className} ${Math.round(r.width)}px`);
+        }
+        return found;
+      });
+      expect(wide, `${path} has nothing wider than 560px`).toEqual([]);
+    }
+    await page.goto("/leaderboard");
+    for (const id of ["leaderboard-wins", "leaderboard-rounds"]) {
+      const box = (await page.locator(testid(id)).boundingBox())!;
+      expect(Math.abs(box.x + box.width / 2 - LAPTOP.width / 2), `${id} centred`).toBeLessThanOrEqual(8);
+    }
+    await page.goto("/account");
+    const form = (await page.locator(testid("guest-form")).boundingBox())!;
+    expect(Math.abs(form.x + form.width / 2 - LAPTOP.width / 2), "account form centred").toBeLessThanOrEqual(8);
+    await expect(page.locator(`${testid("guest-form")} button`)).toHaveText("Save nickname");
+    await context.close();
+  });
+
+  test("U35a the nickname confirmation appears inside the player card and fades after 3 seconds", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, LAPTOP);
+    await page.goto("/");
+    await page.click(testid("rename"));
+    await page.fill(testid("nickname-input"), "Pip");
+    await page.keyboard.press("Enter");
+    const message = page.locator(testid("home-message"));
+    await expect(message).toHaveText("Nickname saved.");
+    const card = (await page.locator(testid("player-card")).boundingBox())!;
+    const box = (await message.boundingBox())!;
+    expect(box.x, "message inside the card, left").toBeGreaterThanOrEqual(card.x - 1);
+    expect(box.x + box.width, "message inside the card, right").toBeLessThanOrEqual(card.x + card.width + 1);
+    expect(box.y, "message inside the card, vertically").toBeGreaterThanOrEqual(card.y - 1);
+    expect(box.y + box.height, "message inside the card, vertically").toBeLessThanOrEqual(card.y + card.height + 1);
+    await expect(message).toHaveText("", { timeout: 5_000 }); // faded after 3 seconds
+    const row = (await page.locator(testid("icon-row")).boundingBox())!;
+    const stack = (await page.locator(testid("menu")).boundingBox())!;
+    expect(Math.abs(row.x + row.width / 2 - (stack.x + stack.width / 2)), "icon row centred under the buttons").toBeLessThanOrEqual(8);
+    await context.close();
+  });
 });
