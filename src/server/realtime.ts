@@ -37,7 +37,7 @@ export interface OpponentReady {
 
 export interface Rejected {
   type: "rejected";
-  reason: "game_over" | "bad_column" | "column_full" | "no_shield";
+  reason: "game_over" | "bad_column" | "column_full" | "no_shield" | "already_chosen"; // already_chosen: R4, a choice is final
 }
 
 export interface GameFull {
@@ -79,9 +79,9 @@ function send(socket: WebSocket, message: ServerMessage): void {
 }
 
 export interface RealtimeOptions {
-  roundTimerMs?: number; // overridable so tests do not wait 15 real seconds (R18)
+  roundTimerMs?: number; // overridable so tests do not wait 10 real seconds (R18)
   disconnectGraceMs?: number; // overridable so tests do not wait 30 real seconds (R27)
-  computerDelayMs?: number; // how long the computer "thinks" before choosing (R33)
+  computerDelayMs?: number; // fixes how long the computer "thinks"; by default 1 to 3 seconds at random (R52)
   computerSeed?: number; // makes the computer's randomness repeatable (R46)
   // Who is connecting, from the upgrade request's cookie (R28). Optional: a
   // seat with no known person is just not counted for the leaderboard.
@@ -89,7 +89,8 @@ export interface RealtimeOptions {
 }
 
 export const DISCONNECT_GRACE_MS = 30_000;
-export const COMPUTER_DELAY_MS = 1_500;
+export const COMPUTER_THINK_MIN_MS = 1_000; // R52
+export const COMPUTER_THINK_MAX_MS = 3_000;
 export const ABANDON_AFTER_IDLE_ROUNDS = 3; // R19
 
 export function attachRealtime(
@@ -99,8 +100,11 @@ export function attachRealtime(
 ): { wss: WebSocketServer; game: GameService; dispose: () => void; createComputerGame: (code: string) => void } {
   const roundTimerMs = options.roundTimerMs ?? ROUND_TIMER_MS;
   const disconnectGraceMs = options.disconnectGraceMs ?? DISCONNECT_GRACE_MS;
-  const computerDelayMs = options.computerDelayMs ?? COMPUTER_DELAY_MS;
   const computerRandom = seededRandom(options.computerSeed ?? Math.floor(Math.random() * 2 ** 32));
+  // How long the computer thinks this round (R52). Drawn from its own random numbers, so it
+  // never depends on what the human chose (R40).
+  const thinkMs = (): number =>
+    options.computerDelayMs ?? COMPUTER_THINK_MIN_MS + computerRandom() * (COMPUTER_THINK_MAX_MS - COMPUTER_THINK_MIN_MS);
   // Games where seat B is the computer (R33). Seat B is reserved for it, so no
   // human can take it (R36); the computer decides inside the server and its
   // choice is held in `pending` like any player's (R21, R22).
@@ -147,6 +151,12 @@ export function attachRealtime(
   function presentFor(code: string, player: Player): boolean {
     const them = opponentOf(player);
     return computerGames.has(code) ? them === "B" : connections.has(key(code, them));
+  }
+
+  // Both seats are taken by someone connected (the computer counts as always connected). A round
+  // runs, and can be missed, only while this is true (R51).
+  function bothPresent(code: string): boolean {
+    return connections.has(key(code, "A")) && presentFor(code, "A");
   }
 
   function opponentOf(player: Player): Player {
@@ -207,9 +217,8 @@ export function attachRealtime(
   }
 
   for (const code of restoredCodes) {
-    // A restored computer game waits for its human: the timer starts when
-    // they rejoin (the join path), so the computer never plays on alone.
-    if (!forfeited.has(code) && !computerGames.has(code)) scheduleTimerFor(code);
+    // A restored game waits for its players: its timer starts when both are
+    // connected again (the join path, R51), so nobody misses a round while away.
   }
 
   function clearTimerFor(code: string): void {
@@ -280,8 +289,10 @@ export function attachRealtime(
         // winner. Any choice resets the count.
         // In a game against the computer the computer always chooses, so the
         // human missing the round is what counts (docs/rules.md R19 note).
+        // Only rounds in which both players were connected count (R51).
         const nobodyChose = computerGames.has(code) ? choices.A === null : choices.A === null && choices.B === null;
-        const idle = nobodyChose ? (idleRounds.get(code) ?? 0) + 1 : 0;
+        const before = idleRounds.get(code) ?? 0;
+        const idle = !bothPresent(code) ? before : nobodyChose ? before + 1 : 0;
         idleRounds.set(code, idle);
         if (idle >= ABANDON_AFTER_IDLE_ROUNDS && game.getGame(code)?.state.status === "playing" && !forfeited.has(code)) {
           abandon(code);
@@ -335,7 +346,7 @@ export function attachRealtime(
       resolveNow(code, { A: choices.A, B: choices.B });
     }, roundTimerMs);
     timers.set(code, timer);
-    if (computerGames.has(code)) computerTimers.set(code, setTimeout(() => computerChoose(code), computerDelayMs));
+    if (computerGames.has(code)) computerTimers.set(code, setTimeout(() => computerChoose(code), thinkMs()));
   }
 
   function clearGraceTimer(code: string, player: Player): void {
@@ -409,6 +420,14 @@ export function attachRealtime(
     if (!record) return;
     if (resolving.has(code)) return;
     if (forfeited.has(code)) return;
+
+    // A choice is final for its round (R4). Nothing here depends on the opponent (R22).
+    if (pendingFor(code)[player] !== null) {
+      const socket = connections.get(key(code, player));
+      if (socket) send(socket, { type: "rejected", reason: "already_chosen" });
+      logEvent("action_rejected", { type: "choose", reason: "already_chosen" });
+      return;
+    }
 
     const choice: Choice = { column, shield: Boolean(shield) };
     const result = validateChoice(record.state, player, choice);
@@ -526,10 +545,10 @@ export function attachRealtime(
       // broadcast (sent to whichever connections already exist) cannot also
       // reach this joiner; sendSnapshot below is this joiner's one snapshot.
       if (!game.getGame(code)) game.createGame(code);
-      // A game made by POST /api/games (R34) exists before anyone joins; its
-      // first round timer starts when the first player arrives (R18).
-      if (!timers.has(code)) scheduleTimerFor(code);
       connections.set(key(code, player), socket);
+      // A game made by POST /api/games (R34) exists before anyone joins. Its first round timer
+      // starts only when both players are present (R18, R51).
+      if (!timers.has(code) && !resolving.has(code) && bothPresent(code)) scheduleTimerFor(code);
 
       logEvent("join", { game: code, role: player, clients_in_game: clientsInGame(code) });
       sendSnapshot(code, player);

@@ -1,11 +1,11 @@
 // The game service: the only thing that calls the engine on the server side.
 // Every change to a game is saved before it is broadcast (R25). After a
 // restart, every in-progress game resumes at its last saved round with its
-// timer restarted at 15 seconds (R26).
+// timer restarted at 10 seconds (R26).
 import { newGame, resolveRound, type Choice, type GameState } from "../engine/index.ts";
 import type { Db } from "./db.ts";
 
-export const ROUND_TIMER_MS = 15_000;
+export const ROUND_TIMER_MS = 10_000;
 
 export interface GameRecord {
   state: GameState;

@@ -144,3 +144,29 @@ describe("R33 playing the computer", () => {
     }
   });
 });
+
+describe("R52 the computer thinks", () => {
+  it("R52 the computer's Ready arrives between 1 and 3 seconds after the human joins, whatever the human does", async () => {
+    for (const seed of [1, 2]) {
+      const server = createServer((_req, res) => res.end());
+      const rt = attachRealtime(server, openDb(":memory:"), { roundTimerMs: 10_000, computerSeed: seed });
+      server.listen(0);
+      const url = `ws://localhost:${(server.address() as AddressInfo).port}/ws`;
+      cleanup = () => { rt.dispose(); server.close(); };
+      rt.createComputerGame("THK234");
+      const a = await open(url);
+      a.socket.send(JSON.stringify({ type: "join", code: "THK234" }));
+      await a.next(); // snapshot
+      const joinedAt = Date.now();
+      // The human has not chosen. The computer's status only changes after it has thought.
+      expect(await a.next()).toEqual({ type: "opponent_ready" });
+      const waited = Date.now() - joinedAt;
+      expect(waited).toBeGreaterThanOrEqual(950);
+      expect(waited).toBeLessThanOrEqual(3_200);
+      a.socket.close();
+      rt.dispose();
+      server.close();
+      cleanup = undefined;
+    }
+  }, 15_000);
+});

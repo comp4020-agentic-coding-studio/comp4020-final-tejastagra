@@ -1,6 +1,6 @@
 // Unit check: needs no running app. Runs with pnpm check and with pnpm check:fast
 // (vitest.unit.config.ts). Starts its own ephemeral HTTP server with a short,
-// injected round timer (R18), so it does not need the 15 second production
+// injected round timer (R18), so it does not need the 10 second production
 // timer or the shared dev server.
 import { afterEach, describe, expect, it } from "vitest";
 import { createServer, type Server } from "node:http";
@@ -70,16 +70,57 @@ afterEach(() => {
   cleanup = undefined;
 });
 
-describe("R18 and R34: a game created before anyone joins", () => {
-  it("R18 the first round of a game made by POST /api/games still times out once a player joins", async () => {
+describe("R51: a game starts only when both players are present", () => {
+  it("R51 (replaces the old R18 first-round check) a player waiting alone never starts a round, misses one or abandons the game", async () => {
     const { server, url, dispose, createGame } = startServer();
     cleanup = () => { dispose(); server.close(); };
     createGame("ABC234");
     const a = await joinGame(url, "ABC234", "A");
+    // Wait for ten round timers (the 60 seconds of the rule, scaled down): nothing may arrive.
+    const outcome = await Promise.race([
+      a.next().then((message) => ({ arrived: true, message })),
+      new Promise((resolve) => setTimeout(() => resolve({ arrived: false }), ROUND_TIMER_MS * 10)),
+    ]);
+    expect(outcome).toEqual({ arrived: false });
+    a.socket.close();
+  });
+
+  it("R51 once the second player joins the first round does time out", async () => {
+    const { server, url, dispose } = startServer();
+    cleanup = () => { dispose(); server.close(); };
+    const a = await joinGame(url, "WAIT22", "A");
+    await new Promise((resolve) => setTimeout(resolve, ROUND_TIMER_MS * 2)); // alone: nothing happens
+    const b = await joinGame(url, "WAIT22", "B");
+    await expectArrival(a);
     const next = await a.next();
     expect(next.type).toBe("snapshot");
     expect(next.state.round).toBe(1);
+    expect((await b.next()).state.round).toBe(1);
     a.socket.close();
+    b.socket.close();
+  });
+});
+
+describe("R4: a choice is final", () => {
+  it("R4 a second choice in the same round is rejected with already_chosen and the first one counts", async () => {
+    const { server, url, dispose } = startServer();
+    cleanup = () => { dispose(); server.close(); };
+    const code = "LOCK22";
+    const a = await joinGame(url, code, "A");
+    const b = await joinGame(url, code, "B");
+    await expectArrival(a);
+    a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 2, shield: false }));
+    expect(await b.next()).toEqual({ type: "opponent_ready" });
+    a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 5, shield: true }));
+    expect(await a.next()).toEqual({ type: "rejected", reason: "already_chosen" });
+    // The rejection says nothing the opponent can see (R22): B gets no message for it.
+    b.socket.send(JSON.stringify({ type: "choose", code, player: "B", seatToken: b.seatToken, column: 4, shield: false }));
+    const result = await a.next();
+    expect(result.state.board[2][0]).toBe("A");
+    expect(result.state.board[5]).toHaveLength(0);
+    expect(result.state.shieldsLeft.A).toBe(true);
+    a.socket.close();
+    b.socket.close();
   });
 });
 
