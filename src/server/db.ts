@@ -15,6 +15,10 @@ export interface SavedGame {
   updatedAt: number;
   ended: Ended | null;
   vsComputer: boolean; // R33, R37: the opponent is the computer
+  playerA: string | null; // player ids of the people in each seat (R28), when known
+  playerB: string | null;
+  missedA: number; // rounds in which that seat made no choice (R39)
+  missedB: number;
 }
 
 export interface PlayerRow {
@@ -38,6 +42,12 @@ export interface Db {
   deleteExpiredSessions(maxAgeMs: number): void;
   deleteSession(tokenHash: string): void;
   saveGame(code: string, state: GameState): void;
+  // Saves a resolved round and adds this round's missed choices in one
+  // statement, so the board and the missed counts can never disagree (R25, R39).
+  saveRound(code: string, state: GameState, missedA: boolean, missedB: boolean): void;
+  // Records which person sits in a seat, once (R28). The first identity wins.
+  seatPlayer(code: string, seat: Player, playerId: string): void;
+  playerById(id: string): PlayerRow | undefined;
   // How the game ended, outside the engine's own Status (docs/rules.md R19,
   // R27): a forfeit is server-side state, so it is stored alongside the
   // engine's state rather than inside it.
@@ -75,6 +85,10 @@ const MIGRATIONS: string[] = [
      player_id TEXT NOT NULL,
      created_at INTEGER NOT NULL
    )`,
+  `ALTER TABLE games ADD COLUMN player_a TEXT`,
+  `ALTER TABLE games ADD COLUMN player_b TEXT`,
+  `ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`,
 ];
 
 function migrate(db: DatabaseSync): void {
@@ -99,7 +113,13 @@ export function openDb(path: string): Db {
     INSERT INTO games (code, state, updated_at, vs_computer) VALUES (?, ?, ?, 1)
     ON CONFLICT(code) DO UPDATE SET vs_computer = 1
   `);
-  const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer FROM games");
+  const saveRoundRow = db.prepare(`
+    UPDATE games SET state = ?, updated_at = ?, missed_a = missed_a + ?, missed_b = missed_b + ? WHERE code = ?
+  `);
+  const seatA = db.prepare(`UPDATE games SET player_a = ? WHERE code = ? AND player_a IS NULL`);
+  const seatB = db.prepare(`UPDATE games SET player_b = ? WHERE code = ? AND player_b IS NULL`);
+  const selectById = db.prepare(`SELECT id, nickname, username, password_hash FROM players WHERE id = ?`);
+  const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer, player_a, player_b, missed_a, missed_b FROM games");
 
   const insertPlayer = db.prepare(`INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)`);
   const updateNickname = db.prepare(`UPDATE players SET nickname = ? WHERE id = ?`);
@@ -152,6 +172,15 @@ export function openDb(path: string): Db {
     deleteSession(tokenHash: string): void {
       removeSession.run(tokenHash);
     },
+    saveRound(code: string, state: GameState, missedA: boolean, missedB: boolean): void {
+      saveRoundRow.run(JSON.stringify(state), Date.now(), missedA ? 1 : 0, missedB ? 1 : 0, code);
+    },
+    seatPlayer(code: string, seat: Player, playerId: string): void {
+      (seat === "A" ? seatA : seatB).run(playerId, code);
+    },
+    playerById(id: string): PlayerRow | undefined {
+      return toRow(selectById.get(id));
+    },
     saveGame(code: string, state: GameState): void {
       upsert.run(code, JSON.stringify(state), Date.now());
     },
@@ -172,6 +201,10 @@ export function openDb(path: string): Db {
             updatedAt: row.updated_at as number,
             ended: endedColumn ? (JSON.parse(endedColumn) as Ended) : null,
             vsComputer: row.vs_computer === 1,
+            playerA: (row.player_a as string | null) ?? null,
+            playerB: (row.player_b as string | null) ?? null,
+            missedA: row.missed_a as number,
+            missedB: row.missed_b as number,
           });
         } catch (error) {
           logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });

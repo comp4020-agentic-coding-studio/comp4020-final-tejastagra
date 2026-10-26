@@ -12,10 +12,12 @@ describe("S: what happens is kept (promise 5)", () => {
   it("S1 (R25) the game service writes a round result to the database before calling broadcast", async () => {
     const db = openDb(":memory:");
     const calls: string[] = [];
-    const realSave = db.saveGame.bind(db);
-    db.saveGame = (code, state) => {
+    // A resolved round is saved with saveRound (the board and the missed
+    // counts in one statement); it must still land before the broadcast.
+    const realSave = db.saveRound.bind(db);
+    db.saveRound = (code, state, missedA, missedB) => {
       calls.push("save");
-      realSave(code, state);
+      realSave(code, state, missedA, missedB);
     };
     const service = createGameService({
       db,
@@ -237,6 +239,38 @@ describe("S: what happens is kept (promise 5)", () => {
       upgraded.createPlayer("p2", "Other");
       expect(upgraded.upgradeToAccount("p2", "tj", "hashB")).toBe(false);
       expect(upgraded.playerByUsername("tj")?.id).toBe("p1");
+      upgraded.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
+
+  it("R25 opening a database created before seats and missed rounds were recorded upgrades it in place", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration5.db`);
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
+      old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+      old.exec(`PRAGMA user_version = 5`);
+      old.prepare("INSERT INTO games (code, state, updated_at) VALUES (?, ?, ?)").run("OLD03", JSON.stringify(newGame()), Date.now());
+      old.close();
+
+      const upgraded = openDb(path);
+      const before = upgraded.loadGames()[0];
+      expect(before.playerA).toBeNull();
+      expect(before.missedA).toBe(0);
+      upgraded.seatPlayer("OLD03", "A", "p1");
+      upgraded.seatPlayer("OLD03", "A", "p9"); // the first identity wins
+      upgraded.saveRound("OLD03", newGame(), true, false);
+      upgraded.saveRound("OLD03", newGame(), true, false);
+      const after = upgraded.loadGames()[0];
+      expect(after.playerA).toBe("p1");
+      expect([after.missedA, after.missedB]).toEqual([2, 0]);
       upgraded.close();
     } finally {
       rmSync(path, { force: true });

@@ -6,10 +6,13 @@ const base = () => inject("baseUrl");
 // A tiny cookie jar, so each "browser" in a test is its own guest.
 function browser() {
   let cookie = "";
+  // Each simulated browser is its own client address, as separate players would be,
+  // so the per-address limits (guests, sign-in) do not pool every test together.
+  const address = `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
   return async (path: string, init: { method?: string; body?: unknown } = {}) => {
     const res = await fetch(base() + path, {
       method: init.method ?? (init.body ? "POST" : "GET"),
-      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+      headers: { "content-type": "application/json", "fly-client-ip": address, ...(cookie ? { cookie } : {}) },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
     const set = res.headers.get("set-cookie");
@@ -107,7 +110,11 @@ describe("I: identity (R28 to R32)", () => {
 
   it("R28 a cross-site form cannot sign anyone in or out: JSON content type is required", async () => {
     const form = (path: string, body: string) =>
-      fetch(base() + path, { method: "POST", headers: { "content-type": "text/plain" }, body });
+      fetch(base() + path, {
+        method: "POST",
+        headers: { "content-type": "text/plain", "fly-client-ip": `10.9.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` },
+        body,
+      });
     expect((await form("/api/account/signin", '{"username":"a","password":"b"}')).status).toBe(400);
     expect((await form("/api/guest", '{"nickname":"Forged"}')).status).toBe(400);
     expect((await form("/api/signout", "{}")).status).toBe(415);

@@ -8,6 +8,7 @@ import { bundleClient } from "./client-bundle.ts";
 import { generateCode } from "./codes.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import { createMatchmaker } from "./matchmaker.ts";
+import { leaderboardFrom } from "./leaderboard.ts";
 import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_S,
@@ -46,6 +47,8 @@ const allowGuest = createRateLimiter(30, 60_000);
 // Sessions expire on the server as well as in the cookie (R28).
 db.deleteExpiredSessions(SESSION_MAX_AGE_S * 1000);
 setInterval(() => db.deleteExpiredSessions(SESSION_MAX_AGE_S * 1000), 6 * 60 * 60 * 1000).unref();
+// The leaderboard reads every saved game, so it is limited like the other endpoints.
+const allowRead = createRateLimiter(120, 60_000);
 const allowAuth = createRateLimiter(60, 60_000);
 const allowQuick = createRateLimiter(120, 60_000);
 
@@ -403,6 +406,15 @@ const server = createServer((req, res) => {
     }
     res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify(body));
+  } else if (path === "/api/leaderboard" && req.method === "GET") {
+    if (!allowRead(clientAddress(req))) {
+      res.writeHead(429, { "content-type": "text/plain; charset=utf-8", "retry-after": "60" });
+      res.end("Too many requests. Try again in a minute.");
+      return;
+    }
+    // `limit` lets a check look past the top 10 on a database with history.
+    const limit = Math.min(1000, Math.max(1, Number(new URL(req.url ?? "/", "http://localhost").searchParams.get("limit")) || 10));
+    json(res, 200, leaderboardFrom(db, limit));
   } else if (path === "/api/computer" && req.method === "POST") {
     // Play the computer (R33): a game that starts at once, never waiting for anyone.
     if (!allowCreate(clientAddress(req))) {
@@ -438,7 +450,13 @@ const server = createServer((req, res) => {
   }
 });
 
-const realtime = attachRealtime(server, db);
+const realtime = attachRealtime(server, db, {
+  // The seat's person, from the session cookie on the upgrade request (R28).
+  identify: (request) => {
+    const token = readCookie(request.headers.cookie, SESSION_COOKIE);
+    return (token ? db.playerBySession(hashToken(token), SESSION_MAX_AGE_S * 1000) : undefined)?.id ?? null;
+  },
+});
 
 // Quick match (R35): pairs make a fresh game and wait for both to open it.
 const matchmaker = createMatchmaker({

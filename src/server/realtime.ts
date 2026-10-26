@@ -77,6 +77,9 @@ export interface RealtimeOptions {
   disconnectGraceMs?: number; // overridable so tests do not wait 30 real seconds (R27)
   computerDelayMs?: number; // how long the computer "thinks" before choosing (R33)
   computerSeed?: number; // makes the computer's randomness repeatable (R46)
+  // Who is connecting, from the upgrade request's cookie (R28). Optional: a
+  // seat with no known person is just not counted for the leaderboard.
+  identify?: (request: import("node:http").IncomingMessage) => string | null;
 }
 
 export const DISCONNECT_GRACE_MS = 30_000;
@@ -460,6 +463,11 @@ export function attachRealtime(
 
       seats[player] = true;
       if (!seatTokens.has(key(code, player))) seatTokens.set(key(code, player), randomUUID());
+      const personId = options.identify?.(request) ?? null;
+      if (personId && !computerGames.has(code)) {
+        if (!game.getGame(code)) game.createGame(code); // the row must exist before it can record a seat
+        db.seatPlayer(code, player, personId);
+      }
       // Create the game before this connection is registered, so its
       // broadcast (sent to whichever connections already exist) cannot also
       // reach this joiner; sendSnapshot below is this joiner's one snapshot.

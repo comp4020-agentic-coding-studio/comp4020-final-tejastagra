@@ -51,7 +51,8 @@ export function createGameService(options: GameServiceOptions): GameService {
       const record = games.get(code);
       if (!record) throw new Error(`no such game: ${code}`);
       const result = resolveRound(record.state, choices);
-      save(code, result.state);
+      // One statement saves the board and counts who missed (R25, R39).
+      db.saveRound(code, result.state, choices.A === null, choices.B === null);
       record.state = result.state;
       record.roundStartedAt = now();
       broadcast(code, result.state);

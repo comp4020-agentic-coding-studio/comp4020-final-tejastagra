@@ -24,9 +24,11 @@ function freshCode(): string {
   return code;
 }
 
+const fakeAddress = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+
 describe("L: playing modes (R33 to R36)", () => {
   it("L1 (R33) play the computer starts a game with no waiting", async () => {
-    const res = await fetch(inject("baseUrl") + "/api/computer", { method: "POST" });
+    const res = await fetch(inject("baseUrl") + "/api/computer", { method: "POST", headers: { "fly-client-ip": fakeAddress() } });
     expect(res.status).toBe(200);
     const { code } = await res.json();
     expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
@@ -49,7 +51,7 @@ describe("L: playing modes (R33 to R36)", () => {
   it("L2 (R34) POST /api/games returns a fresh 6-character code from the allowed letters", async () => {
     const codes = new Set<string>();
     for (let i = 0; i < 5; i++) {
-      const res = await fetch(inject("baseUrl") + "/api/games", { method: "POST" });
+      const res = await fetch(inject("baseUrl") + "/api/games", { method: "POST", headers: { "fly-client-ip": fakeAddress() } });
       expect(res.status).toBe(200);
       const { code } = await res.json();
       expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
@@ -59,7 +61,7 @@ describe("L: playing modes (R33 to R36)", () => {
   });
 
   it("L3 (R34) the created code's /g/<code> page loads and two clients joining it share one game", async () => {
-    const { code } = await (await fetch(inject("baseUrl") + "/api/games", { method: "POST" })).json();
+    const { code } = await (await fetch(inject("baseUrl") + "/api/games", { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
     expect((await fetch(inject("baseUrl") + "/g/" + code)).status).toBe(200);
     const a = new WebSocket(wsUrl("/ws"));
     await onceOpen(a);
@@ -76,13 +78,13 @@ describe("L: playing modes (R33 to R36)", () => {
   it("L4 (R35) 20 clients arriving at once in quick match are paired into exactly 10 games, each client once", async () => {
     const base = inject("baseUrl");
     // Clear any ticket left waiting by an earlier run, so the count is exact.
-    const probe = await (await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST" })).json();
-    if (probe.state === "waiting") await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST" });
+    const probe = await (await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
+    if (probe.state === "waiting") await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": fakeAddress() } });
     const tickets = Array.from({ length: 20 }, () => crypto.randomUUID());
     const codes = new Map<string, string>();
     await Promise.all(
       tickets.map(async (ticket) => {
-        const joined = await (await fetch(`${base}/api/quick/${ticket}`, { method: "POST" })).json();
+        const joined = await (await fetch(`${base}/api/quick/${ticket}`, { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
         if (joined.state === "matched") codes.set(ticket, joined.code);
       }),
     );
