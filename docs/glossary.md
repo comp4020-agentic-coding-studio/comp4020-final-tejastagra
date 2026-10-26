@@ -10,9 +10,11 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Disc** | A piece belonging to a player | counter, token, chip |
 | **Rubble block** | The grey piece left by a crash; belongs to nobody | block, wall, debris |
 | **Round** | One simultaneous choice by both players and its result | turn, move |
-| **Choice** | A player's column plus whether they use their shield, hidden until the round resolves | move, pick |
+| **Choice** | A player's column plus whether they use their shield, or Earthquake instead of a column, hidden until the round resolves | move, pick |
 | **Crash** | Both players choose the same column without exactly one shield | collision, clash |
-| **Shield** | Each player's single use per game that wins a crash | power-up, boost |
+| **Shield** | Each player's single use per game that wins a crash | boost |
+| **Earthquake** | Each player's single use per game that replaces their disc: the bottom row crumbles away and everything above drops down one row | quake, shake, tremor |
+| **Power-up** | The shield or the Earthquake; at most one per round | boost, bonus |
 | **Missed round** | A player made no choice before the timer ran out | skip, pass |
 | **Resolve** | The server turning both choices into the next board | |
 | **Game code** | The 6-character code that joins a shared game | room code, PIN |

@@ -6,13 +6,13 @@ Every rule has an ID. Tests name the rule they protect (for example `R7 shield w
 
 ## The game in one paragraph
 
-Rubble is Connect 4 played at the same time. In each round both players secretly choose a column, and may also choose to use their one shield. When both have chosen, or the timer runs out, both discs drop together. If both chose the same column the discs crash and leave a grey rubble block that belongs to nobody, unless exactly one player used their shield, in which case that player's disc lands and the other is lost. Four of your own discs in a row wins.
+Rubble is Connect 4 played at the same time. In each round both players secretly choose a column, and may also choose to use their one shield. When both have chosen, or the timer runs out, both discs drop together. If both chose the same column the discs crash and leave a grey rubble block that belongs to nobody, unless exactly one player used their shield, in which case that player's disc lands and the other is lost. Four of your own discs in a row wins. Each player also has one Earthquake per game: instead of a disc, they make the bottom row crumble and everything above drop one row (ADR 0010).
 
 ## Board and choices
 
 - **R1** The board has 7 columns and 6 rows. Discs and rubble blocks stack from the bottom of a column.
-- **R2** A new game has an empty board, round 0, both shields available, status `playing` and no winner.
-- **R3** A choice is a column (0 to 6) and a shield flag. A choice is rejected if the game is over, the column is not a whole number from 0 to 6, the column is full or the shield flag is set when that player's shield is already used. Rejections are checked in that order and give the reasons `game_over`, `bad_column`, `column_full` and `no_shield`.
+- **R2** A new game has an empty board, round 0, both shields and both Earthquakes available, status `playing` and no winner.
+- **R3** A choice is either a column (0 to 6) with a shield flag, or an Earthquake (R54). A column choice is rejected if the game is over, the column is not a whole number from 0 to 6, the column is full or the shield flag is set when that player's shield is already used. Rejections are checked in that order and give the reasons `game_over`, `bad_column`, `column_full` and `no_shield`. An Earthquake choice is checked as in R53 and R55. A column's fullness is checked on the board as it is before the round, even if an earthquake in the same round would free a space.
 - **R4** A choice is final for its round. Once a player has chosen a column, with or without the shield, the server accepts no second choice from that player for the same round and answers it with the rejection reason `already_chosen`. This replaces the earlier rule that let a choice change until the round resolved (ADR 0009). `already_chosen` is a server-side rejection, not one of the engine's R3 reasons, and it says nothing about the opponent (R22).
 
 ## Resolving a round
@@ -22,23 +22,34 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 - **R7** If they chose the same column and exactly one used a shield, that player's disc lands, the other disc is lost and no rubble lands.
 - **R8** Using a shield spends it, whether or not there was a crash.
 - **R9** If they chose the same column and both used shields, both shields are spent and the discs crash as in R6.
-- **R10** If only one player made a choice, only that disc lands. If neither did, the board does not change.
+- **R10** If only one player made a choice, only that disc lands (or only that earthquake happens). If neither did, the board does not change.
 - **R11** Every resolved round adds 1 to the round count, including rounds where nothing lands.
-- **R12** Pieces already on the board never move or change.
+- **R12** Pieces already on the board never move or change, except that an earthquake (R56) removes the bottom row and shifts every piece above down one row in its own column.
 
 ## Winning
 
-- **R13** A player wins when four of their discs are in a line horizontally, vertically or diagonally. Rubble blocks and the opponent's discs break a line.
-- **R14** If both players complete a line in the same round, the game is a draw.
+- **R13** A player wins only when a disc they dropped this round is part of a line of four of their discs, horizontally, vertically or diagonally. Rubble blocks and the opponent's discs break a line. Lines formed only by pieces moving in an earthquake never win, but a disc dropped later can complete them (ADR 0010). A disc that lands because of a shield win counts as dropped.
+- **R14** If a disc dropped by each player this round completes a line for that player, the game is a draw.
 - **R15** If the board is full and nobody has a line, the game is a draw.
 - **R16** Once a game is won or drawn, no further choices are accepted.
-- **R17** "Rounds to win" is the round count at the moment of the win.
+- **R17** "Rounds to win" is the round count at the moment of the win. Earthquake rounds count like any other round.
 
 ## Timing
 
 - **R18** Each round has a 10 second timer that starts when the round begins (D2, ADR 0009). The round resolves as soon as both players have chosen, or when the timer ends.
 - **R19** If both players miss 3 rounds in a row (counting only rounds in which both players were connected, R51), the game is **abandoned**: no winner, and it never affects the leaderboard. The engine's `Status` stays `'playing' | 'won' | 'draw'`: the engine never produces an "abandoned" state itself, because nothing it sees (a round of null choices) distinguishes an abandoned game from an ordinary quiet one. The server tracks how a game ended (a line, a draw, a forfeit or abandonment) as server-side state alongside the engine's `GameState`, and the leaderboard reads that server-side record, not the engine's `status` field. Implementation notes: in a game against the computer the computer always chooses, so there it is the human missing 3 rounds in a row that abandons the game, otherwise an unattended game would play on for ever. The count of idle rounds is kept in memory, so a restart gives a game a fresh count (players get more time, never less). If saving the abandonment fails, the game stays live and tries again after its next round.
 - **R51** A game starts only when both players are present. In a friend game or Quick match, no round timer runs and no round can be missed until the second player has joined; waiting alone never starts a round, misses one or abandons the game. A computer game starts when the human joins. If a game is restored after a restart, its timer starts when both players are connected again. Abandonment (R19) counts only rounds in which both players were connected at the moment the round resolved (ADR 0009).
+
+## Power-ups: Earthquake
+
+- **R53** Each player has one Earthquake per game, as well as the shield. A player may use at most one power-up per round, so the shield and Earthquake cannot be combined. An Earthquake choice is rejected with `no_earthquake` if that player's Earthquake is already used, and with `one_power_up` if it also names a column or a shield.
+- **R54** Using Earthquake replaces the player's disc for that round: they choose "Earthquake" instead of a column. The choice is final (R4) and hidden until the round resolves, exactly like a column choice (R21, R22).
+- **R55** Earthquake cannot be chosen when the bottom row is empty. `validateChoice` rejects it with the reason `nothing_to_shake`. Rejections are checked in this order: `game_over`, `one_power_up`, `no_earthquake`, `nothing_to_shake`.
+- **R56** Resolution order: the earthquake happens first. Every piece in the bottom row, discs and rubble alike, is removed, and every piece above drops down exactly one row in its own column, keeping its order. Then the other player's disc, if any, drops onto the new board.
+- **R57** If both players choose Earthquake in the same round, the board shakes once (one row removed), both Earthquakes are spent and no discs drop.
+- **R58** Earthquake is not a crash, so the shield has no effect on it. A shield flag next to an Earthquake is rejected (R53), and the other player's shield is spent only if they used it on their own column.
+- **R59** Earthquake never affects the leaderboard rules (R37 to R39). "Rounds to win" still counts rounds (R17).
+- **R60** The computer may use Earthquake when removing the bottom row breaks more of the human's potential lines than its own. It still never sees the human's choice (R40).
 
 ## Server, real time and persistence
 
@@ -101,13 +112,16 @@ export const ROWS = 6;
 export type Player = 'A' | 'B';
 export type Cell = Player | 'R';           // 'R' is a rubble block
 export type Board = Cell[][];              // board[c] is column c, index 0 is the bottom
-export interface Choice { column: number; shield: boolean }
+export type Choice =
+  | { column: number; shield: boolean }    // a disc, with or without the shield (R3)
+  | { earthquake: true };                  // Earthquake instead of a disc (R53 to R57)
 export type Status = 'playing' | 'won' | 'draw';
 
 export interface GameState {
   board: Board;
   round: number;                           // rounds resolved so far
   shieldsLeft: Record<Player, boolean>;
+  earthquakesLeft: Record<Player, boolean>; // R53
   status: Status;
   winner: Player | null;
 }
@@ -116,19 +130,22 @@ export type RoundOutcome =
   | 'both_landed'   // R5
   | 'crash'         // R6 and R9
   | 'shield_win'    // R7
-  | 'one_landed'    // R10, one player chose
+  | 'one_landed'    // R10, one player chose a column
+  | 'earthquake'    // R56 and R57, at least one earthquake; the other player's disc may also have landed
   | 'none';         // R10, nobody chose
 
 export interface RoundResult {
   state: GameState;
   outcome: RoundOutcome;
   shieldWinner: Player | null;
+  shaken: boolean;                         // R56: the bottom row was removed this round
 }
 
 export function newGame(): GameState;
 export function validateChoice(
   state: GameState, player: Player, choice: Choice,
-): { ok: true } | { ok: false; reason: 'game_over' | 'bad_column' | 'column_full' | 'no_shield' };
+): { ok: true } | { ok: false; reason: 'game_over' | 'bad_column' | 'column_full' | 'no_shield'
+             | 'one_power_up' | 'no_earthquake' | 'nothing_to_shake' };
 export function resolveRound(
   state: GameState, choices: { A: Choice | null; B: Choice | null },
 ): RoundResult;  // throws if either choice fails validateChoice
