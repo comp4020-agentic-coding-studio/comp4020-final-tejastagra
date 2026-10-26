@@ -60,7 +60,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 - `pnpm check:evidence` may fail only because PROCESS.md still has its template comment or no reflection exists yet. Any other failure must be fixed.
 - Add or update a test when it changes behaviour, with the rule ID in the test name. Name test files `spec/app-<name>.test.ts` (checks against the running app, using `inject("baseUrl")`) or `spec/unit-<name>.test.ts` (no app needed). Browser checks go in `e2e/` and never in `spec/`. See `spec/CHECKS.md`.
 - Be one logical change per commit.
-- Pass the reviewer subagent (`.claude/agents/reviewer.md`) if it touches `src/` or `spec/`.
+- Pass the reviewer subagent (`.claude/agents/reviewer.md`, always by name) once per group of related commits that touch `src/` or `spec/` (for example once after all the R13 to R17 commits, or once per screen), and always before a commit that touches the no-peek rules (R21, R22) or persistence (R25). If the reviewer is not available, tell Tejas.
 
 ## Commit messages
 

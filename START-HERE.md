@@ -66,4 +66,4 @@ Run `/multi-user-test`. It follows the tutorial protocol in `docs/testing/multi-
 
 - Every commit uses the format in `CLAUDE.md`. The hooks reject anything else.
 - Every mistake that Tejas or a check catches goes in `docs/corrections.md`, with the rule or test that now prevents it.
-- Run the reviewer subagent before every commit that touches `src/` or `spec/`.
+- Run the reviewer subagent once per group of related commits that touch `src/` or `spec/`, and always before a commit that touches the no-peek rules (R21, R22) or persistence (R25).
