@@ -26,14 +26,14 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 
 | ID | Claim | Rule | Status |
 | --- | --- | --- | --- |
-| R-tests | One or more tests per engine rule, named by rule ID | R1 to R17 | todo |
-| P1 | Each round adds exactly 2, 1 or 0 pieces, as the choices dictate | R5 to R10 | todo |
-| P2 | No column holds more than 6 pieces | R1 | todo |
-| P3 | A shield is spent exactly when used and never comes back | R8, R9 | todo |
-| P4 | The round count goes up by exactly 1 | R11 | todo |
-| P5 | A game is won exactly when it has a winner | R13 to R16 | todo |
-| P6 | Nothing is accepted after the game ends | R16 | todo |
-| P7 | Pieces never move or change | R12 | todo |
+| R-tests | One or more tests per engine rule, named by rule ID | R1 to R17 | passing |
+| P1 | Each round adds exactly 2, 1 or 0 pieces, as the choices dictate | R5 to R10 | passing |
+| P2 | No column holds more than 6 pieces | R1 | passing |
+| P3 | A shield is spent exactly when used and never comes back | R8, R9 | passing |
+| P4 | The round count goes up by exactly 1 | R11 | passing |
+| P5 | A game is won exactly when it has a winner | R13 to R16 | passing |
+| P6 | Nothing is accepted after the game ends | R16 | passing |
+| P7 | Pieces never move or change | R12 | passing |
 | M1 | Mutation score of the engine is at least 85% | all engine rules | todo |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
