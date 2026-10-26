@@ -181,6 +181,134 @@ describe("R10 one or neither player chose", () => {
   });
 });
 
+describe("R13 a player wins with four in a row", () => {
+  it("R13 wins horizontally", () => {
+    let state = newGame();
+    for (const column of [0, 1, 2]) {
+      state = resolveRound(state, { A: { column, shield: false }, B: null }).state;
+    }
+    // A now has one disc each in columns 0, 1 and 2 at row 0; drop a 4th.
+    const result = resolveRound(state, { A: { column: 3, shield: false }, B: null });
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("A");
+  });
+
+  it("R13 wins vertically", () => {
+    let state = newGame();
+    for (let i = 0; i < 3; i++) {
+      state = resolveRound(state, { A: { column: 0, shield: false }, B: null }).state;
+    }
+    const result = resolveRound(state, { A: { column: 0, shield: false }, B: null });
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("A");
+  });
+
+  it("R13 wins diagonally", () => {
+    // Build a rising diagonal for A at (0,0) (1,1) (2,2) (3,3), with B
+    // filling underneath so A's discs land at the right heights.
+    let state = newGame();
+    state = resolveRound(state, { A: { column: 0, shield: false }, B: null }).state; // A col0 row0
+    state = resolveRound(state, { A: null, B: { column: 1, shield: false } }).state; // B col1 row0
+    state = resolveRound(state, { A: { column: 1, shield: false }, B: null }).state; // A col1 row1
+    state = resolveRound(state, { A: null, B: { column: 2, shield: false } }).state; // B col2 row0
+    state = resolveRound(state, { A: null, B: { column: 2, shield: false } }).state; // B col2 row1
+    state = resolveRound(state, { A: { column: 2, shield: false }, B: null }).state; // A col2 row2
+    state = resolveRound(state, { A: null, B: { column: 3, shield: false } }).state; // B col3 row0
+    state = resolveRound(state, { A: null, B: { column: 3, shield: false } }).state; // B col3 row1
+    state = resolveRound(state, { A: null, B: { column: 3, shield: false } }).state; // B col3 row2
+    const result = resolveRound(state, { A: { column: 3, shield: false }, B: null }); // A col3 row3
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("A");
+  });
+
+  it("R13 rubble and the opponent's discs break a line", () => {
+    let state = newGame();
+    // A at col0 row0, col1 row0, rubble at col2 row0 (crash), A at col3 row0.
+    state = resolveRound(state, { A: { column: 0, shield: false }, B: null }).state;
+    state = resolveRound(state, { A: { column: 1, shield: false }, B: null }).state;
+    state = resolveRound(state, {
+      A: { column: 2, shield: false },
+      B: { column: 2, shield: false },
+    }).state;
+    const result = resolveRound(state, { A: { column: 3, shield: false }, B: null });
+    expect(result.state.status).toBe("playing");
+    expect(result.state.winner).toBeNull();
+  });
+});
+
+describe("R14 both players completing a line in the same round is a draw", () => {
+  it("R14 draws when both complete a line in the same round", () => {
+    // A builds a horizontal three at columns 0,1,2 row 0; B builds a
+    // vertical three in column 4. Both complete their fourth in one round,
+    // in different columns so both discs land.
+    let state = newGame();
+    state = resolveRound(state, {
+      A: { column: 0, shield: false },
+      B: { column: 4, shield: false },
+    }).state;
+    state = resolveRound(state, {
+      A: { column: 1, shield: false },
+      B: { column: 4, shield: false },
+    }).state;
+    state = resolveRound(state, {
+      A: { column: 2, shield: false },
+      B: { column: 4, shield: false },
+    }).state;
+    const result = resolveRound(state, {
+      A: { column: 3, shield: false },
+      B: { column: 4, shield: false },
+    });
+    expect(result.state.status).toBe("draw");
+    expect(result.state.winner).toBeNull();
+  });
+});
+
+describe("R15 a full board with no line is a draw", () => {
+  it("R15 draws when the board is full and nobody has a line", () => {
+    // Fill every column to the top with alternating rubble (via crashes),
+    // so nobody ever gets four in a row, until the board is full.
+    let state = newGame();
+    for (let row = 0; row < ROWS; row++) {
+      for (let column = 0; column < COLUMNS; column++) {
+        state = resolveRound(state, {
+          A: { column, shield: false },
+          B: { column, shield: false },
+        }).state;
+      }
+    }
+    expect(state.board.every((column) => column.length === ROWS)).toBe(true);
+    expect(state.status).toBe("draw");
+    expect(state.winner).toBeNull();
+  });
+});
+
+describe("R16 once a game is won or drawn, no further choices are accepted", () => {
+  it("R16 rejects any choice with game_over once the game has a winner", () => {
+    let state = newGame();
+    for (const column of [0, 1, 2]) {
+      state = resolveRound(state, { A: { column, shield: false }, B: null }).state;
+    }
+    state = resolveRound(state, { A: { column: 3, shield: false }, B: null }).state;
+    expect(state.status).toBe("won");
+    expect(validateChoice(state, "B", { column: 5, shield: false })).toEqual({
+      ok: false,
+      reason: "game_over",
+    });
+  });
+});
+
+describe("R17 rounds to win is the round count at the moment of the win", () => {
+  it("R17 records the round count when the winning round resolves", () => {
+    let state = newGame();
+    for (const column of [0, 1, 2]) {
+      state = resolveRound(state, { A: { column, shield: false }, B: null }).state;
+    }
+    const result = resolveRound(state, { A: { column: 3, shield: false }, B: null });
+    expect(result.state.status).toBe("won");
+    expect(result.state.round).toBe(4);
+  });
+});
+
 describe("R11 every resolved round adds 1 to the round count", () => {
   it("R11 increases the round count even when nothing lands", () => {
     const state = newGame();

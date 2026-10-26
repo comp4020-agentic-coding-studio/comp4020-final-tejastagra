@@ -72,6 +72,40 @@ function cloneBoard(board: Board): Board {
   return board.map((column) => [...column]);
 }
 
+function cellAt(board: Board, column: number, row: number): Cell | undefined {
+  return board[column]?.[row];
+}
+
+function hasLine(board: Board, player: Player): boolean {
+  const directions: Array<[number, number]> = [
+    [1, 0],
+    [0, 1],
+    [1, 1],
+    [1, -1],
+  ];
+  for (let column = 0; column < board.length; column++) {
+    for (let row = 0; row < board[column].length; row++) {
+      if (board[column][row] !== player) continue;
+      for (const [dc, dr] of directions) {
+        let count = 1;
+        for (let step = 1; step < 4; step++) {
+          if (cellAt(board, column + dc * step, row + dr * step) === player) {
+            count++;
+          } else {
+            break;
+          }
+        }
+        if (count >= 4) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function isFull(board: Board): boolean {
+  return board.every((column) => column.length >= ROWS);
+}
+
 export function resolveRound(
   state: GameState,
   choices: { A: Choice | null; B: Choice | null },
@@ -121,13 +155,31 @@ export function resolveRound(
     outcome = "none";
   }
 
+  const aWins = hasLine(board, "A");
+  const bWins = hasLine(board, "B");
+  let status: Status = state.status;
+  let winner: Player | null = state.winner;
+  if (aWins && bWins) {
+    status = "draw";
+    winner = null;
+  } else if (aWins) {
+    status = "won";
+    winner = "A";
+  } else if (bWins) {
+    status = "won";
+    winner = "B";
+  } else if (isFull(board)) {
+    status = "draw";
+    winner = null;
+  }
+
   return {
     state: {
       board,
       round: state.round + 1,
       shieldsLeft,
-      status: state.status,
-      winner: state.winner,
+      status,
+      winner,
     },
     outcome,
     shieldWinner,
