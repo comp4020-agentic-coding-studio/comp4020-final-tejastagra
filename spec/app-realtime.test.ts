@@ -41,10 +41,76 @@ function freshCode(): string {
   return code;
 }
 
+async function joinGame(
+  code: string,
+  player: "A" | "B",
+): Promise<{ socket: WebSocket; next: () => Promise<any>; seatToken: string }> {
+  const socket = new WebSocket(wsUrl("/ws"));
+  const next = messageQueue(socket);
+  await onceOpen(socket);
+  socket.send(JSON.stringify({ type: "join", code, player }));
+  const snapshot = await next();
+  return { socket, next, seatToken: snapshot.seatToken };
+}
+
 describe("T: both players see the same result at the same moment (promise 2)", () => {
-  it.todo("T1 (R23) both clients receive a round's result within 1 second of the second choice");
-  it.todo("T2 (R23) both clients receive identical results for the same round");
-  it.todo("T3 (R21) the opponent's ready status reaches the other client within 1 second");
+  it("T1 (R23) both clients receive a round's result within 1 second of the second choice", async () => {
+    const code = freshCode();
+    const a = await joinGame(code, "A");
+    const b = await joinGame(code, "B");
+
+    const startedAt = Date.now();
+    a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 2, shield: false }));
+    await b.next(); // opponent_ready, not the result
+    b.socket.send(JSON.stringify({ type: "choose", code, player: "B", seatToken: b.seatToken, column: 4, shield: false }));
+
+    const aResult = await a.next();
+    const bResult = await b.next();
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(aResult.type).toBe("snapshot");
+    expect(bResult.type).toBe("snapshot");
+    expect(elapsedMs).toBeLessThan(1000);
+
+    a.socket.close();
+    b.socket.close();
+  });
+
+  it("T2 (R23) both clients receive identical results for the same round", async () => {
+    const code = freshCode();
+    const a = await joinGame(code, "A");
+    const b = await joinGame(code, "B");
+
+    a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 1, shield: false }));
+    await b.next();
+    b.socket.send(JSON.stringify({ type: "choose", code, player: "B", seatToken: b.seatToken, column: 5, shield: false }));
+
+    const aResult = await a.next();
+    const bResult = await b.next();
+
+    expect(aResult.state).toEqual(bResult.state);
+    expect(aResult.state.round).toBe(1);
+
+    a.socket.close();
+    b.socket.close();
+  });
+
+  it("T3 (R21) the opponent's ready status reaches the other client within 1 second", async () => {
+    const code = freshCode();
+    const a = await joinGame(code, "A");
+    const b = await joinGame(code, "B");
+
+    const startedAt = Date.now();
+    a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 3, shield: false }));
+    const readyMessage = await b.next();
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(readyMessage).toEqual({ type: "opponent_ready" });
+    expect(elapsedMs).toBeLessThan(1000);
+
+    a.socket.close();
+    b.socket.close();
+  });
 
   it("T4 (R24) a client that reconnects receives a full snapshot matching the other client's board", async () => {
     const code = freshCode();

@@ -1,11 +1,15 @@
 // WebSocket real time (ADR 0002). The server is the referee (ADR 0003): the
 // browser only sends choices and displays what the server sends (R20). Each
 // player has at most one live connection per game (R32); a game has at most
-// two players (R36). A full snapshot is sent on every join (R24).
+// two players (R36). A full snapshot is sent on every join (R24). No message
+// to a player ever carries the opponent's pending choice (R21, R22): a
+// chosen column only ever sets this server's in-memory pending state and
+// tells the opponent opponent_ready, with nothing else, until both have
+// chosen and the round resolves.
 import { WebSocketServer, type WebSocket } from "ws";
 import type { Server } from "node:http";
 import { randomUUID } from "node:crypto";
-import type { GameState, Player } from "../engine/index.ts";
+import { validateChoice, type Choice, type GameState, type Player } from "../engine/index.ts";
 import { createGameService, type GameService } from "./game-service.ts";
 import type { Db } from "./db.ts";
 import { logEvent } from "./log.ts";
@@ -15,6 +19,16 @@ export interface Snapshot {
   you: Player;
   seatToken: string;
   state: GameState;
+  opponentReady: boolean;
+}
+
+export interface OpponentReady {
+  type: "opponent_ready";
+}
+
+export interface Rejected {
+  type: "rejected";
+  reason: "game_over" | "bad_column" | "column_full" | "no_shield";
 }
 
 export interface GameFull {
@@ -25,7 +39,7 @@ export interface TabReplaced {
   type: "tab_replaced";
 }
 
-export type ServerMessage = Snapshot | GameFull | TabReplaced;
+export type ServerMessage = Snapshot | OpponentReady | Rejected | GameFull | TabReplaced;
 
 interface JoinMessage {
   type: "join";
@@ -34,7 +48,16 @@ interface JoinMessage {
   seatToken?: string;
 }
 
-type ClientMessage = JoinMessage | { type: string; [key: string]: unknown };
+interface ChooseMessage {
+  type: "choose";
+  code: string;
+  player: Player;
+  seatToken: string;
+  column: number;
+  shield?: boolean;
+}
+
+type ClientMessage = JoinMessage | ChooseMessage | { type: string; [key: string]: unknown };
 
 function send(socket: WebSocket, message: ServerMessage): void {
   if (socket.readyState === socket.OPEN) {
@@ -53,9 +76,30 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
   // seat reconnect and take it over, while a stranger who only knows the game
   // code and guesses the seat letter is turned away with game_full instead.
   const seatTokens = new Map<string, string>();
+  // Choices pending for the open round. Never sent to the opponent (R21,
+  // R22): only ever read by broadcast/sendSnapshot to report readiness, and
+  // cleared the moment a round resolves.
+  const pending = new Map<string, { A: Choice | null; B: Choice | null }>();
+  // Games currently inside game.resolve(), so a choice arriving while the
+  // save and broadcast are still in flight is rejected rather than accepted
+  // for a round the server has not finished moving on from (R25, R23).
+  const resolving = new Set<string>();
 
   function key(code: string, player: Player): string {
     return `${code}:${player}`;
+  }
+
+  function opponentOf(player: Player): Player {
+    return player === "A" ? "B" : "A";
+  }
+
+  function pendingFor(code: string): { A: Choice | null; B: Choice | null } {
+    let choices = pending.get(code);
+    if (!choices) {
+      choices = { A: null, B: null };
+      pending.set(code, choices);
+    }
+    return choices;
   }
 
   function clientsInGame(code: string): number {
@@ -71,7 +115,13 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
     for (const player of ["A", "B"] as const) {
       const socket = connections.get(key(code, player));
       if (socket) {
-        send(socket, { type: "snapshot", you: player, seatToken: seatTokens.get(key(code, player))!, state });
+        send(socket, {
+          type: "snapshot",
+          you: player,
+          seatToken: seatTokens.get(key(code, player))!,
+          state,
+          opponentReady: false,
+        });
         recipients++;
       }
     }
@@ -88,8 +138,66 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
     if (!record) return;
     const socket = connections.get(key(code, player));
     if (!socket) return;
-    send(socket, { type: "snapshot", you: player, seatToken: seatTokens.get(key(code, player))!, state: record.state });
+    const choices = pendingFor(code);
+    send(socket, {
+      type: "snapshot",
+      you: player,
+      seatToken: seatTokens.get(key(code, player))!,
+      state: record.state,
+      opponentReady: choices[opponentOf(player)] !== null,
+    });
     logEvent("snapshot_sent", { game: code, round: record.state.round, reason: "join" });
+  }
+
+  function handleChoose(message: ChooseMessage): void {
+    const { code, player, seatToken, column, shield } = message;
+    if (typeof code !== "string" || (player !== "A" && player !== "B")) return;
+    // A missing or unrecognised token must never be treated as a match: an
+    // unissued seat has no token in the map (`undefined`), and a message
+    // with no seatToken field is also `undefined`, so this must be an
+    // explicit identity check, not a `!==` that two absences can satisfy.
+    const expectedToken = seatTokens.get(key(code, player));
+    if (typeof seatToken !== "string" || typeof expectedToken !== "string" || seatToken !== expectedToken) return;
+    if (typeof column !== "number" || (shield !== undefined && typeof shield !== "boolean")) return;
+
+    const record = game.getGame(code);
+    logEvent("action_received", { type: "choose", round: record?.state.round });
+    if (!record) return;
+    if (resolving.has(code)) return;
+
+    const choice: Choice = { column, shield: Boolean(shield) };
+    const result = validateChoice(record.state, player, choice);
+    if (!result.ok) {
+      const socket = connections.get(key(code, player));
+      if (socket) send(socket, { type: "rejected", reason: result.reason });
+      logEvent("action_rejected", { type: "choose", reason: result.reason });
+      return;
+    }
+
+    const choices = pendingFor(code);
+    choices[player] = choice;
+
+    if (choices.A !== null && choices.B !== null) {
+      // Both have chosen: resolve and broadcast the result instead of also
+      // telling the opponent "ready", which the result message supersedes.
+      // `resolving` closes the window between here and the save+broadcast
+      // inside game.resolve() completing, so a choice arriving in between is
+      // rejected rather than silently accepted for a round already in flight.
+      const toResolve = { A: choices.A, B: choices.B };
+      pending.set(code, { A: null, B: null });
+      resolving.add(code);
+      game
+        .resolve(code, toResolve)
+        .catch((error) => {
+          logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+        })
+        .finally(() => {
+          resolving.delete(code);
+        });
+    } else {
+      const opponentSocket = connections.get(key(code, opponentOf(player)));
+      if (opponentSocket) send(opponentSocket, { type: "opponent_ready" });
+    }
   }
 
   wss.on("connection", (socket, request) => {
@@ -104,6 +212,11 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
       }
       if (typeof message !== "object" || message === null || !("type" in message)) return;
       const parsed = message as ClientMessage;
+
+      if (parsed.type === "choose") {
+        handleChoose(parsed as ChooseMessage);
+        return;
+      }
 
       if (parsed.type !== "join") return;
       const { code, seatToken } = parsed as JoinMessage;
