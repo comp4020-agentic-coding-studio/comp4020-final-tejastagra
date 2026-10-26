@@ -5,6 +5,7 @@ import { describe, it } from "vitest";
 import {
   COLUMNS,
   ROWS,
+  isEarthquake,
   newGame,
   resolveRound,
   validateChoice,
@@ -13,19 +14,20 @@ import {
   type Player,
 } from "../src/engine/index.ts";
 
+const choiceIntent = fc.oneof(
+  { weight: 5, arbitrary: fc.record({ column: fc.integer({ min: 0, max: COLUMNS - 1 }), shield: fc.boolean() }) },
+  { weight: 2, arbitrary: fc.constant({ earthquake: true as const }) },
+);
 const intent = fc.record({
-  a: fc.option(fc.record({ column: fc.integer({ min: 0, max: COLUMNS - 1 }), shield: fc.boolean() }), {
-    nil: null,
-  }),
-  b: fc.option(fc.record({ column: fc.integer({ min: 0, max: COLUMNS - 1 }), shield: fc.boolean() }), {
-    nil: null,
-  }),
+  a: fc.option(choiceIntent, { nil: null }),
+  b: fc.option(choiceIntent, { nil: null }),
 });
 const intents = fc.array(intent, { minLength: 0, maxLength: 60 });
 
 // Turn a random intent into choices the engine accepts, so every round can be played.
 function legal(state: GameState, player: Player, choice: Choice | null): Choice | null {
   if (!choice) return null;
+  if (isEarthquake(choice)) return validateChoice(state, player, choice).ok ? choice : null;
   const withShield = validateChoice(state, player, choice);
   if (withShield.ok) return choice;
   const noShield = { ...choice, shield: false };
@@ -48,15 +50,21 @@ function play(
   return state;
 }
 
+const quaked = (choices: { A: Choice | null; B: Choice | null }) =>
+  (choices.A !== null && isEarthquake(choices.A)) || (choices.B !== null && isEarthquake(choices.B));
+const discsIn = (choices: { A: Choice | null; B: Choice | null }) =>
+  [choices.A, choices.B].filter((choice) => choice !== null && !isEarthquake(choice)) as Array<{ column: number; shield: boolean }>;
+
 const pieces = (state: GameState) => state.board.reduce((sum, column) => sum + column.length, 0);
 
 describe("engine properties", () => {
-  it("P1 (R5 to R10) each round adds exactly 2, 1 or 0 pieces, as the choices dictate", () => {
+  it("P1 (R5 to R10) a round without an earthquake adds exactly 2, 1 or 0 pieces, as the choices dictate", () => {
     fc.assert(
       fc.property(intents, (rounds) => {
         play(rounds, (before, choices, after) => {
-          const { A, B } = choices;
-          const expected = A && B ? (A.column === B.column ? 1 : 2) : A || B ? 1 : 0;
+          if (quaked(choices)) return;
+          const discs = discsIn(choices);
+          const expected = discs.length === 2 ? (discs[0].column === discs[1].column ? 1 : 2) : discs.length;
           if (pieces(after) - pieces(before) !== expected) throw new Error("wrong number of pieces added");
         });
       }),
@@ -78,7 +86,8 @@ describe("engine properties", () => {
       fc.property(intents, (rounds) => {
         play(rounds, (before, choices, after) => {
           for (const player of ["A", "B"] as const) {
-            const used = choices[player]?.shield === true;
+            const choice = choices[player];
+            const used = choice !== null && !isEarthquake(choice) && choice.shield;
             if (after.shieldsLeft[player] !== (before.shieldsLeft[player] && !used)) {
               throw new Error(`shield for ${player} wrong`);
             }
@@ -129,12 +138,65 @@ describe("engine properties", () => {
     );
   });
 
-  it("P7 (R12) pieces never move or change", () => {
+  it("P7 (R12) without an earthquake, pieces never move or change", () => {
     fc.assert(
       fc.property(intents, (rounds) => {
-        play(rounds, (before, _choices, after) => {
+        play(rounds, (before, choices, after) => {
+          if (quaked(choices)) return;
           before.board.forEach((column, c) => {
             if (!column.every((cell, row) => after.board[c][row] === cell)) throw new Error("a piece moved");
+          });
+        });
+      }),
+    );
+  });
+
+  it("P8 (R56, R57) an earthquake round leaves the piece count at: before, minus the bottom row, plus the discs dropped", () => {
+    fc.assert(
+      fc.property(intents, (rounds) => {
+        play(rounds, (before, choices, after) => {
+          if (!quaked(choices)) return;
+          const bottom = before.board.filter((column) => column.length > 0).length;
+          if (pieces(after) !== pieces(before) - bottom + discsIn(choices).length) throw new Error("wrong piece count after an earthquake");
+          if (after.board.some((column) => column.length > ROWS)) throw new Error("column overfull");
+        });
+      }),
+    );
+  });
+
+  it("P9 (R53) each player uses Earthquake at most once, it is spent exactly when used and it is never accepted again", () => {
+    fc.assert(
+      fc.property(intents, (rounds) => {
+        const used = { A: 0, B: 0 };
+        const end = play(rounds, (before, choices, after) => {
+          for (const player of ["A", "B"] as const) {
+            const choice = choices[player];
+            const usedNow = choice !== null && isEarthquake(choice);
+            if (usedNow) used[player]++;
+            if (after.earthquakesLeft[player] !== (before.earthquakesLeft[player] && !usedNow)) throw new Error(`earthquake for ${player} wrong`);
+            if (!before.earthquakesLeft[player]) {
+              const again = validateChoice(before, player, { earthquake: true });
+              if (again.ok || again.reason !== "no_earthquake") throw new Error("a spent earthquake was accepted");
+            }
+          }
+        });
+        if (used.A > 1 || used.B > 1) throw new Error("an earthquake was used twice");
+        if (end.status === "playing") {
+          for (const player of ["A", "B"] as const) if (end.earthquakesLeft[player] !== (used[player] === 0)) throw new Error("earthquakesLeft disagrees with use");
+        }
+      }),
+    );
+  });
+
+  it("P10 (R12, R56) existing pieces only ever move down by exactly one row, and only in an earthquake round", () => {
+    fc.assert(
+      fc.property(intents, (rounds) => {
+        play(rounds, (before, choices, after) => {
+          const shift = quaked(choices) ? 1 : 0;
+          before.board.forEach((column, c) => {
+            column.slice(shift).forEach((cell, row) => {
+              if (after.board[c][row] !== cell) throw new Error("a piece moved by the wrong amount");
+            });
           });
         });
       }),

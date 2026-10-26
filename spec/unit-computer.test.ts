@@ -4,7 +4,13 @@ import { COLUMNS, ROWS, newGame, resolveRound, validateChoice, type Choice, type
 import { chooseMove, seededRandom, type PublicView } from "../src/server/computer.ts";
 
 function view(state: GameState, opponentReady = false): PublicView {
-  return { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, opponentReady };
+  return { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: state.earthquakesLeft, opponentReady };
+}
+
+// The computer's choice, as a disc (these tests are about columns and the shield).
+function disc(choice: Choice): { column: number; shield: boolean } {
+  if (!("column" in choice)) throw new Error("expected a disc");
+  return choice;
 }
 
 // Plays random legal discs into a board without ending the game, for position sampling.
@@ -50,7 +56,7 @@ describe("C: computer player (R40 to R46)", () => {
   it("C1 (R41) with only one open column it chooses that column", () => {
     const state = newGame();
     for (let c = 0; c < COLUMNS; c++) if (c !== 4) state.board[c] = Array(ROWS).fill("R");
-    expect(chooseMove(view(state), "B", seededRandom(3)).column).toBe(4);
+    expect(disc(chooseMove(view(state), "B", seededRandom(3))).column).toBe(4);
   });
 
   it("C2 (R42) always chooses an immediately winning column", () => {
@@ -61,7 +67,7 @@ describe("C: computer player (R40 to R46)", () => {
       const wins = winningColumns(state, "B");
       if (!wins.length) continue;
       tested++;
-      expect(wins).toContain(chooseMove(view(state), "B", rng).column);
+      expect(wins).toContain(disc(chooseMove(view(state), "B", rng)).column);
     }
     expect(tested).toBeGreaterThan(50);
   });
@@ -75,7 +81,7 @@ describe("C: computer player (R40 to R46)", () => {
       const theirs = winningColumns(state, "A");
       if (!theirs.length || winningColumns(state, "B").length) continue; // R42 comes first
       positions++;
-      if (theirs.includes(chooseMove(view(state), "B", rng).column)) blocked++;
+      if (theirs.includes(disc(chooseMove(view(state), "B", rng)).column)) blocked++;
     }
     expect(positions).toBe(1000);
     expect(blocked / positions).toBeGreaterThanOrEqual(0.7);
@@ -119,7 +125,7 @@ describe("C: computer player (R40 to R46)", () => {
       const state = randomPosition(rng);
       state.shieldsLeft = { A: true, B: false };
       state.round = 6 + Math.floor(rng() * 20);
-      expect(chooseMove(view(state), "B", rng).shield).toBe(false);
+      expect(disc(chooseMove(view(state), "B", rng)).shield).toBe(false);
     }
   });
 
@@ -131,7 +137,7 @@ describe("C: computer player (R40 to R46)", () => {
       const shared = winningColumns(s, "B").filter((c) => winningColumns(s, "A").includes(c));
       if (!shared.length) continue;
       tested++;
-      const choice = chooseMove(view(s), "B", rng);
+      const choice = disc(chooseMove(view(s), "B", rng));
       expect(shared).toContain(choice.column);
       expect(choice.shield).toBe(true);
     }

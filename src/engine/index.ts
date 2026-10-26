@@ -7,16 +7,16 @@ export const ROWS = 6;
 export type Player = "A" | "B";
 export type Cell = Player | "R"; // 'R' is a rubble block
 export type Board = Cell[][]; // board[c] is column c, index 0 is the bottom
-export interface Choice {
-  column: number;
-  shield: boolean;
-}
+export type Choice =
+  | { column: number; shield: boolean } // a disc, with or without the shield (R3)
+  | { earthquake: true }; // Earthquake instead of a disc (R53 to R57)
 export type Status = "playing" | "won" | "draw";
 
 export interface GameState {
   board: Board;
   round: number; // rounds resolved so far
   shieldsLeft: Record<Player, boolean>;
+  earthquakesLeft: Record<Player, boolean>; // R53
   status: Status;
   winner: Player | null;
 }
@@ -25,13 +25,15 @@ export type RoundOutcome =
   | "both_landed" // R5
   | "crash" // R6 and R9
   | "shield_win" // R7
-  | "one_landed" // R10, one player chose
+  | "one_landed" // R10, one player chose a column
+  | "earthquake" // R56 and R57, at least one earthquake; the other player's disc may also have landed
   | "none"; // R10, nobody chose
 
 export interface RoundResult {
   state: GameState;
   outcome: RoundOutcome;
   shieldWinner: Player | null;
+  shaken: boolean; // R56: the bottom row was removed this round
 }
 
 export function newGame(): GameState {
@@ -43,18 +45,40 @@ export function newGame(): GameState {
     board,
     round: 0,
     shieldsLeft: { A: true, B: true },
+    earthquakesLeft: { A: true, B: true },
     status: "playing",
     winner: null,
   };
+}
+
+export type RejectReason =
+  | "game_over"
+  | "bad_column"
+  | "column_full"
+  | "no_shield"
+  | "one_power_up"
+  | "no_earthquake"
+  | "nothing_to_shake";
+
+export function isEarthquake(choice: Choice): choice is { earthquake: true } {
+  return "earthquake" in choice && choice.earthquake === true;
 }
 
 export function validateChoice(
   state: GameState,
   player: Player,
   choice: Choice,
-): { ok: true } | { ok: false; reason: "game_over" | "bad_column" | "column_full" | "no_shield" } {
+): { ok: true } | { ok: false; reason: RejectReason } {
   if (state.status !== "playing") {
     return { ok: false, reason: "game_over" };
+  }
+  if (isEarthquake(choice)) {
+    // R53: a power-up per round at most, so Earthquake cannot carry a column or a shield.
+    const extra = choice as { column?: unknown; shield?: unknown };
+    if (extra.column !== undefined || extra.shield) return { ok: false, reason: "one_power_up" };
+    if (!state.earthquakesLeft[player]) return { ok: false, reason: "no_earthquake" };
+    if (state.board.every((column) => column.length === 0)) return { ok: false, reason: "nothing_to_shake" }; // R55
+    return { ok: true };
   }
   if (!Number.isInteger(choice.column) || choice.column < 0 || choice.column >= COLUMNS) {
     return { ok: false, reason: "bad_column" };
@@ -76,28 +100,21 @@ function cellAt(board: Board, column: number, row: number): Cell | undefined {
   return board[column]?.[row];
 }
 
-function hasLine(board: Board, player: Player): boolean {
+// R13: a line wins only if a disc dropped this round is part of it, so a line made only by pieces
+// moving in an earthquake never wins.
+function completesLine(board: Board, column: number, row: number): boolean {
+  const player = board[column][row];
   const directions: Array<[number, number]> = [
     [1, 0],
     [0, 1],
     [1, 1],
     [1, -1],
   ];
-  for (let column = 0; column < board.length; column++) {
-    for (let row = 0; row < board[column].length; row++) {
-      if (board[column][row] !== player) continue;
-      for (const [dc, dr] of directions) {
-        let count = 1;
-        for (let step = 1; step < 4; step++) {
-          if (cellAt(board, column + dc * step, row + dr * step) === player) {
-            count++;
-          } else {
-            break;
-          }
-        }
-        if (count >= 4) return true;
-      }
-    }
+  for (const [dc, dr] of directions) {
+    let count = 1;
+    for (let step = 1; step < 4 && cellAt(board, column + dc * step, row + dr * step) === player; step++) count++;
+    for (let step = 1; step < 4 && cellAt(board, column - dc * step, row - dr * step) === player; step++) count++;
+    if (count >= 4) return true;
   }
   return false;
 }
@@ -125,41 +142,57 @@ export function resolveRound(
 
   const board = cloneBoard(state.board);
   const shieldsLeft = { ...state.shieldsLeft };
+  const earthquakesLeft = { ...state.earthquakesLeft };
+  const dropped: Array<[number, number]> = []; // the discs that landed this round (R13)
+  const drop = (column: number, piece: Cell): void => {
+    board[column].push(piece);
+    if (piece !== "R") dropped.push([column, board[column].length - 1]);
+  };
+
+  // R56: the earthquake happens first. The bottom row goes and every piece above drops one row.
+  const quaking = (["A", "B"] as const).filter((player) => choices[player] && isEarthquake(choices[player]!));
+  const shaken = quaking.length > 0;
+  if (shaken) {
+    for (const column of board) column.shift();
+    for (const player of quaking) earthquakesLeft[player] = false; // R57: both are spent, one row goes
+  }
+
   let outcome: RoundOutcome;
   let shieldWinner: Player | null = null;
-  if (A && B && A.column === B.column) {
-    if (A.shield) shieldsLeft.A = false;
-    if (B.shield) shieldsLeft.B = false;
-    if (A.shield && !B.shield) {
-      board[A.column].push("A");
-      outcome = "shield_win";
-      shieldWinner = "A";
-    } else if (B.shield && !A.shield) {
-      board[B.column].push("B");
-      outcome = "shield_win";
-      shieldWinner = "B";
+  const discs = (["A", "B"] as const).flatMap((player) => {
+    const choice = choices[player];
+    return choice && !isEarthquake(choice) ? [{ player, choice }] : [];
+  });
+  for (const { player, choice } of discs) if (choice.shield) shieldsLeft[player] = false; // R8
+  if (shaken) {
+    outcome = "earthquake";
+    for (const { player, choice } of discs) drop(choice.column, player);
+  } else if (discs.length === 2) {
+    const [a, b] = discs;
+    if (a.choice.column === b.choice.column) {
+      if (a.choice.shield !== b.choice.shield) {
+        const winner = a.choice.shield ? a : b;
+        drop(winner.choice.column, winner.player);
+        outcome = "shield_win";
+        shieldWinner = winner.player;
+      } else {
+        drop(a.choice.column, "R");
+        outcome = "crash";
+      }
     } else {
-      board[A.column].push("R");
-      outcome = "crash";
+      drop(a.choice.column, a.player);
+      drop(b.choice.column, b.player);
+      outcome = "both_landed";
     }
-  } else if (A && B) {
-    if (A.shield) shieldsLeft.A = false;
-    if (B.shield) shieldsLeft.B = false;
-    board[A.column].push("A");
-    board[B.column].push("B");
-    outcome = "both_landed";
-  } else if (A || B) {
-    const chooser: Player = A ? "A" : "B";
-    const choice = (A ?? B)!;
-    if (choice.shield) shieldsLeft[chooser] = false;
-    board[choice.column].push(chooser);
+  } else if (discs.length === 1) {
+    drop(discs[0].choice.column, discs[0].player);
     outcome = "one_landed";
   } else {
     outcome = "none";
   }
 
-  const aWins = hasLine(board, "A");
-  const bWins = hasLine(board, "B");
+  const aWins = dropped.some(([c, r]) => board[c][r] === "A" && completesLine(board, c, r));
+  const bWins = dropped.some(([c, r]) => board[c][r] === "B" && completesLine(board, c, r));
   let status: Status = state.status;
   let winner: Player | null = state.winner;
   if (aWins && bWins) {
@@ -181,10 +214,12 @@ export function resolveRound(
       board,
       round: state.round + 1,
       shieldsLeft,
+      earthquakesLeft,
       status,
       winner,
     },
     outcome,
     shieldWinner,
+    shaken,
   };
 }

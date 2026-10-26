@@ -9,7 +9,7 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import type { Server } from "node:http";
 import { randomUUID } from "node:crypto";
-import { newGame, validateChoice, type Choice, type GameState, type Player } from "../engine/index.ts";
+import { newGame, validateChoice, type Choice, type GameState, type Player, type RejectReason } from "../engine/index.ts";
 import { createGameService, ROUND_TIMER_MS, type GameService } from "./game-service.ts";
 import type { Db, Ended } from "./db.ts";
 import { logEvent } from "./log.ts";
@@ -43,7 +43,7 @@ export interface OpponentReady {
 
 export interface Rejected {
   type: "rejected";
-  reason: "game_over" | "bad_column" | "column_full" | "no_shield" | "already_chosen"; // already_chosen: R4, a choice is final
+  reason: RejectReason | "already_chosen"; // already_chosen: R4, a choice is final
 }
 
 export interface GameFull {
@@ -278,6 +278,7 @@ export function attachRealtime(
         board: record.state.board,
         round: record.state.round,
         shieldsLeft: record.state.shieldsLeft,
+        earthquakesLeft: record.state.earthquakesLeft,
         opponentReady: choices.A !== null,
       },
       "B",

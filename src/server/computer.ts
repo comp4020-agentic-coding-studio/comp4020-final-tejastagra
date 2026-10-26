@@ -9,6 +9,7 @@ export interface PublicView {
   board: Board;
   round: number;
   shieldsLeft: Record<Player, boolean>;
+  earthquakesLeft: Record<Player, boolean>;
   opponentReady: boolean;
 }
 
@@ -34,6 +35,7 @@ function winsAt(view: PublicView, player: Player, column: number): boolean {
     board: view.board,
     round: view.round,
     shieldsLeft: view.shieldsLeft,
+    earthquakesLeft: view.earthquakesLeft,
     status: "playing",
     winner: null,
   };

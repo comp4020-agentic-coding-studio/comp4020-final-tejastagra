@@ -475,3 +475,234 @@ describe("R12 pieces already on the board never move or change", () => {
     expect(state.board[4]).toEqual(afterFirst[4]);
   });
 });
+
+// ---- Earthquake (ADR 0010, R53 to R60) ----
+
+// A game with the given columns filled from the bottom, for example { 0: "ABR" }.
+function withBoard(columns: Record<number, string>): GameState {
+  const state = newGame();
+  for (const [column, pieces] of Object.entries(columns)) state.board[Number(column)] = pieces.split("") as GameState["board"][number];
+  return state;
+}
+const quake = { earthquake: true } as const;
+const disc = (column: number, shield = false) => ({ column, shield });
+
+describe("R2 a new game has both Earthquakes", () => {
+  it("R2 starts with both Earthquakes available", () => {
+    expect(newGame().earthquakesLeft).toEqual({ A: true, B: true });
+  });
+});
+
+describe("R55 Earthquake cannot be chosen when the bottom row is empty", () => {
+  it("R55 rejects with nothing_to_shake on an empty board", () => {
+    expect(validateChoice(newGame(), "A", quake)).toEqual({ ok: false, reason: "nothing_to_shake" });
+  });
+
+  it("R55 accepts it as soon as one piece is on the board, even rubble", () => {
+    expect(validateChoice(withBoard({ 3: "R" }), "B", quake)).toEqual({ ok: true });
+  });
+
+  it("R55 resolveRound throws for an Earthquake on an empty board", () => {
+    expect(() => resolveRound(newGame(), { A: quake, B: null })).toThrow();
+  });
+});
+
+describe("R53 one Earthquake per player, and one power-up per round", () => {
+  it("R53 rejects with no_earthquake once that player's Earthquake is spent", () => {
+    const state = withBoard({ 0: "A" });
+    state.earthquakesLeft.A = false;
+    expect(validateChoice(state, "A", quake)).toEqual({ ok: false, reason: "no_earthquake" });
+    expect(validateChoice(state, "B", quake)).toEqual({ ok: true });
+  });
+
+  it("R53 the shield and Earthquake cannot be combined: a shield flag on an Earthquake is one_power_up", () => {
+    const state = withBoard({ 0: "A" });
+    const both = { earthquake: true, shield: true } as unknown as Parameters<typeof validateChoice>[2];
+    expect(validateChoice(state, "A", both)).toEqual({ ok: false, reason: "one_power_up" });
+    expect(() => resolveRound(state, { A: both, B: null })).toThrow();
+  });
+
+  it("R53 a column on an Earthquake is one_power_up too", () => {
+    const state = withBoard({ 0: "A" });
+    const both = { earthquake: true, column: 2 } as unknown as Parameters<typeof validateChoice>[2];
+    expect(validateChoice(state, "A", both)).toEqual({ ok: false, reason: "one_power_up" });
+  });
+
+  it("R53 rejection order: game_over, then one_power_up, then no_earthquake, then nothing_to_shake", () => {
+    const over: GameState = { ...newGame(), status: "won", winner: "A" };
+    over.earthquakesLeft.A = false;
+    expect(validateChoice(over, "A", quake)).toEqual({ ok: false, reason: "game_over" });
+    const empty = newGame();
+    empty.earthquakesLeft.A = false;
+    expect(validateChoice(empty, "A", quake)).toEqual({ ok: false, reason: "no_earthquake" });
+    const both = { earthquake: true, shield: true } as unknown as Parameters<typeof validateChoice>[2];
+    expect(validateChoice(empty, "A", both)).toEqual({ ok: false, reason: "one_power_up" });
+  });
+
+  it("R53 Earthquake is spent after use, for the player who used it only", () => {
+    const result = resolveRound(withBoard({ 0: "A" }), { A: quake, B: null });
+    expect(result.state.earthquakesLeft).toEqual({ A: false, B: true });
+    expect(validateChoice(result.state, "A", quake)).toEqual({ ok: false, reason: "no_earthquake" });
+  });
+});
+
+describe("R56 the earthquake removes the bottom row and shifts each column down one", () => {
+  it("R56 removes exactly the bottom row, discs and rubble alike, and keeps the order above", () => {
+    const state = withBoard({ 0: "ABA", 1: "R", 2: "BRA", 4: "AB" });
+    const result = resolveRound(state, { A: quake, B: null });
+    expect(result.outcome).toBe("earthquake");
+    expect(result.shaken).toBe(true);
+    expect(result.state.board).toEqual([["B", "A"], [], ["R", "A"], [], ["B"], [], []]);
+  });
+
+  it("R56 the other player's disc drops after the earthquake, onto the new board", () => {
+    const state = withBoard({ 3: "AB" });
+    const result = resolveRound(state, { A: null, B: quake });
+    expect(result.state.board[3]).toEqual(["B"]);
+    const both = resolveRound(withBoard({ 3: "AB" }), { A: disc(3), B: quake });
+    expect(both.outcome).toBe("earthquake");
+    expect(both.state.board[3]).toEqual(["B", "A"]); // A's disc landed on the shifted column, not under it
+    const other = resolveRound(withBoard({ 3: "AB" }), { A: quake, B: disc(0) });
+    expect(other.state.board[0]).toEqual(["B"]);
+    expect(other.state.board[3]).toEqual(["B"]);
+  });
+
+  it("R56 a disc dropped in the same column as the earthquake lands on top of what is left", () => {
+    const state = withBoard({ 2: "R" });
+    const result = resolveRound(state, { A: quake, B: disc(2) });
+    expect(result.state.board[2]).toEqual(["B"]); // the rubble went, then the disc landed on an empty column
+  });
+
+  it("R56 a full column can still be chosen as before the round: fullness is checked before the earthquake (R3)", () => {
+    const state = withBoard({ 0: "ABABAB" });
+    expect(validateChoice(state, "B", disc(0))).toEqual({ ok: false, reason: "column_full" });
+    expect(() => resolveRound(state, { A: quake, B: disc(0) })).toThrow();
+  });
+
+  it("R56 does not change its input", () => {
+    const state = withBoard({ 0: "AB" });
+    const snapshot = JSON.parse(JSON.stringify(state));
+    resolveRound(state, { A: quake, B: disc(1) });
+    expect(state).toEqual(snapshot);
+  });
+
+  it("R56 counts as a resolved round (R11) and the earthquake outcome is not a crash", () => {
+    const result = resolveRound(withBoard({ 0: "A" }), { A: quake, B: disc(0) });
+    expect(result.state.round).toBe(1);
+    expect(result.outcome).toBe("earthquake");
+    expect(result.shieldWinner).toBeNull();
+    expect(result.state.board[0]).toEqual(["B"]); // no rubble: it was not a crash
+  });
+});
+
+describe("R57 both players choosing Earthquake: one row goes, no discs drop", () => {
+  it("R57 shakes once, spends both Earthquakes and drops nothing", () => {
+    const state = withBoard({ 0: "AB", 1: "B", 5: "RA" });
+    const result = resolveRound(state, { A: quake, B: quake });
+    expect(result.outcome).toBe("earthquake");
+    expect(result.state.board).toEqual([["B"], [], [], [], [], ["A"], []]);
+    expect(result.state.earthquakesLeft).toEqual({ A: false, B: false });
+  });
+});
+
+describe("R58 the shield has no effect on Earthquake", () => {
+  it("R58 the other player's shield on their own column is spent and has no crash to win", () => {
+    const state = withBoard({ 2: "A" });
+    const result = resolveRound(state, { A: quake, B: disc(2, true) });
+    expect(result.state.shieldsLeft).toEqual({ A: true, B: false });
+    expect(result.shieldWinner).toBeNull();
+    expect(result.state.board[2]).toEqual(["B"]);
+  });
+});
+
+describe("R13 only a disc dropped this round can win", () => {
+  it("R13 a line formed only by the earthquake does not win", () => {
+    // Row 1 holds A A A A with a piece under each; the earthquake drops them all into the bottom row.
+    const state = withBoard({ 0: "RA", 1: "RA", 2: "RA", 3: "RA" });
+    const result = resolveRound(state, { A: null, B: quake });
+    expect(result.state.board.slice(0, 4).map((c) => c[0])).toEqual(["A", "A", "A", "A"]);
+    expect(result.state.status).toBe("playing");
+    expect(result.state.winner).toBeNull();
+  });
+
+  it("R13 a line formed only by the earthquake does not win even for the player who shook", () => {
+    const state = withBoard({ 0: "RB", 1: "RB", 2: "RB", 3: "RB" });
+    const result = resolveRound(state, { A: null, B: quake });
+    expect(result.state.status).toBe("playing");
+  });
+
+  it("R13 a disc dropped after the earthquake that completes a line wins", () => {
+    const state = withBoard({ 0: "RA", 1: "RA", 2: "RA" });
+    const result = resolveRound(state, { A: disc(3), B: quake });
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("A");
+    expect(result.state.board[3]).toEqual(["A"]);
+  });
+
+  it("R13 a disc dropped by the other player after the earthquake can win for them", () => {
+    const state = withBoard({ 0: "RB", 1: "RB", 2: "RB" });
+    const result = resolveRound(state, { A: quake, B: disc(3) });
+    expect(result.state.winner).toBe("B");
+    expect(result.state.round).toBe(1);
+  });
+
+  it("R13 a line made only by the earthquake is ignored while the other player's dropped disc wins", () => {
+    const state = withBoard({ 0: "RA", 1: "RA", 2: "RA", 3: "RA", 5: "RBBB" });
+    const result = resolveRound(state, { A: quake, B: disc(5) });
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("B");
+  });
+
+  it("R13 a disc in the middle of a line completes it: the dropped disc need not be at the end", () => {
+    const state = withBoard({ 0: "A", 1: "A", 3: "A" });
+    const result = resolveRound(state, { A: disc(2), B: disc(6) });
+    expect(result.state.winner).toBe("A");
+  });
+
+  it("R13 a vertical line is completed by a dropped disc", () => {
+    expect(resolveRound(withBoard({ 0: "AAA" }), { A: disc(0), B: disc(6) }).state.winner).toBe("A");
+  });
+
+  it("R13 a rising diagonal is completed by a dropped disc", () => {
+    const state = withBoard({ 0: "A", 1: "BA", 2: "BBA", 3: "BBB" });
+    expect(resolveRound(state, { A: disc(3), B: disc(6) }).state.winner).toBe("A");
+  });
+
+  it("R13 a falling diagonal is completed by a dropped disc", () => {
+    const state = withBoard({ 0: "BBBA", 1: "BBA", 2: "BA" });
+    expect(resolveRound(state, { A: disc(3), B: disc(6) }).state.winner).toBe("A");
+  });
+
+  it("R13 an existing line that no disc this round is part of does not win", () => {
+    const state = withBoard({ 0: "A", 1: "A", 2: "A", 3: "A" });
+    const result = resolveRound(state, { A: disc(6), B: disc(5) });
+    expect(result.state.status).toBe("playing");
+  });
+});
+
+describe("R14 both players' dropped discs complete a line: a draw", () => {
+  it("R14 is a draw when each player's disc dropped this round completes their own line", () => {
+    const state = withBoard({ 0: "AAA", 1: "BBB" });
+    const result = resolveRound(state, { A: disc(0), B: disc(1) });
+    expect(result.state.status).toBe("draw");
+    expect(result.state.winner).toBeNull();
+  });
+
+  it("R14 is not a draw when one player's line was only formed by the earthquake: the other player wins", () => {
+    const state = withBoard({ 0: "RA", 1: "RA", 2: "RA", 3: "RA", 5: "RBBB" });
+    const result = resolveRound(state, { A: quake, B: disc(5) });
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("B");
+  });
+});
+
+describe("R59 Earthquake never affects the round count", () => {
+  it("R17 and R59 rounds to win still counts rounds, earthquake rounds included", () => {
+    let state = withBoard({ 0: "RA", 1: "RA", 2: "RA" });
+    state = resolveRound(state, { A: null, B: quake }).state;
+    expect(state.round).toBe(1);
+    const final = resolveRound(state, { A: disc(3), B: disc(6) });
+    expect(final.state.winner).toBe("A");
+    expect(final.state.round).toBe(2);
+  });
+});

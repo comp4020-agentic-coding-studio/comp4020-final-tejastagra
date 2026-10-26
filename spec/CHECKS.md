@@ -34,9 +34,9 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | P5 | A game is won exactly when it has a winner | R13 to R16 | passing |
 | P6 | Nothing is accepted after the game ends | R16 | passing |
 | P7 | Without an earthquake, pieces never move or change | R12 | passing |
-| P8 | An earthquake round removes exactly the bottom row's pieces, adds only the discs dropped, and never overfills a column | R56, R57 | todo |
-| P9 | Each player uses Earthquake at most once, and it is never accepted again | R53 | todo |
-| P10 | Existing pieces only ever move down by exactly one row, and only in an earthquake round | R12, R56 | todo |
+| P8 | An earthquake round removes exactly the bottom row's pieces, adds only the discs dropped, and never overfills a column | R56, R57 | passing |
+| P9 | Each player uses Earthquake at most once, and it is never accepted again | R53 | passing |
+| P10 | Existing pieces only ever move down by exactly one row, and only in an earthquake round | R12, R56 | passing |
 | M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.17%) |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
