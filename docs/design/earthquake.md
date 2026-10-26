@@ -1,0 +1,23 @@
+# Earthquake
+
+Added on 27 October 2026 for the Earthquake power-up (ADR 0010, rules R53 to R60). It extends `board-interaction.md` (the shield badge), `motion-and-endings.md` (the reveal) and `tutorial.md`.
+
+## The badge
+
+- **U61** Beside the shield badge, inside the player's own panel, is the Earthquake badge (`earthquake-badge`) with a large icon of a cracked row, at least 44px high and as wide as the shield badge. The icon is a shape, not only a colour (a zigzag crack under three blocks). It has three states, modelled on the shield's (U16): **available**, reading "Tap to use Earthquake" (`earthquake-label`); **armed**, glowing and reading "Earthquake armed", from the moment the player has used it until the round resolves; and **spent**, greyed out and reading "Earthquake used". While the bottom row is empty the badge is disabled and reads "Nothing to shake yet" (R55).
+- **U62** Tapping the available badge **chooses Earthquake for this round** (R54): it arms the badge, locks the choice at once, final like a column tap (R4, U13), and sends it to the server. Every column and both badges are then disabled until the round resolves, and the player panel shows "Chosen". A small crack marker replaces the ghost disc above the board (it shows no column). Because Earthquake replaces the disc and cannot be combined with the shield (R53), tapping it while the shield is armed disarms the shield first; the shield is never sent with it. Keys: **E** is the same as tapping the badge. There is no separate confirm step, as with a column; the lock is made obvious by the armed state and the "Chosen" label (U13).
+- **U63** An info button (`earthquake-info`, at least 44 by 44px) beside the badge opens a short explanation (`earthquake-help`, an overlay over the board like `shield-help`, so it never pushes the board off screen): "Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Lines it creates by itself do not win."
+- **U64** The opponent's panel shows only whether their Earthquake is still available, never whether it is armed or chosen this round (R22), as it does for the shield (U17).
+
+## When it happens
+
+- **U65** When a round with an earthquake arrives, the result is drawn in four short steps, all within one second of the result arriving (R23, U23): the board **shakes** (about 150ms), the bottom row **crumbles** into dust (the pieces fade and fall apart, about 150ms), the columns **slide down** one row (about 150ms) and then the other player's disc, if any, **drops** as usual. Every step uses `transform` and `opacity` only, and its length is a `--ms-quake-*` or `--dur-quake-*` variable in `public/theme.css`. The sequence always ends with the board exactly as the server sent it. **Under reduced motion** nothing moves: the board simply updates to the new state. The result line explains it (U66).
+- **U66** The result line (`result-line`) says what happened, in these words: only you shook: "Earthquake! The bottom row crumbled." (followed by " Your opponent's disc landed in column N." when theirs landed); only your opponent shook: "Your opponent used Earthquake! The bottom row crumbled." (followed by " Your disc landed in column N." when yours did); both: "You both used Earthquake! The bottom row crumbled once." A later disc that completes a line is not special-cased. The browser knows an earthquake happened because that player's `earthquakesLeft` has gone from available to used and the round count has gone up; it never works out the result itself (R20).
+
+## Tutorial
+
+- **U67** A tutorial step after the shield step, "Power-ups: Earthquake". The board is set up so the computer is building a line along the bottom row (three of its discs in a row with an open end, and a few of the player's discs above). The Earthquake badge shows and the player is asked to tap it (U62). The bottom row crumbles and the computer's line is gone. Caption: "Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Use it to break up a line." The step follows the same rules as U41 to U46: it waits for the player, Next appears only once it is done, captions are short and announced, it works by tap, mouse and keyboard, and under reduced motion the step still makes sense without animation. Steps after it move down by one (see `tutorial.md`).
+
+## Test hooks
+
+`earthquake-badge`, `earthquake-label`, `earthquake-info`, `earthquake-help`, `opponent-earthquake`, `tutorial-earthquake` (the badge on the practice board).

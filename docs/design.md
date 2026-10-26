@@ -19,9 +19,9 @@ The aim is a lively, original navy toy game site that works fully on a phone (AD
 
 - Every tap target is at least 44 x 44 CSS px.
 - Tapping a column is the whole choice (docs/design/board-interaction.md, U10 to U18). It is final for the round (R4).
-- The shield is a badge you tap to arm, and it shows clearly whether it is on.
+- The shield is a badge you tap to arm and the Earthquake a badge you tap to use, and each shows clearly whether it is on (docs/design/earthquake.md).
 - An error or confirmation appears where the player is looking: inside the first screen height of the form that caused it, never below other forms or buttons. Use the interface's own messages, not the browser's validation bubbles.
-- Nothing depends on hover. Everything works by tap, mouse and keyboard (keys 1 to 7 choose a column, S toggles the shield).
+- Nothing depends on hover. Everything works by tap, mouse and keyboard (keys 1 to 7 choose a column, S toggles the shield, E the Earthquake).
 
 ## Telling things apart
 
@@ -33,7 +33,7 @@ The aim is a lively, original navy toy game site that works fully on a phone (AD
 
 - Round number and the round timer bar.
 - Whether the opponent has chosen yet (R21), shown as "Ready" or "Choosing".
-- Whether each player still has their shield.
+- Whether each player still has their shield and their Earthquake.
 - Your current choice, until the round resolves.
 - After each round, a one-line explanation of what happened, for example "You both chose column 4. Crash: rubble landed."
 - The first time a crash, shield win or missed round happens in someone's first game, a short explanation of the rule.
@@ -67,7 +67,7 @@ The reveal starts when the server's result arrives and never before, so an anima
 
 Use these `data-testid` values so tests do not depend on layout:
 
-`column-0` to `column-6`, `shield-badge`, `round-number`, `timer`, `opponent-status`, `my-shield`, `opponent-shield`, `result-line`, `game-code`, `copy-link`, `nickname-input`, `play-computer`, `play-friend`, `quick-match`, `code-input`, `leaderboard-wins`, `leaderboard-rounds`, `cell-<column>-<row>` (with `data-piece="A" | "B" | "R" | ""`).
+`column-0` to `column-6`, `shield-badge`, `earthquake-badge`, `round-number`, `timer`, `opponent-status`, `my-shield`, `opponent-shield`, `result-line`, `game-code`, `copy-link`, `nickname-input`, `play-computer`, `play-friend`, `quick-match`, `code-input`, `leaderboard-wins`, `leaderboard-rounds`, `cell-<column>-<row>` (with `data-piece="A" | "B" | "R" | ""`).
 
 ## Words
 

@@ -26,19 +26,22 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 
 | ID | Claim | Rule | Status |
 | --- | --- | --- | --- |
-| R-tests | One or more tests per engine rule, named by rule ID | R1 to R17 | passing |
-| P1 | Each round adds exactly 2, 1 or 0 pieces, as the choices dictate | R5 to R10 | passing |
+| R-tests | One or more tests per engine rule, named by rule ID | R1 to R17, R53 to R58 | passing |
+| P1 | Each round without an earthquake adds exactly 2, 1 or 0 pieces, as the choices dictate | R5 to R10 | passing |
 | P2 | No column holds more than 6 pieces | R1 | passing |
 | P3 | A shield is spent exactly when used and never comes back | R8, R9 | passing |
 | P4 | The round count goes up by exactly 1 | R11 | passing |
 | P5 | A game is won exactly when it has a winner | R13 to R16 | passing |
 | P6 | Nothing is accepted after the game ends | R16 | passing |
-| P7 | Pieces never move or change | R12 | passing |
+| P7 | Without an earthquake, pieces never move or change | R12 | passing |
+| P8 | An earthquake round removes exactly the bottom row's pieces, adds only the discs dropped, and never overfills a column | R56, R57 | todo |
+| P9 | Each player uses Earthquake at most once, and it is never accepted again | R53 | todo |
+| P10 | Existing pieces only ever move down by exactly one row, and only in an earthquake round | R12, R56 | todo |
 | M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.17%) |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
 
-N1 to N4. See the file.
+N1 to N4. See the file. N5 adds: an Earthquake choice is never revealed to the opponent before the round resolves (R21, R22, R54), todo.
 
 ## Real time (`spec/app-realtime.test.ts`)
 
@@ -50,7 +53,7 @@ L1 to L5, I1 to I6, B1 to B5. See the files.
 
 ## Computer, persistence and logging (`spec/unit-computer.test.ts`, `spec/unit-persistence.test.ts`, `spec/unit-logging.test.ts`)
 
-C1 to C7, S1 to S3, G1 to G3. See the files.
+C1 to C7, S1 to S3, G1 to G3. See the files. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), todo. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), todo.
 
 ## Phone layout (`e2e/`, Playwright, `pnpm test:e2e`)
 
@@ -59,6 +62,7 @@ C1 to C7, S1 to S3, G1 to G3. See the files.
 | E1 | Two browser contexts with no shared cookies play a full game through a friend link, one at each marking viewport | passing (`e2e/e1-full-game.spec.ts`) |
 | E4 | Every screen in `docs/design.md` has no sideways scroll at 320 px, 390 px and laptop width | passing (`e2e/e4-no-sideways-scroll.spec.ts`) |
 | E5 | Every tap target is at least 44 x 44 px at the phone viewport | passing (`e2e/e5-tap-targets.spec.ts`) |
+| E7 | The Earthquake badge, its states, help, the animation, its reduced-motion version and the tutorial step work at the phone viewport | todo (`e2e/earthquake.spec.ts`) |
 | E6 | Every feature (computer, friend link, code entry, quick match, sign up, leaderboard, /readme/) completes at the phone viewport | passing (`e2e/e6-features.spec.ts`) |
 
 ## Design and tutorial (docs/design/)
@@ -71,6 +75,9 @@ C1 to C7, S1 to S3, G1 to G3. See the files.
 | U19 to U30 | Reveal within one second, end popups, reduced motion | `e2e/design.spec.ts` | passing |
 | U31 to U40 | Home menu content and the phone and laptop layouts | `e2e/design.spec.ts` | passing |
 | U41 to U48 | Tutorial steps, skip and replay | `e2e/design.spec.ts` | passing |
+| U61 to U64 | The Earthquake badge: states, exclusive with the shield, help, opponent panel shows availability only | `e2e/earthquake.spec.ts` | todo |
+| U65, U66 | The earthquake animation within one second, its reduced-motion version and the result line | `e2e/earthquake.spec.ts` | todo |
+| U67 | The tutorial's Earthquake step | `e2e/earthquake.spec.ts` | todo |
 | R4, R51, R52 | Locked choices, nothing starts until both are present, the computer thinks | `spec/unit-realtime-timer.test.ts`, `spec/unit-realtime-computer.test.ts` | passing |
 | U10 to U13, U54 to U60 | Column highlight, waiting card, names, centred game, 560px limit | `e2e/design.spec.ts` | todo |
 | Screenshots | Approved look at both viewports | `e2e/design.spec.ts` | passing |

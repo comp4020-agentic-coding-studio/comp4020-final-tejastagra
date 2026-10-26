@@ -10,6 +10,8 @@ Every animation uses only `transform` and `opacity` so it stays smooth on phones
 - **U22** A shield win: the winning disc flashes a glowing ring and the losing disc shatters.
 - **U23** The drop is presentation only, and the whole sequence lands within one second of the result arriving. The server still sends the result within the 1-second promise (R23), and both screens show the same result.
 
+- **U23a** An earthquake round is drawn as shake, crumble, slide and then the drop, still within one second (U65). Under reduced motion the board simply updates.
+
 ## Live feedback
 
 - **U24** When the opponent becomes ready, their panel pulses once and their status changes to "Ready!".

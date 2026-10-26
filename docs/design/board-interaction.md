@@ -16,9 +16,13 @@ The game screen has no column buttons and no Drop button. Players act on the boa
 - **U16** The shield is a power-up and looks like one: a badge inside the player's own panel with a large shield-shaped icon, `data-testid="shield-badge"`. While available it reads "Tap to arm shield". Tapping it arms the shield for this round: it glows and reads "Shield armed". Tapping again disarms it, until the player chooses a column (U13). Once spent it is greyed out and reads "Shield used". Beside it is a small info button (`shield-info`, at least 44 by 44px) that opens a short explanation (`shield-help`): "Your shield wins one crash per game. If you and your opponent pick the same column, your disc lands and theirs is lost. Use it when you both need the same column, for example to block their winning move or to take yours."
 - **U17** The opponent's panel shows whether their shield is still available, never whether it is armed this round (rule R22).
 
+## Earthquake
+
+- The Earthquake badge sits beside the shield. See `earthquake.md` (U61 to U64).
+
 ## Keyboard and access
 
-- **U18** Keys 1 to 7 choose a column, S arms or disarms the shield, and every choice is announced in an `aria-live` region. Hover only ever adds a preview: everything works by tap and keyboard alone.
+- **U18** Keys 1 to 7 choose a column, S arms or disarms the shield, E uses the Earthquake (U62), and every choice is announced in an `aria-live` region. Hover only ever adds a preview: everything works by tap and keyboard alone.
 
 ## Test hooks
 

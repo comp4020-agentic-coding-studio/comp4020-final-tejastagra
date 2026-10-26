@@ -40,6 +40,7 @@ Build Earthquake only, under these rules (R53 to R60 in `docs/rules.md`, U61 to 
 - The engine `Choice` becomes either `{ column, shield }` (unchanged) or `{ earthquake: true }`, so every existing caller and test keeps working.
 - Besides `nothing_to_shake`, the engine has two more rejection reasons: `no_earthquake` (already spent) and `one_power_up` (a choice that asks for both an Earthquake and a column or shield). The second cannot come from the screen; it protects the server from a hand-made message.
 - `earthquakesLeft` follows `shieldsLeft`: a `Record<Player, boolean>`, public once it changes, never the choice before the round resolves.
+- Tapping the Earthquake badge chooses it at once and locks it, like a column tap (U62), instead of arming first and confirming second: the brief's labels ("Tap to use Earthquake", armed, spent) read as one tap, and a choice is final either way (R4).
 - The client does not need a new message: the snapshot already carries the new board, and an Earthquake is recognised by `earthquakesLeft` going from true to false.
 - A column's fullness is checked against the board before the earthquake (R3 is unchanged), even though the earthquake would free a space. A player cannot know the other player is shaking, so the stricter check is the simpler rule.
 - Games saved before this change have no `earthquakesLeft`, so a numbered migration adds it (both Earthquakes available).
