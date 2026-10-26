@@ -11,17 +11,17 @@ The aim is a lively, original navy toy game site that works fully on a phone (AD
 ## Layout
 
 - One column of content, centred, at most 480 px wide on large screens. The exception is the game screen on a laptop, where the board is sized by height (see "Look and feel").
-- The whole board, the timer, both shields and the choose button must be visible on the phone viewport without scrolling.
+- The whole board, the timer bar, both shields and both names must be visible on the phone viewport without scrolling.
 - Nothing scrolls sideways at any viewport.
 - Respect safe areas on notched phones (`env(safe-area-inset-*)`).
 
 ## Touch and input
 
 - Every tap target is at least 44 x 44 CSS px.
-- Tapping a column is the whole choice (docs/design/board-interaction.md, U10 to U18). It can be changed until the round resolves (R4).
+- Tapping a column is the whole choice (docs/design/board-interaction.md, U10 to U18). It is final for the round (R4).
 - The shield is a badge you tap to arm, and it shows clearly whether it is on.
 - An error or confirmation appears where the player is looking: inside the first screen height of the form that caused it, never below other forms or buttons. Use the interface's own messages, not the browser's validation bubbles.
-- Nothing depends on hover. Everything works by tap, mouse and keyboard (keys 1 to 7 select a column, Enter drops, S toggles the shield).
+- Nothing depends on hover. Everything works by tap, mouse and keyboard (keys 1 to 7 choose a column, S toggles the shield).
 
 ## Telling things apart
 
@@ -31,7 +31,7 @@ The aim is a lively, original navy toy game site that works fully on a phone (AD
 
 ## What the game screen always shows
 
-- Round number and the round timer.
+- Round number and the round timer bar.
 - Whether the opponent has chosen yet (R21), shown as "Ready" or "Choosing".
 - Whether each player still has their shield.
 - Your current choice, until the round resolves.

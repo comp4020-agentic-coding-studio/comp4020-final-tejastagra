@@ -28,6 +28,10 @@ Tejas chose this style on 27 October 2026 (ADR 0006). He kept the navy backgroun
 | `--field` | `#121A4A` | The inside of a text input |
 | `--disabled` | `#3A4580` | A disabled button's fill (opaque, so nothing shows through it) |
 | `--stack-width` | `420px` | The widest a stack of menu buttons gets |
+| `--list-width` | `560px` | The widest a form or list gets (U60) |
+| `--timer-ok` | `#4D82EA` | The round timer bar at first (U25) |
+| `--timer-warn` | `#FF9F5A` | The timer bar from 5 seconds left |
+| `--timer-urgent` | `#FF6B5E` | The timer bar from 3 seconds left |
 | `--error` | `#FFB4A8` | Error messages |
 | `--ok` | `#7CE3A1` | Confirmations |
 | `--outline` | `3px solid var(--ink)` | Every button, panel, tile and disc |
