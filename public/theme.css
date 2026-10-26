@@ -64,6 +64,9 @@
   --field: #121a4a;
   --disabled: #3a4580;
   --disabled-text: #c9d1f5;
+  --timer-ok: #4d82ea;
+  --timer-warn: #ff9f5a;
+  --timer-urgent: #ff6b5e;
   --shield-on: #7ce3a1;
   --shield-off: #8a94a8;
   --win-glow: rgba(255, 199, 44, 0.9);
@@ -114,7 +117,7 @@
   --dur-pop: 0.45s;
   --dur-drop: 0.4s;
   --dur-shake: 0.35s;
-  --dur-countdown-step: 0.48s;
+  --dur-lock: 0.3s;
   --dur-win-pulse: 0.7s;
   --dur-confetti: 1.6s;
   --dur-chip: 5s;
@@ -130,10 +133,11 @@
   --dur-bubble-spread: 17s;
   --dur-confetti-spread: 0.5s;
 
-  /* The preview's pacing, in milliseconds (read by the preview script). The
-     countdown is three numbers of 130 ms, then DROP over the 400 ms fall: 790 ms to landing (U19). */
-  --ms-count-step: 130;
-  --ms-count-drop: 400;
+  /* Pacing in milliseconds, read by the scripts. There is no countdown (U19): discs drop
+     the moment the result arrives and land after --dur-drop. "Get ready" shows once (U55). */
+  --ms-get-ready: 1000;
+  --ms-popup-delay: 1400;
+  --ms-message-fade: 3000; /* a confirmation fades after 3 seconds (U35a) */
   --ms-beat: 900;
   --ms-after-round: 1400;
   --ms-after-crash: 1000;
@@ -143,6 +147,7 @@
 
   /* Bubble sizes in pixels: the smallest, and the spread above it (U3). */
   --stack-width: 420px;
+  --list-width: 560px; /* forms and lists are never wider than this (U60) */
   --bubble-size-min: 24;
   --bubble-size-spread: 49;
 }

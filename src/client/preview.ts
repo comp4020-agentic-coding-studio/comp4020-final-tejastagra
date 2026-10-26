@@ -56,15 +56,12 @@ for (const [piece, label] of [["you", "Your disc: red with a ring"], ["opponent"
 // ---- The looping reveal ----
 const board = buildBoard();
 $("preview-board").append(board.root);
-const countdown = $("preview-countdown");
 const result = $("preview-result");
 const wrap = $("preview-board");
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 // Pacing comes from public/theme.css (the --ms-* variables), never from this file.
 const ms = {
-  step: themeNumber("--ms-count-step"),
-  drop: themeNumber("--ms-count-drop"),
   beat: themeNumber("--ms-beat"),
   afterRound: themeNumber("--ms-after-round"),
   afterCrash: themeNumber("--ms-after-crash"),
@@ -73,18 +70,6 @@ const ms = {
   land: themeNumber("--ms-drop-land"),
 };
 const instant = reducedMotion();
-
-async function count(): Promise<void> {
-  if (instant) return; // no countdown under reduced motion
-  for (const word of ["3", "2", "1", "DROP"]) {
-    countdown.textContent = word;
-    countdown.classList.remove("countdown-pop");
-    void countdown.offsetWidth; // restart the animation
-    countdown.classList.add("countdown-pop");
-    await wait(word === "DROP" ? ms.drop : ms.step);
-  }
-  countdown.textContent = "";
-}
 
 function glowRecent(): void {
   wrap.querySelectorAll(".piece.recent").forEach((n) => n.classList.remove("recent"));
@@ -104,11 +89,10 @@ async function scene(): Promise<void> {
   await wait(ms.beat);
 
   // The server sends a result only when both have chosen. The page shows
-  // nothing about the choices before then (R22): the countdown comes first,
+  // nothing about the choices before then (R22): the discs follow at once,
   // then the discs and the words describing what happened.
   // Round 1: countdown, then both discs drop together with a bounce.
   result.textContent = "Both players are choosing...";
-  await count();
   const a = board.place(2, 2, "you", "dropping");
   const b = board.place(4, 2, "opponent", "dropping");
   a.classList.add("recent");
@@ -119,7 +103,6 @@ async function scene(): Promise<void> {
   // Round 2: a crash. The column shakes and the rubble thuds in.
   glowRecent();
   result.textContent = "Both players are choosing...";
-  await count();
   result.textContent = "You both chose column 4. Crash: rubble landed.";
   const column = [0, 1, 2].map((r) => board.cell(3, r));
   if (!instant) column.forEach((c) => c.classList.add("shake"));
@@ -130,7 +113,6 @@ async function scene(): Promise<void> {
 
   // Round 3: a shield glows when used.
   result.textContent = "Both players are choosing...";
-  await count();
   // The shield glows only now that the round is revealed, never before it.
   result.textContent = "You used your shield and won the crash in column 2.";
   panel($("preview-you"), "you", "You", "", "you-seed", "glow");
@@ -149,7 +131,6 @@ async function scene(): Promise<void> {
   board.place(0, 0, "opponent");
   await wait(ms.beat);
   result.textContent = "Both players are choosing...";
-  await count();
   result.textContent = "You win! Four in a row in column 6.";
   const last = board.place(5, 3, "you", "dropping");
   await wait(instant ? 0 : ms.land);

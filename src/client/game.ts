@@ -1,9 +1,9 @@
 // The game screen (/g/<code>), docs/design/board-interaction.md and motion-and-endings.md.
-// Players act on the board itself: tapping a column chooses it, and tapping another
-// changes it until the round resolves (R4, U12, U13). The browser only sends choices
-// and shows what the server sends (R20): it never works out a result itself, and the
-// countdown starts only when the server's result arrives, so it can never show a
-// choice early (R22) or hold a result back past the one second promise (U23).
+// Players act on the board itself: tapping a column chooses it, and the choice is final
+// for the round (R4, U12, U13). The browser only sends choices and shows what the server
+// sends (R20): it never works out a result itself. Discs drop the moment the result
+// arrives, with no countdown (U19), so nothing can show a choice early (R22) or hold a
+// result back past the one second promise (U23).
 import { avatar, buildBoard, confettiBurst, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
 
 type Player = "A" | "B";
@@ -16,7 +16,7 @@ interface State {
   winner: Player | null;
 }
 
-const ROUND_SECONDS = 15;
+const ROUND_SECONDS = 10; // R18
 const code = location.pathname.split("/").filter(Boolean)[1];
 const tokenKey = `rubble-seat-${code}`;
 
@@ -28,9 +28,12 @@ let selectedColumn: number | null = null;
 let armed = false;
 let over = false;
 let first = true; // the first snapshot only draws the board; later ones may animate
-let deadline = Date.now() + ROUND_SECONDS * 1000;
+let deadline: number | null = null; // set when a round is open (R51): nothing runs while waiting
 let drawn: State | null = null;
 let opponentPresent = false;
+let opponentChosen = false; // only "chosen or not", never which column (R21)
+let locked = false; // the choice for this round is final (R4, U13)
+let gotReady = false; // "Get ready" shows once, when the game first starts (U55)
 let playedComputer = false; // Play again starts the same kind of game
 
 const board: BoardView = buildBoard();
@@ -38,6 +41,8 @@ $("board-wrap").prepend(board.root);
 board.root.removeAttribute("role"); // the columns group carries the label for this board
 board.root.setAttribute("aria-hidden", "true");
 const columns = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-column]"));
+const glows = Array.from(document.querySelectorAll<HTMLElement>(".column-glow"));
+const gameRoot = document.querySelector<HTMLElement>('[data-testid="game-screen"]')!;
 const ghost = document.createElement("span");
 ghost.className = "ghost";
 ghost.dataset.testid = "ghost-disc";
@@ -91,35 +96,45 @@ const other = (p: Player): Player => (p === "A" ? "B" : "A");
 const columnFull = (column: number): boolean => (drawn?.board[column]?.length ?? 0) >= 6;
 
 // ---- The board's columns: hover, tap, keyboard (U10 to U18) ----
+function glow(column: number | null): void {
+  glows.forEach((g, c) => (g.dataset.on = String(c === column)));
+}
+
 function showGhost(column: number | null, chosen: boolean): void {
   if (column === null || over || columnFull(column) || !you) {
     ghost.hidden = true;
+    if (column === null) glow(null);
     return;
   }
-  columns[column].append(ghost);
+  glows[column].append(ghost); // centred above its column, outside the board (U11)
   ghost.hidden = false;
   ghost.dataset.chosen = String(chosen);
+  glow(column);
 }
 
 function renderChoice(): void {
   columns.forEach((hit, c) => {
     hit.setAttribute("aria-pressed", String(c === selectedColumn));
-    hit.setAttribute("aria-disabled", String(over || columnFull(c)));
+    hit.setAttribute("aria-disabled", String(over || locked || columnFull(c)));
   });
   const badge = $("shield-badge") as HTMLButtonElement;
   const spent = !!(you && drawn && !drawn.shieldsLeft[you]);
-  const finished = over;
   badge.dataset.state = spent ? "spent" : "ready";
   badge.setAttribute("aria-pressed", String(armed && !spent));
-  badge.disabled = spent || over;
-  setText("shield-label", spent ? "Shield spent" : finished ? "Game over" : armed ? "Shield armed" : "Shield ready");
-  badge.setAttribute("aria-label", spent ? "Shield, spent" : finished ? "Game over" : armed ? "Shield, armed" : "Shield, ready");
+  badge.disabled = spent || over || locked;
+  const label = spent ? "Shield used" : over ? "Game over" : armed ? "Shield armed" : "Tap to arm shield";
+  setText("shield-label", label);
+  badge.setAttribute("aria-label", spent ? "Shield, used" : over ? "Game over" : armed ? "Shield, armed" : "Shield, ready. Tap to arm it");
   setText("chosen-label", selectedColumn === null ? "" : "Chosen");
   showGhost(selectedColumn, true);
 }
 
 function choose(column: number): void {
-  if (over || !you || !seatToken) return;
+  if (over || !you || !seatToken || !opponentPresent) return;
+  if (locked) {
+    say("Your choice is locked in.");
+    return;
+  }
   if (columnFull(column)) {
     // U14: a full column cannot be chosen; it shakes and says so, and sends nothing.
     columns[column].classList.remove("shake");
@@ -129,31 +144,40 @@ function choose(column: number): void {
     return;
   }
   selectedColumn = column;
+  locked = true; // final for this round (R4, U13)
   say("");
   socket.send(JSON.stringify({ type: "choose", code, player: you, seatToken, column, shield: armed }));
   renderChoice();
   // An aria-live region announces the choice (U18).
-  $("result-line").textContent = `Column ${column + 1} chosen${armed ? " with your shield" : ""}. You can change it until the round ends.`;
+  $("result-line").textContent = `Column ${column + 1} chosen${armed ? " with your shield" : ""}. Your choice is locked in.`;
 }
 
 columns.forEach((hit, c) => {
   hit.addEventListener("click", () => choose(c));
   hit.addEventListener("mouseenter", () => {
-    if (selectedColumn === null) showGhost(c, false);
+    if (!locked && opponentPresent) showGhost(c, false);
   });
   hit.addEventListener("mouseleave", () => {
-    if (selectedColumn === null) ghost.hidden = true;
+    if (!locked) {
+      ghost.hidden = true;
+      glow(null);
+    }
   });
   hit.addEventListener("focus", () => {
-    if (selectedColumn === null) showGhost(c, false);
+    if (!locked && opponentPresent) showGhost(c, false);
   });
 });
 
 $("shield-badge").addEventListener("click", () => {
-  armed = !armed;
-  // Re-send the current choice so the server knows whether the shield is armed (R4).
-  if (selectedColumn !== null) choose(selectedColumn);
-  else renderChoice();
+  if (locked || over) return;
+  armed = !armed; // the shield flag is sent with the column, once, when the choice is made
+  renderChoice();
+});
+
+$("shield-info").addEventListener("click", () => {
+  const help = $("shield-help");
+  help.hidden = !help.hidden;
+  $("shield-info").setAttribute("aria-expanded", String(!help.hidden));
 });
 
 document.addEventListener("keydown", (event) => {
@@ -205,23 +229,14 @@ function explain(state: State, fresh: Array<[number, number]>): string {
   return "Neither of you chose in time. No discs landed.";
 }
 
-// The countdown is shown only now that the server's result is here (U19, U23), so it
-// can never reveal a choice early. It is 390 ms, then "DROP" while the discs fall.
-async function countdown(): Promise<void> {
-  if (reducedMotion()) return; // U30: no countdown under reduced motion
-  const el = $("countdown");
-  const step = themeNumber("--ms-count-step");
-  for (const word of ["3", "2", "1"]) {
-    el.textContent = word;
-    el.classList.remove("countdown-pop");
-    void el.offsetWidth;
-    el.classList.add("countdown-pop");
-    await wait(step);
-  }
-  el.textContent = "DROP";
-  el.classList.remove("countdown-pop");
-  void el.offsetWidth;
-  el.classList.add("countdown-pop");
+// "Get ready" shows once, over the board, when a game first starts (U55). It is only a greeting:
+// it says nothing about any choice, and choices are accepted while it shows.
+function getReady(): void {
+  if (gotReady) return;
+  gotReady = true;
+  const el = $("get-ready");
+  el.hidden = false;
+  setTimeout(() => (el.hidden = true), themeNumber("--ms-get-ready"));
 }
 
 let busy = Promise.resolve(); // results are shown one at a time, in order
@@ -233,11 +248,9 @@ function showResult(state: State, opponentReady: boolean): void {
 
 async function reveal(state: State, opponentReady: boolean, previous: State | null): Promise<void> {
   const animate = !first && !!previous && state.round > previous.round;
-  if (animate) await countdown();
   const fresh = drawBoard(state, animate);
   drawn = state;
   first = false;
-  if (animate) setTimeout(() => ($("countdown").textContent = ""), themeNumber("--ms-drop-land"));
 
   setText("round-number", String(state.status === "playing" ? state.round + 1 : state.round));
   setText("opponent-status", state.status !== "playing" ? "Finished" : opponentReady ? "Ready" : "Choosing");
@@ -261,18 +274,33 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
     $("result-line").textContent = explain(state, fresh);
   }
 
+  // A new round opens: the choice is unlocked and the timer restarts (R18). With no opponent
+  // yet there is no round at all (R51), so no timer runs.
   selectedColumn = null;
+  locked = false;
+  opponentChosen = opponentReady && state.status === "playing"; // after a reload the server says
   ghost.hidden = true;
+  glow(null);
   say("");
-  deadline = Date.now() + ROUND_SECONDS * 1000;
+  startRound(state);
   renderChoice();
 
   if (state.status !== "playing") await finish(state);
 }
 
+// The timer runs only while a round is open and both players are here (R51, U56).
+function startRound(state: State): void {
+  deadline = state.status === "playing" && opponentPresent ? Date.now() + ROUND_SECONDS * 1000 : null;
+  drawTimer();
+}
+
 function syncWaiting(state: State): void {
-  // The share panel shows while the opponent has not arrived (docs/design.md "Waiting").
-  $("waiting-panel").hidden = opponentPresent || state.round > 0 || state.status !== "playing";
+  // The waiting card shows while the second player has not arrived (U54). There is no timer,
+  // round number or opponent status until they do (R51).
+  const waiting = !opponentPresent && state.round === 0 && state.status === "playing";
+  $("waiting-panel").hidden = !waiting;
+  gameRoot.dataset.waiting = String(waiting);
+  if (!waiting && state.status === "playing") getReady();
 }
 
 // ---- The end of the game (U27 to U30) ----
@@ -295,7 +323,7 @@ async function finish(state: State): Promise<void> {
   }
   $("result-line").textContent = $("end-title").textContent;
   // Let the last discs land and the line glow before the popup covers the board.
-  if (!reducedMotion()) await wait(themeNumber("--ms-drop-land") * 2);
+  if (!reducedMotion()) await wait(themeNumber("--ms-popup-delay"));
   popupOpen();
 }
 
@@ -332,6 +360,8 @@ socket.addEventListener("message", (event) => {
       you = message.you;
       seatToken = message.seatToken;
       opponentPresent = message.opponentPresent === true;
+      if (typeof message.yourName === "string") setText("name-you", message.yourName);
+      if (typeof message.opponentName === "string") setText("name-opponent", message.opponentName);
       saveSeat();
       if (firstTime && you) {
         const mine = avatar(`${code}-${you}`);
@@ -346,14 +376,25 @@ socket.addEventListener("message", (event) => {
     }
     case "opponent_joined":
       opponentPresent = true;
-      if (drawn) syncWaiting(drawn);
-      else $("waiting-panel").hidden = true;
+      if (typeof message.name === "string") setText("name-opponent", message.name);
+      if (drawn) {
+        syncWaiting(drawn);
+        startRound(drawn); // round 1 starts now that both are here (R51)
+      }
       break;
     case "opponent_ready":
       // The opponent has chosen, which is all this tells us: never their column (R21, R22).
+      opponentChosen = true;
       setText("opponent-status", "Ready");
       break;
     case "rejected":
+      if (message.reason === "already_chosen") {
+        // The server already holds this round's choice (for instance after a reload): it stands (R4).
+        locked = true;
+        say("Your choice is locked in.");
+        renderChoice();
+        break;
+      }
       say(
         message.reason === "column_full" ? "That column is full. Pick another." : message.reason === "no_shield" ? "You have no shield left." : "That choice was not accepted.",
         "error",
@@ -419,12 +460,20 @@ $("play-again").addEventListener("click", async () => {
   }
 });
 
-// ---- The timer ring (U25) ----
-setInterval(() => {
-  const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-  const timer = $("timer");
-  timer.textContent = String(left);
-  timer.dataset.urgency = left <= 5 ? "urgent" : left <= 10 ? "warn" : "";
-}, 250);
+// ---- The timer bar (U25, U56) ----
+// A slim bar that drains over the round. It turns orange at 5 seconds left and red at 3, and is
+// hidden once both players have chosen (the round then resolves at once) and while waiting.
+function drawTimer(): void {
+  const track = $("timer");
+  const resolving = deadline === null || (locked && opponentChosen);
+  track.hidden = resolving;
+  if (resolving) return;
+  const leftMs = Math.max(0, (deadline as number) - Date.now());
+  const seconds = Math.ceil(leftMs / 1000);
+  track.style.setProperty("--left", String(leftMs / (ROUND_SECONDS * 1000)));
+  track.setAttribute("aria-valuenow", String(seconds));
+  track.dataset.urgency = seconds <= 3 ? "urgent" : seconds <= 5 ? "warn" : "";
+}
+setInterval(drawTimer, 100);
 
 renderChoice();

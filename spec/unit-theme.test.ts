@@ -118,7 +118,7 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
   });
 
   it("U7 graphics that carry meaning meet 3:1 against what they sit on", () => {
-    for (const [fg, bg] of [["--yellow", "--hole"], ["--red", "--hole"], ["--marker-you", "--red"], ["--marker-opponent", "--yellow"], ["--rubble", "--ink"]] as Array<[string, string]>) {
+    for (const [fg, bg] of [["--yellow", "--hole"], ["--red", "--hole"], ["--marker-you", "--red"], ["--marker-opponent", "--yellow"], ["--rubble", "--ink"], ["--timer-ok", "--field"], ["--timer-warn", "--field"], ["--timer-urgent", "--field"]] as Array<[string, string]>) {
       expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(3);
     }
   });
@@ -162,7 +162,7 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
     const used = new Set<string>();
     for (const f of all) for (const m of readFileSync(f, "utf8").matchAll(/var\((--[a-z0-9-]+)/g)) used.add(m[1]);
     // Layout variables that components.css and the screens define for themselves.
-    const local = new Set(["--page-pad", "--gap-board", "--fall", "--x", "--delay", "--size", "--time", "--rest", "--i"]);
+    const local = new Set(["--page-pad", "--gap-board", "--board-pad", "--frame", "--ghost-size", "--board-width", "--left", "--fall", "--x", "--delay", "--size", "--time", "--rest", "--i"]);
     used.delete("--avatar-"); // built as `--avatar-${n}`: checked by the next test
     const missing = [...used].filter((v) => !defined.has(v) && !local.has(v));
     expect(missing).toEqual([]);
@@ -212,12 +212,20 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
     }
   });
 
-  it("U19 the countdown and the fall land within one second of the result arriving, from the theme", () => {
-    const step = Number(token("--ms-count-step"));
-    const fall = Number(token("--ms-count-drop"));
-    expect(fall).toBe(parseFloat(token("--dur-drop")) * 1000); // DROP stays up for the whole fall
-    expect(step * 3 + fall).toBe(790);
-    expect(step * 3 + fall).toBeLessThan(1000); // promise 2
+  it("U19 there is no countdown: the fall alone lands within one second of the result arriving", () => {
+    expect(theme).not.toMatch(/--ms-count/); // the countdown's pacing is gone from the theme
+    const fall = parseFloat(token("--dur-drop")) * 1000;
+    expect(fall).toBeLessThan(1000); // promise 2
+    const client = readFileSync("src/client/game.ts", "utf8");
+    expect(client).not.toContain("async function countdown");
+    expect(readFileSync("src/server/screens.ts", "utf8")).not.toContain('data-testid="countdown"');
+  });
+
+  it("U25 the round timer is 10 seconds, with warn and urgent colours from the theme", () => {
+    expect(readFileSync("src/client/game.ts", "utf8")).toContain("const ROUND_SECONDS = 10");
+    const game = readFileSync("src/client/game.ts", "utf8");
+    expect(game).toContain('seconds <= 3 ? "urgent" : seconds <= 5 ? "warn"'); // orange at 5, red at 3
+    for (const v of ["--timer-ok", "--timer-warn", "--timer-urgent"]) expect(token(v)).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
   it("the shape check itself catches a literal outline and radius and allows variables", () => {

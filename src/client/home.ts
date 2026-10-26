@@ -8,10 +8,15 @@ import { replayTutorial, showTutorial } from "./tutorial.ts";
 const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
 const message = $("home-message");
 
+let fadeTimer: ReturnType<typeof setTimeout> | undefined;
+
+// A confirmation fades after 3 seconds (U35a); an error stays until the next action.
 function say(text: string, kind: "error" | "ok" | "" = ""): void {
+  clearTimeout(fadeTimer);
   message.textContent = text;
   if (kind) message.dataset.kind = kind;
   else delete message.dataset.kind;
+  if (kind === "ok") fadeTimer = setTimeout(() => say(""), themeNumber("--ms-message-fade"));
 }
 
 async function start(endpoint: string): Promise<void> {
@@ -136,22 +141,9 @@ async function demo(): Promise<void> {
   const board = buildBoard();
   const wrap = $("demo-board-wrap");
   wrap.prepend(board.root);
-  const countdown = $("demo-countdown");
   const caption = $("demo-caption");
   const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
   const beat = themeNumber("--ms-beat");
-
-  async function count(): Promise<void> {
-    if (reducedMotion()) return;
-    for (const word of ["3", "2", "1", "DROP"]) {
-      countdown.textContent = word;
-      countdown.classList.remove("countdown-pop");
-      void countdown.offsetWidth;
-      countdown.classList.add("countdown-pop");
-      await wait(word === "DROP" ? themeNumber("--ms-count-drop") : themeNumber("--ms-count-step"));
-    }
-    countdown.textContent = "";
-  }
 
   if (reducedMotion()) {
     // A still picture of a crash (U36): no loop, no motion.
@@ -163,14 +155,12 @@ async function demo(): Promise<void> {
     board.clear();
     caption.textContent = "Both players choose at the same time...";
     await wait(beat);
-    await count();
     board.place(2, 0, "you", "dropping");
     board.place(4, 0, "opponent", "dropping");
     caption.textContent = "Neither can see the other's choice until both discs drop.";
     await wait(themeNumber("--ms-after-round"));
     caption.textContent = "Both players choose the same column...";
     await wait(beat);
-    await count();
     board.place(3, 0, "rubble", "thud");
     caption.textContent = "Crash! The discs leave rubble that blocks lines.";
     await wait(themeNumber("--ms-win-hold") / 2);
