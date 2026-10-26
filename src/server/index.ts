@@ -44,6 +44,52 @@ function readme(): string {
   return page("Rubble: about", `<main>${html}<p><a href="/">Back to the game</a></p></main>`);
 }
 
+const GAME_CODE_PATTERN = /^\/g\/([A-Za-z0-9]+)\/?$/;
+
+function board(): string {
+  let cells = "";
+  // Row 5 (top) down to row 0 (bottom), so the board reads top-to-bottom on
+  // screen the way a Connect 4 board does, while column 0 stays column 0.
+  for (let row = 5; row >= 0; row--) {
+    for (let column = 0; column < 7; column++) {
+      cells += `<td data-testid="cell-${column}-${row}" data-piece=""></td>`;
+    }
+    cells += "</tr><tr>";
+  }
+  return `<table class="board"><tbody><tr>${cells.slice(0, -"</tr><tr>".length)}</tr></tbody></table>`;
+}
+
+function columnButtons(): string {
+  let buttons = "";
+  for (let column = 0; column < 7; column++) {
+    buttons += `<button type="button" data-testid="column-${column}" data-column="${column}">${column + 1}</button>`;
+  }
+  return buttons;
+}
+
+function gameScreen(code: string): string {
+  const body = `
+    <main data-testid="game-screen">
+      <p>
+        Game <span data-testid="game-code">${code}</span>
+        <button type="button" data-testid="copy-link">Copy link</button>
+      </p>
+      <p>Round <span data-testid="round-number">0</span>, <span data-testid="timer">15</span>s left</p>
+      <p>Opponent: <span data-testid="opponent-status">Choosing</span></p>
+      <p>
+        Your shield: <span data-testid="my-shield">available</span>
+        Opponent's shield: <span data-testid="opponent-shield">available</span>
+      </p>
+      ${board()}
+      <div class="columns">${columnButtons()}</div>
+      <button type="button" data-testid="shield-toggle" aria-pressed="false">Shield</button>
+      <button type="button" data-testid="drop">Drop</button>
+      <p data-testid="result-line"></p>
+    </main>
+  `;
+  return page("Rubble: game", body, "/static/game.js");
+}
+
 const server = createServer((req, res) => {
   const path = new URL(req.url ?? "/", "http://localhost").pathname;
   if (DEV && path === "/__dev/version") {
@@ -55,6 +101,10 @@ const server = createServer((req, res) => {
   } else if (path === "/readme/" || path === "/readme") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(readme());
+  } else if (GAME_CODE_PATTERN.test(path)) {
+    const code = path.match(GAME_CODE_PATTERN)![1];
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(gameScreen(code));
   } else if (path.startsWith("/static/") && path.slice("/static/".length) in clientBundles) {
     res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
     res.end(clientBundles[path.slice("/static/".length)]);
