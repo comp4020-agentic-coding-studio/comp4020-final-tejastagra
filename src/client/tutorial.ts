@@ -3,7 +3,7 @@
 // action is done. It runs on a practice board in the browser against a scripted computer. It never
 // opens a game on the server, so it can never change the leaderboard (R50): the only thing it
 // sends is "finished" or "skipped", which saves with the player (R48).
-import { buildBoard, confettiBurst, reducedMotion, themeNumber } from "./arcade.ts";
+import { buildBoard, confettiBurst, earthquakeIcon, quakeAnimation, reducedMotion, themeNumber } from "./arcade.ts";
 import { $ } from "./common.ts";
 
 type Piece = "you" | "opponent" | "rubble";
@@ -23,6 +23,11 @@ interface Stage {
   armed(): boolean;
   showShield(show: boolean): void;
   shieldUsed(): void;
+  // Earthquake (U67): waits for the player to tap its badge, then shakes the practice board.
+  waitQuake(): Promise<void>;
+  showQuake(show: boolean): void;
+  quakeUsed(): void;
+  shake(): Promise<void>;
   status(text: string): void;
   hideStatus(): void;
   hint(text: string): void;
@@ -112,11 +117,37 @@ const STEPS: Step[] = [
     },
   },
   {
+    title: "Power-ups: Earthquake",
+    caption: "Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Use it to break up a line.",
+    async run(s) {
+      s.reset();
+      for (const c of [0, 1, 2]) {
+        s.place(c, "opponent"); // the computer has three in a row along the bottom and needs the glowing column
+        s.place(c, "you");
+      }
+      s.glow(3);
+      s.showQuake(true);
+      s.hint("They win next in the glowing column. Tap Earthquake.");
+      await s.waitQuake();
+      s.status("Choosing");
+      await s.pause(THINK());
+      s.status("Ready");
+      await s.pause(THINK() / 3);
+      s.clearGhost();
+      s.glow(null);
+      await s.shake(); // the bottom row crumbles and everything drops one row
+      s.place(3, "opponent", true); // then the computer's disc drops: no line, nothing to win
+      s.quakeUsed();
+      s.hint("The bottom row crumbled. Their line is gone.");
+    },
+  },
+  {
     title: "Four in a row wins",
     caption: "Get four of your discs in a row, across, down or diagonally. If you both do it in the same round, it is a draw.",
     async run(s) {
       s.reset();
       s.showShield(false);
+      s.showQuake(false);
       s.place(0, "opponent");
       s.place(0, "opponent");
       s.place(5, "opponent");
@@ -145,6 +176,7 @@ const STEPS: Step[] = [
     async run(s) {
       s.reset();
       s.showShield(false);
+      s.showQuake(false);
       s.hint("");
       s.hideStatus();
     },
@@ -212,11 +244,19 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
   shield.hidden = true;
   shield.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/></svg><span></span>`;
   const shieldLabel = shield.querySelector("span")!;
+  const quake = document.createElement("button");
+  quake.type = "button";
+  quake.className = "shield-badge tutorial-shield tutorial-earthquake";
+  quake.dataset.testid = "tutorial-earthquake";
+  quake.hidden = true;
+  quake.append(earthquakeIcon());
+  const quakeLabel = document.createElement("span");
+  quake.append(quakeLabel);
   const hint = document.createElement("p");
   hint.className = "tutorial-hint";
   hint.dataset.testid = "tutorial-hint";
   hint.setAttribute("role", "status");
-  host.replaceChildren(status, wrap, shield, hint);
+  host.replaceChildren(status, wrap, shield, quake, hint);
 
   const heights = new Array<number>(7).fill(0);
   const ghost = document.createElement("span");
@@ -226,6 +266,7 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
   ghost.hidden = true;
   let tapWaiter: { refuse?: (c: number) => string | null; resolve: (c: number) => void } | null = null;
   let shieldWaiter: (() => void) | null = null;
+  let quakeWaiter: (() => void) | null = null;
   let armed = false;
   let locked = false;
 
@@ -249,6 +290,11 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
       shield.setAttribute("aria-pressed", "false");
       shieldLabel.textContent = "Tap to arm shield";
       stage.showShield(false);
+      quake.dataset.state = "ready";
+      quake.disabled = false;
+      quake.setAttribute("aria-pressed", "false");
+      quakeLabel.textContent = "Tap to use Earthquake";
+      stage.showQuake(false);
     },
     lock(column) {
       locked = true;
@@ -273,6 +319,33 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
       return new Promise((resolve) => {
         shieldWaiter = resolve;
       });
+    },
+    waitQuake() {
+      return new Promise((resolve) => {
+        quakeWaiter = resolve;
+      });
+    },
+    showQuake(show) {
+      quake.hidden = !show;
+    },
+    quakeUsed() {
+      quake.dataset.state = "spent";
+      quake.disabled = true;
+      quake.setAttribute("aria-pressed", "false");
+      quakeLabel.textContent = "Earthquake used";
+    },
+    async shake() {
+      const kinds = (columns: number): Array<Array<"you" | "opponent" | "rubble" | null>> =>
+        Array.from({ length: columns }, (_, c) =>
+          Array.from({ length: heights[c] }, (_, r) => {
+            const mark = board.cell(c, r).dataset.piece;
+            return mark === "A" ? "you" : mark === "B" ? "opponent" : "rubble";
+          }),
+        );
+      const before = kinds(7);
+      const shifted = before.map((column) => column.slice(1));
+      await quakeAnimation(board, before, shifted);
+      for (let c = 0; c < 7; c++) heights[c] = Math.max(0, heights[c] - 1);
     },
     armed: () => armed,
     showShield(show) {
@@ -305,6 +378,10 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     b.addEventListener("click", () => {
       if (!tapWaiter && shieldWaiter && !locked) {
         stage.hint("Tap your shield first.");
+        return;
+      }
+      if (!tapWaiter && quakeWaiter && !locked) {
+        stage.hint("Tap Earthquake: it uses your turn.");
         return;
       }
       if (!tapWaiter || locked) return;
@@ -349,6 +426,15 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     }
   });
 
+  quake.addEventListener("click", () => {
+    if (locked || quake.dataset.state === "spent" || !quakeWaiter) return;
+    quake.setAttribute("aria-pressed", "true");
+    quakeLabel.textContent = "Earthquake armed";
+    const done = quakeWaiter;
+    quakeWaiter = null;
+    done();
+  });
+
   root.hidden = false;
   document.body.style.overflow = "hidden";
 
@@ -375,6 +461,7 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     next.hidden = true; // Next only appears once the step's action is done (U41 to U46)
     tapWaiter = null;
     shieldWaiter = null;
+    quakeWaiter = null;
     const mine = ++running;
     void step.run(stage).then(() => {
       if (mine !== running) return;
@@ -414,6 +501,8 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     else if (event.key >= "1" && event.key <= "7") buttons[Number(event.key) - 1].click();
     else if (event.key === "s" || event.key === "S") {
       if (!shield.hidden) shield.click();
+    } else if (event.key === "e" || event.key === "E") {
+      if (!quake.hidden) quake.click();
     }
   }
 

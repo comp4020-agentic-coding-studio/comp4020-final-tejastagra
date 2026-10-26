@@ -4,7 +4,7 @@
 // sends (R20): it never works out a result itself. Discs drop the moment the result
 // arrives, with no countdown (U19), so nothing can show a choice early (R22) or hold a
 // result back past the one second promise (U23).
-import { avatar, buildBoard, confettiBurst, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
+import { avatar, buildBoard, confettiBurst, earthquakeIcon, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
 
 type Player = "A" | "B";
 
@@ -12,6 +12,7 @@ interface State {
   board: string[][];
   round: number;
   shieldsLeft: Record<Player, boolean>;
+  earthquakesLeft: Record<Player, boolean>;
   status: "playing" | "won" | "draw";
   winner: Player | null;
 }
@@ -26,6 +27,7 @@ let you: Player | null = null;
 let seatToken: string | null = null;
 let selectedColumn: number | null = null;
 let armed = false;
+let quakeChosen = false; // Earthquake is this round's choice (U62); final like a column (R4)
 let over = false;
 let first = true; // the first snapshot only draws the board; later ones may animate
 let deadline: number | null = null; // set when a round is open (R51): nothing runs while waiting
@@ -125,8 +127,36 @@ function renderChoice(): void {
   const label = spent ? "Shield used" : over ? "Game over" : armed ? "Shield armed" : "Tap to arm shield";
   setText("shield-label", label);
   badge.setAttribute("aria-label", spent ? "Shield, used" : over ? "Game over" : armed ? "Shield, armed" : "Shield, ready. Tap to arm it");
-  setText("chosen-label", selectedColumn === null ? "" : "Chosen");
+  const quake = $("earthquake-badge") as HTMLButtonElement;
+  const quakeSpent = !!(you && drawn && !drawn.earthquakesLeft[you]);
+  const nothingToShake = !!drawn && drawn.board.every((column) => column.length === 0);
+  quake.dataset.state = quakeSpent ? "spent" : "ready";
+  quake.setAttribute("aria-pressed", String(quakeChosen && !quakeSpent));
+  quake.disabled = quakeSpent || nothingToShake || over || locked;
+  const quakeLabel = quakeSpent ? "Earthquake used" : quakeChosen ? "Earthquake armed" : nothingToShake ? "Nothing to shake yet" : "Tap to use Earthquake";
+  setText("earthquake-label", quakeLabel);
+  quake.setAttribute("aria-label", quakeSpent ? "Earthquake, used" : quakeChosen ? "Earthquake, armed" : nothingToShake ? "Earthquake, nothing to shake yet" : "Earthquake, ready. Tap to use it");
+  ($("quake-marker") as HTMLElement).hidden = !quakeChosen;
+  setText("chosen-label", selectedColumn === null && !quakeChosen ? "" : "Chosen");
   showGhost(selectedColumn, true);
+}
+
+// U62: tapping the badge chooses Earthquake for this round, final like a column (R4). It cannot be
+// combined with the shield (R53), so an armed shield is put down first and never sent with it.
+function chooseQuake(): void {
+  if (over || !you || !seatToken || !opponentPresent) return;
+  if (locked) {
+    say("Your choice is locked in.");
+    return;
+  }
+  if (!drawn || drawn.earthquakesLeft[you] === false || drawn.board.every((column) => column.length === 0)) return;
+  armed = false;
+  quakeChosen = true;
+  locked = true;
+  say("");
+  socket.send(JSON.stringify({ type: "choose", code, player: you, seatToken, earthquake: true }));
+  renderChoice();
+  $("result-line").textContent = "Earthquake chosen. Your choice is locked in.";
 }
 
 function choose(column: number): void {
@@ -174,6 +204,14 @@ $("shield-badge").addEventListener("click", () => {
   renderChoice();
 });
 
+$("earthquake-badge").addEventListener("click", chooseQuake);
+
+$("earthquake-info").addEventListener("click", () => {
+  const help = $("earthquake-help");
+  help.hidden = !help.hidden;
+  $("earthquake-info").setAttribute("aria-expanded", String(!help.hidden));
+});
+
 $("shield-info").addEventListener("click", () => {
   const help = $("shield-help");
   help.hidden = !help.hidden;
@@ -188,6 +226,8 @@ document.addEventListener("keydown", (event) => {
     choose(Number(event.key) - 1);
   } else if (event.key === "s" || event.key === "S") {
     ($("shield-badge") as HTMLButtonElement).click();
+  } else if (event.key === "e" || event.key === "E") {
+    ($("earthquake-badge") as HTMLButtonElement).click();
   }
 });
 
@@ -216,6 +256,17 @@ function drawBoard(state: State, animateNew: boolean): Array<[number, number]> {
     }
   }
   return fresh;
+}
+
+// U66: what an earthquake round says. Who shook is known from whose Earthquake was spent this round.
+function explainQuake(state: State, previous: State, fresh: Array<[number, number]>): string {
+  const me = you as Player;
+  const mine = previous.earthquakesLeft[me] && !state.earthquakesLeft[me];
+  const theirs = previous.earthquakesLeft[other(me)] && !state.earthquakesLeft[other(me)];
+  if (mine && theirs) return "You both used Earthquake! The bottom row crumbled once.";
+  const landed = fresh[0];
+  const where = landed ? ` ${mine ? "Your opponent's" : "Your"} disc landed in column ${landed[0] + 1}.` : "";
+  return `${mine ? "Earthquake!" : "Your opponent used Earthquake!"} The bottom row crumbled.${where}`;
 }
 
 function explain(state: State, fresh: Array<[number, number]>): string {
@@ -248,6 +299,17 @@ function showResult(state: State, opponentReady: boolean): void {
 
 async function reveal(state: State, opponentReady: boolean, previous: State | null): Promise<void> {
   const animate = !first && !!previous && state.round > previous.round;
+  // R56: an earthquake round is one where someone's Earthquake went from available to used. The
+  // browser only shows it: the board it draws is the one the server sent (R20).
+  const quaked =
+    animate && !!previous && (["A", "B"] as const).some((p) => previous.earthquakesLeft[p] && !state.earthquakesLeft[p]);
+  if (quaked && previous) {
+    const kind = (cell: string) => pieceFor(cell, you);
+    const shifted = previous.board.map((column) => column.slice(1));
+    const asKinds = (columns: string[][]) => columns.map((column) => column.map((cell) => kind(cell)));
+    await quakeAnimation(board, asKinds(previous.board), asKinds(shifted));
+    drawn = { ...previous, board: shifted }; // the board as it stands after the slide, so only new discs drop
+  }
   const fresh = drawBoard(state, animate);
   drawn = state;
   first = false;
@@ -259,6 +321,11 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
     const theirsLeft = state.shieldsLeft[other(you)];
     setText("opponent-shield", theirsLeft ? "available" : "used");
     setText("my-shield", mineLeft ? "available" : "used");
+    const theirQuake = state.earthquakesLeft[other(you)];
+    setText("opponent-earthquake", theirQuake ? "Earthquake available" : "Earthquake used");
+    const quakeHolder = $("opponent-earthquake-state");
+    quakeHolder.dataset.quake = theirQuake ? "ready" : "used";
+    quakeHolder.replaceChildren(earthquakeIcon());
     const holder = $("opponent-shield-state");
     holder.dataset.shield = theirsLeft ? "ready" : "used";
     holder.replaceChildren(shieldIcon());
@@ -271,12 +338,13 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
       for (const [c] of fresh) for (let r = 0; r < 6; r++) board.cell(c, r).classList.add("shake");
       setTimeout(() => board.root.querySelectorAll(".shake").forEach((n) => n.classList.remove("shake")), themeNumber("--ms-shake"));
     }
-    $("result-line").textContent = explain(state, fresh);
+    $("result-line").textContent = quaked && previous ? explainQuake(state, previous, fresh) : explain(state, fresh);
   }
 
   // A new round opens: the choice is unlocked and the timer restarts (R18). With no opponent
   // yet there is no round at all (R51), so no timer runs.
   selectedColumn = null;
+  quakeChosen = false;
   locked = false;
   opponentChosen = opponentReady && state.status === "playing"; // after a reload the server says
   ghost.hidden = true;
@@ -396,7 +464,7 @@ socket.addEventListener("message", (event) => {
         break;
       }
       say(
-        message.reason === "column_full" ? "That column is full. Pick another." : message.reason === "no_shield" ? "You have no shield left." : "That choice was not accepted.",
+        message.reason === "column_full" ? "That column is full. Pick another." : message.reason === "no_shield" ? "You have no shield left." : message.reason === "no_earthquake" ? "You have used your Earthquake." : message.reason === "nothing_to_shake" ? "There is nothing to shake yet." : "That choice was not accepted.",
         "error",
       );
       break;

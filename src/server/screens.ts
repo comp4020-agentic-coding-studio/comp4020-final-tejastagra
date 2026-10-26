@@ -205,7 +205,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <span class="player-text">
               <span class="player-name" data-testid="name-opponent">Opponent</span>
               <span class="player-meta" data-testid="opponent-status-row"><span class="mini-disc" data-piece="opponent"></span><span data-testid="opponent-status">Choosing</span></span>
-              <span class="player-meta"><span class="shield-state" data-shield="ready" data-testid="opponent-shield-state"></span><span data-testid="opponent-shield">available</span></span>
+              <span class="player-meta"><span class="shield-state" data-shield="ready" data-testid="opponent-shield-state"></span><span data-testid="opponent-shield">available</span><span class="quake-state" data-quake="ready" data-testid="opponent-earthquake-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span><span class="visually-hidden" data-testid="opponent-earthquake">Earthquake available</span></span>
             </span>
           </div>
           <div class="shield-row" data-testid="shield-row">
@@ -216,13 +216,22 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <button type="button" class="icon-only shield-info" data-testid="shield-info" aria-label="What does the shield do?" aria-expanded="false" aria-controls="shield-help">
               <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M11 10h2v7h-2zM11 7h2v2h-2z"/><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16z"/></svg>
             </button>
+            <button type="button" class="shield-badge earthquake-badge" data-testid="earthquake-badge" aria-pressed="false" aria-label="Earthquake, ready. Tap to use it" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg>
+              <span data-testid="earthquake-label">Tap to use Earthquake</span>
+            </button>
+            <button type="button" class="icon-only shield-info" data-testid="earthquake-info" aria-label="What does Earthquake do?" aria-expanded="false" aria-controls="earthquake-help">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M11 10h2v7h-2zM11 7h2v2h-2z"/><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16z"/></svg>
+            </button>
           </div>
           <p class="panel shield-help" id="shield-help" data-testid="shield-help" hidden>Your shield wins one crash per game. If you and your opponent pick the same column, your disc lands and theirs is lost. Use it when you both need the same column, for example to block their winning move or to take yours.</p>
+          <p class="panel earthquake-help" id="earthquake-help" data-testid="earthquake-help" hidden>Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Lines it creates by itself do not win.</p>
         </div>
 
         <div class="play-area">
           <div class="board-wrap" data-testid="board-wrap">
             <div class="columns-glow" aria-hidden="true">${glows}</div>
+            <span class="quake-marker" data-testid="quake-marker" aria-hidden="true" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span>
             <div class="columns-hit" data-testid="columns" role="group" aria-label="Choose a column">${hits}</div>
             <div class="get-ready" data-testid="get-ready" aria-hidden="true" hidden>Get ready</div>
             <section class="panel share" data-testid="waiting-panel">
@@ -247,7 +256,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
           <div class="timer-track" data-testid="timer" role="progressbar" aria-label="Time left in this round" aria-valuemin="0" aria-valuemax="10" aria-valuenow="10"><span class="timer-fill"></span></div>
           <p class="result" data-testid="result-line" role="status" aria-live="polite"></p>
           <p class="message" data-testid="game-message" role="status"></p>
-          <p class="note keys-hint" data-testid="keys-hint">Keys 1 to 7 choose a column. S arms your shield.</p>
+          <p class="note keys-hint" data-testid="keys-hint">Keys 1 to 7 choose a column. S arms your shield. E uses Earthquake.</p>
         </div>
       </div>
     </main>

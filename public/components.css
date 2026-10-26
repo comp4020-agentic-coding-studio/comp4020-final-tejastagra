@@ -723,6 +723,19 @@ button.round-item {
   animation: shake var(--dur-shake) linear both;
 }
 
+/* The earthquake (U65): the board shakes, the bottom row crumbles, the columns slide down one row. */
+.quake-shake {
+  animation: shake var(--dur-quake-shake) linear both;
+}
+
+.crumble {
+  animation: crumble var(--dur-quake-crumble) ease-in both;
+}
+
+.sliding {
+  animation: slide-in var(--dur-quake-slide) ease-in both;
+}
+
 .win {
   animation: win-pulse var(--dur-win-pulse) ease-in-out 3;
 }
@@ -792,6 +805,26 @@ button.round-item {
   }
 }
 
+@keyframes crumble {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(40%) scale(0.5) rotate(25deg);
+    opacity: 0;
+  }
+}
+
+@keyframes slide-in {
+  0% {
+    transform: translateY(-112%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
 @keyframes win-pulse {
   0%,
   100% {
@@ -819,6 +852,9 @@ button.round-item {
   .dropping,
   .thud,
   .shake,
+  .quake-shake,
+  .crumble,
+  .sliding,
   .win,
   .btn,
   .round {
@@ -1143,9 +1179,61 @@ input {
 .shield-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   gap: 6px;
-  align-items: center;
+  align-items: stretch; /* the two badges are always the same height (U61) */
+}
+
+/* The opponent's Earthquake: availability only (U64). A used one is struck through, so it differs by shape. */
+.quake-state {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+}
+
+.quake-state svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--shield-on);
+}
+
+.quake-state[data-quake="used"] svg {
+  fill: var(--shield-off);
+}
+
+.quake-state[data-quake="used"]::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: 50%;
+  border-top: 3px solid var(--ink);
+  transform: rotate(-35deg);
+}
+
+/* The crack marker over the board once Earthquake is chosen (U62): it names no column. */
+.quake-marker {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+.quake-marker svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--yellow);
+}
+
+.quake-marker[hidden] {
+  display: none;
 }
 
 .shield-info {
@@ -1159,7 +1247,8 @@ input {
   position: relative;
 }
 
-.shield-help {
+.shield-help,
+.earthquake-help {
   position: absolute;
   left: 0;
   right: 0;
@@ -1169,7 +1258,8 @@ input {
   font-size: 0.95rem;
 }
 
-.shield-help[hidden] {
+.shield-help[hidden],
+.earthquake-help[hidden] {
   display: none;
 }
 
@@ -1633,7 +1723,8 @@ input {
     order: 4;
   }
 
-  .game .shield-help {
+  .game .shield-help,
+  .game .earthquake-help {
     order: 5;
   }
 
@@ -1696,6 +1787,10 @@ input {
 .tutorial-hint {
   min-height: 2.8em;
   margin-top: 4px;
+}
+
+.tutorial-shield[hidden] {
+  display: none;
 }
 
 .tutorial-shield {

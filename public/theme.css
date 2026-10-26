@@ -118,6 +118,11 @@
   --dur-drop: 0.4s;
   --dur-shake: 0.35s;
   --dur-lock: 0.3s;
+  /* The earthquake (U65): shake, crumble and slide are 150ms each, then the drop (--dur-drop). The
+     whole round stays under one second. */
+  --dur-quake-shake: 0.15s;
+  --dur-quake-crumble: 0.15s;
+  --dur-quake-slide: 0.15s;
   --dur-win-pulse: 0.7s;
   --dur-confetti: 1.6s;
   --dur-chip: 5s;
@@ -144,6 +149,7 @@
   --ms-win-hold: 3200;
   --ms-shake: 450;
   --ms-drop-land: 420;
+  --ms-quake-step: 150; /* the same 150ms as the --dur-quake-* steps, read by the scripts (U65) */
 
   /* Bubble sizes in pixels: the smallest, and the spread above it (U3). */
   --stack-width: 420px;

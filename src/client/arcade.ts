@@ -52,11 +52,13 @@ export function shieldIcon(): SVGElement {
 }
 
 export type Piece = "you" | "opponent" | "rubble";
+type Kinds = Array<Array<Piece | null>>; // kinds[column][row], null when empty
 
 export interface BoardView {
   root: HTMLElement;
   cell(column: number, row: number): HTMLElement;
-  place(column: number, row: number, piece: Piece, animation?: "dropping" | "thud"): HTMLElement;
+  place(column: number, row: number, piece: Piece, animation?: "dropping" | "thud" | "sliding"): HTMLElement;
+  remove(column: number, row: number): void;
   clear(): void;
 }
 
@@ -90,10 +92,14 @@ export function buildBoard(): BoardView {
       cell.dataset.piece = piece === "you" ? "A" : piece === "opponent" ? "B" : "R";
       if (animation && !reducedMotion()) {
         node.classList.add(animation);
-        node.style.setProperty("--fall", String(6 - row));
+        node.style.setProperty("--fall", animation === "sliding" ? "1" : String(6 - row)); // a slide is one row
       }
       cell.append(node);
       return node;
+    },
+    remove(column, row) {
+      cells[column][row].querySelector(".piece")?.remove();
+      cells[column][row].dataset.piece = "";
     },
     clear() {
       for (const column of cells) {
@@ -133,4 +139,39 @@ export function confettiBurst(host: HTMLElement): void {
   }
   host.append(layer);
   setTimeout(() => layer.remove(), themeNumber("--dur-confetti-clear"));
+}
+
+export function earthquakeIcon(): SVGElement {
+  const svg = el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true", focusable: "false" });
+  svg.append(
+    el("path", {
+      d: "M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z",
+    }),
+  );
+  return svg;
+}
+
+// The earthquake (U65): the board shakes, the bottom row crumbles, then every column slides down one
+// row. `shifted` is the board with its bottom row removed. It is only ever drawn after the server's
+// result has arrived (R22). Under reduced motion the board simply updates (U30). The caller drops
+// any disc afterwards.
+export async function quakeAnimation(board: BoardView, before: Kinds, shifted: Kinds): Promise<void> {
+  const still = reducedMotion();
+  const step = themeNumber("--ms-quake-step");
+  const wait = () => new Promise<void>((resolve) => setTimeout(resolve, step));
+  if (!still) {
+    board.root.classList.add("quake-shake");
+    await wait();
+    board.root.classList.remove("quake-shake");
+    for (let c = 0; c < 7; c++) board.cell(c, 0).querySelector(".piece")?.classList.add("crumble");
+    if (before.some((column) => column.length > 0)) await wait();
+  }
+  for (let c = 0; c < 7; c++) {
+    for (let r = 0; r < 6; r++) {
+      const kind = shifted[c]?.[r] ?? null;
+      if (kind) board.place(c, r, kind, still ? undefined : "sliding");
+      else board.remove(c, r);
+    }
+  }
+  if (!still) await wait();
 }
