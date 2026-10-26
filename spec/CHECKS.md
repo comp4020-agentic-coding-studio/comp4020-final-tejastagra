@@ -37,7 +37,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | P8 | An earthquake round removes exactly the bottom row's pieces, adds only the discs dropped, and never overfills a column | R56, R57 | passing |
 | P9 | Each player uses Earthquake at most once, and it is never accepted again | R53 | passing |
 | P10 | Existing pieces only ever move down by exactly one row, and only in an earthquake round | R12, R56 | passing |
-| M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.17%) |
+| M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.13% after Earthquake) |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
 
@@ -62,7 +62,7 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C8 adds: the computer may use Earth
 | E1 | Two browser contexts with no shared cookies play a full game through a friend link, one at each marking viewport | passing (`e2e/e1-full-game.spec.ts`) |
 | E4 | Every screen in `docs/design.md` has no sideways scroll at 320 px, 390 px and laptop width | passing (`e2e/e4-no-sideways-scroll.spec.ts`) |
 | E5 | Every tap target is at least 44 x 44 px at the phone viewport | passing (`e2e/e5-tap-targets.spec.ts`) |
-| E7 | The Earthquake badge, its states, help, the animation, its reduced-motion version and the tutorial step work at the phone viewport | todo (`e2e/earthquake.spec.ts`) |
+| E7 | The Earthquake badge, its states, help, the animation, its reduced-motion version and the tutorial step work at the phone viewport | passing (`e2e/earthquake.spec.ts`) |
 | E6 | Every feature (computer, friend link, code entry, quick match, sign up, leaderboard, /readme/) completes at the phone viewport | passing (`e2e/e6-features.spec.ts`) |
 
 ## Design and tutorial (docs/design/)
@@ -75,9 +75,9 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C8 adds: the computer may use Earth
 | U19 to U30 | Reveal within one second, end popups, reduced motion | `e2e/design.spec.ts` | passing |
 | U31 to U40 | Home menu content and the phone and laptop layouts | `e2e/design.spec.ts` | passing |
 | U41 to U48 | Tutorial steps, skip and replay | `e2e/design.spec.ts` | passing |
-| U61 to U64 | The Earthquake badge: states, exclusive with the shield, help, opponent panel shows availability only | `e2e/earthquake.spec.ts` | todo |
-| U65, U66 | The earthquake animation within one second, its reduced-motion version and the result line | `e2e/earthquake.spec.ts` | todo |
-| U67 | The tutorial's Earthquake step | `e2e/earthquake.spec.ts` | todo |
+| U61 to U64 | The Earthquake badge: states, exclusive with the shield, help, opponent panel shows availability only | `e2e/earthquake.spec.ts` | passing |
+| U65, U66 | The earthquake animation within one second, its reduced-motion version and the result line | `e2e/earthquake.spec.ts` | passing |
+| U67 | The tutorial's Earthquake step | `e2e/earthquake.spec.ts` | passing |
 | R4, R51, R52 | Locked choices, nothing starts until both are present, the computer thinks | `spec/unit-realtime-timer.test.ts`, `spec/unit-realtime-computer.test.ts` | passing |
 | U10 to U13, U54 to U60 | Column highlight, waiting card, names, centred game, 560px limit | `e2e/design.spec.ts` | todo |
 | Screenshots | Approved look at both viewports | `e2e/design.spec.ts` | passing |
