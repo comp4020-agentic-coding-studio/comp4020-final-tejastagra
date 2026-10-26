@@ -110,6 +110,9 @@ export function resolveRound(
   state: GameState,
   choices: { A: Choice | null; B: Choice | null },
 ): RoundResult {
+  if (state.status !== "playing") {
+    throw new Error("cannot resolve a round once the game is over");
+  }
   const { A, B } = choices;
   if (A) {
     const result = validateChoice(state, "A", A);

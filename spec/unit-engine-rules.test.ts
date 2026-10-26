@@ -236,7 +236,7 @@ describe("R13 a player wins with four in a row", () => {
   });
 });
 
-describe("R13 to R7 player B is treated the same as player A", () => {
+describe("R7 and R13 player B is treated the same as player A", () => {
   it("R7 lands B's disc when only B used a shield", () => {
     const result = resolveRound(newGame(), {
       A: { column: 3, shield: false },
@@ -410,6 +410,16 @@ describe("R16 once a game is won or drawn, no further choices are accepted", () 
       ok: false,
       reason: "game_over",
     });
+  });
+
+  it("R16 resolveRound throws rather than resolve a round once the game is over, even with no choices", () => {
+    let state = newGame();
+    for (const column of [0, 1, 2]) {
+      state = resolveRound(state, { A: { column, shield: false }, B: null }).state;
+    }
+    state = resolveRound(state, { A: { column: 3, shield: false }, B: null }).state;
+    expect(state.status).toBe("won");
+    expect(() => resolveRound(state, { A: null, B: null })).toThrow();
   });
 });
 

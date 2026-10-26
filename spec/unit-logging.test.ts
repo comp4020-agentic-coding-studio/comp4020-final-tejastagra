@@ -28,4 +28,15 @@ describe("G: logging (docs/logging.md)", () => {
       expect(() => formatEvent("connect", { [name]: "x" }, "local")).toThrow(/forbidden/);
     }
   });
+
+  it("G2 newlines and carriage returns in a value are escaped, so one event cannot forge a second log line", () => {
+    const line = formatEvent("action_rejected", { reason: "line one\nline two" }, "local");
+    expect(line).toBe('event=action_rejected machine=local reason="line one\\nline two"');
+    expect(line.split("\n")).toHaveLength(1);
+  });
+
+  it("G1 a field name with a space or an equals sign is rejected", () => {
+    expect(() => formatEvent("connect", { "bad key": "x" }, "local")).toThrow(/invalid log field name/);
+    expect(() => formatEvent("connect", { "bad=key": "x" }, "local")).toThrow(/invalid log field name/);
+  });
 });

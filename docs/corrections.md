@@ -28,3 +28,10 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **How it was caught:** Tejas: "The reviews are taking too long."
 - **Harness fix:** `.claude/agents/reviewer.md` now sets `model: haiku` and reads only the staged diff plus the rules the diff touches. CLAUDE.md, START-HERE.md and `.claude/commands/commit.md` now say to run it once per group of related commits, and always before commits touching the no-peek rules (R21, R22) or persistence (R25). It is always called by name, never through a general-purpose agent.
 - **Commits:** the commit that added this entry; the slow reviews preceded it (R1 to R12 engine commits).
+
+### C3. The catch-up reviewer review found an R16 gap and a log-injection gap
+- **Date:** 26 October 2026
+- **What went wrong:** `resolveRound` only validated the choices that were present, so after a game had already ended it still accepted a call with both choices `null`, bumped the round count and recomputed status, instead of refusing to resolve at all (R16). Separately, `formatEvent`'s value quoting escaped backslashes and double quotes but not `\r` or `\n`, so a value containing a newline could split one log line into two and forge a second event; field names were not validated either, so a key containing a space or `=` would also break the `key=value` format in `docs/logging.md`.
+- **How it was caught:** the reviewer subagent, asked to review commits `8f9ad48` to `c37e4ac` as a catch-up review (they had not been reviewed when written).
+- **Harness fix:** `resolveRound` in `src/engine/index.ts` now throws immediately if `state.status !== "playing"`, before looking at either choice, with a new R16 test in `spec/unit-engine-rules.test.ts` covering the both-null case. `formatValue` and `formatEvent` in `src/server/log.ts` now escape `\r` and `\n` and reject field names that do not match `^[a-z][a-z0-9_]*$`, with two new tests in `spec/unit-logging.test.ts`. A misnamed describe block ("R13 to R7") was also renamed to "R7 and R13".
+- **Commits:** `8f9ad48` (engine) and `c37e4ac` (logger) showed the problem; the fixing commit follows this one.
