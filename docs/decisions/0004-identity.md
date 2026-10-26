@@ -1,6 +1,6 @@
 # 0004. How players are told apart
 
-- **Status:** Proposed
+- **Status:** Accepted (default, pending Tejas's review)
 - **Decided by:** Tejas
 
 ## Context
@@ -15,7 +15,7 @@ The brief needs the app to tell people apart. The leaderboard needs identities t
 
 ## Decision
 
-Proposed: option 3 (rules R28 to R31). A marker in two incognito windows is two different guests, which is exactly what the multi-user test needs.
+Option 3 (rules R28 to R31). A marker in two incognito windows is two different guests, which is exactly what the multi-user test needs.
 
 ## What it costs
 
