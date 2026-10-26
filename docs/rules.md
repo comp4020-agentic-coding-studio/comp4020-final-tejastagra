@@ -59,6 +59,7 @@ The schedule depends on the round count alone (R11), so the engine needs no cloc
 - **R62** The walls collapse after round 12 and every 6 rounds after that (rounds 12, 18 and so on), until 3 columns remain. When they collapse, the leftmost and rightmost open columns close and every piece in them crumbles away. Constants: `WALLS_FIRST_ROUND = 12`, `WALLS_EVERY = 6`, `MIN_COLUMNS = 3`.
 - **R63** When both happen after the same round, the ceiling drops first, then the walls collapse.
 - **R64** The **open area** is the rows below the current number of rows, in the columns from the first open column to the last. A closed column cannot be chosen: `validateChoice` rejects it with the reason `column_closed` (R3). A column is full when its pieces reach the current number of rows. Closure and fullness are checked on the board as it is before the round, so a collapse after a round never changes what that round accepted.
+- **R69** A game's shape is moved to `shapeAt(round)` each time a round resolves, never backwards: a game saved before the shrinking board started has the full shape (R2) whatever its round count, so it takes the shape for its round count at its next resolved round, closing everything that is due at once, ceiling first (R63). `collapseDue` is true for exactly what that next round will close.
 - **R65** A collapse happens after the round's discs have dropped and the round's result has been decided (R13 to R15). A collapse can never create a win: under R13 a win needs a disc dropped this round, and lines broken by a collapse are simply broken. A game that ended in this round does not collapse, so the winning line stays on the board. A collapse never affects the leaderboard rules (R37 to R39), and rounds to win still counts rounds (R17).
 - **R66** If the open area is full (every open column holds as many pieces as there are rows) and nobody has won, the game is a draw (R15). This is checked after the round's discs have dropped and again after a collapse, because a collapse can leave the remaining area full.
 - **R67** An Earthquake on a shrunken board removes the bottom row of the open area and shifts every open column down one (R56). Closed columns hold nothing, so nothing is removed from them. The earthquake happens first, then the discs drop, then any collapse applies to the board as it then stands.
@@ -169,6 +170,9 @@ export interface RoundResult {
 // The shape of the open area after a number of resolved rounds. Pure: a function of the round count.
 export interface Shape { rows: number; firstColumn: number; lastColumn: number }
 export function shapeAt(round: number): Shape;
+// What will close after the next round resolves, given the shape the game is in now. The browser
+// uses it only to show the warning (U68) and the computer to avoid squares about to close (R68).
+export function collapseDue(state: GameState): { ceiling: boolean; walls: boolean };
 
 export function newGame(): GameState;
 export function validateChoice(

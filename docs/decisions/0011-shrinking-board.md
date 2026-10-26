@@ -15,7 +15,7 @@ A simultaneous game where both players can block each other can drag on: every c
 
 ## Decision
 
-Option 2, under these rules (R61 to R68 in `docs/rules.md`, U68 to U74 in `docs/design/shrinking-board.md`):
+Option 2, under these rules (R61 to R69 in `docs/rules.md`, U68 to U74 in `docs/design/shrinking-board.md`):
 
 - The ceiling drops after round 6 and every 6 rounds after that, until the board has 3 rows. The top row of the open area closes and any piece in it crumbles away.
 - The walls collapse after round 12 and every 6 rounds after that, until 3 columns remain. The leftmost and rightmost open columns close and every piece in them crumbles away.
