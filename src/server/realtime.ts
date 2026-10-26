@@ -39,7 +39,13 @@ export interface TabReplaced {
   type: "tab_replaced";
 }
 
-export type ServerMessage = Snapshot | OpponentReady | Rejected | GameFull | TabReplaced;
+export interface GameOver {
+  type: "game_over";
+  result: "forfeit";
+  winner: Player;
+}
+
+export type ServerMessage = Snapshot | OpponentReady | Rejected | GameFull | TabReplaced | GameOver;
 
 interface JoinMessage {
   type: "join";
@@ -67,7 +73,10 @@ function send(socket: WebSocket, message: ServerMessage): void {
 
 export interface RealtimeOptions {
   roundTimerMs?: number; // overridable so tests do not wait 15 real seconds (R18)
+  disconnectGraceMs?: number; // overridable so tests do not wait 30 real seconds (R27)
 }
+
+export const DISCONNECT_GRACE_MS = 30_000;
 
 export function attachRealtime(
   server: Server,
@@ -75,6 +84,7 @@ export function attachRealtime(
   options: RealtimeOptions = {},
 ): { wss: WebSocketServer; game: GameService; dispose: () => void } {
   const roundTimerMs = options.roundTimerMs ?? ROUND_TIMER_MS;
+  const disconnectGraceMs = options.disconnectGraceMs ?? DISCONNECT_GRACE_MS;
   // Which player letters have ever been assigned in a game, so a game has at
   // most two players (R36).
   const roster = new Map<string, { A: boolean; B: boolean }>();
@@ -96,6 +106,13 @@ export function attachRealtime(
   // The pending round's timer per game (R18): forces a resolve with whatever
   // choices exist when it fires, even if one or both players never chose.
   const timers = new Map<string, NodeJS.Timeout>();
+  // Pending forfeit timer per disconnected seat (R27), keyed the same way as
+  // `connections`. Cleared if that seat reconnects within the grace period.
+  const graceTimers = new Map<string, NodeJS.Timeout>();
+  // Games the server has ended as a forfeit (R27). This is server-side state,
+  // not an engine Status value (docs/rules.md R27): the engine never learns
+  // about forfeits, so a forfeited game's GameState.status stays "playing".
+  const forfeited = new Map<string, Player>();
 
   function key(code: string, player: Player): string {
     return `${code}:${player}`;
@@ -145,8 +162,16 @@ export function attachRealtime(
 
   const wss = new WebSocketServer({ server, path: "/ws" });
 
+  // A forfeit is server-side state (docs/rules.md R27), not an engine Status
+  // value, so it is not covered by game.restore(): load it separately from
+  // the same rows, so a forfeit survives a restart instead of silently
+  // reverting to "playing".
+  for (const saved of db.loadGames()) {
+    if (saved.ended) forfeited.set(saved.code, saved.ended.winner);
+  }
+
   for (const code of restoredCodes) {
-    scheduleTimerFor(code);
+    if (!forfeited.has(code)) scheduleTimerFor(code);
   }
 
   function clearTimerFor(code: string): void {
@@ -181,7 +206,7 @@ export function attachRealtime(
   function scheduleTimerFor(code: string): void {
     clearTimerFor(code);
     const record = game.getGame(code);
-    if (!record || record.state.status !== "playing") return;
+    if (!record || record.state.status !== "playing" || forfeited.has(code)) return;
     const timer = setTimeout(() => {
       // The timer firing is itself "the round ending": resolve with
       // whatever choices exist, even none (R18, R10).
@@ -189,6 +214,44 @@ export function attachRealtime(
       resolveNow(code, { A: choices.A, B: choices.B });
     }, roundTimerMs);
     timers.set(code, timer);
+  }
+
+  function clearGraceTimer(code: string, player: Player): void {
+    const timer = graceTimers.get(key(code, player));
+    if (timer) {
+      clearTimeout(timer);
+      graceTimers.delete(key(code, player));
+    }
+  }
+
+  function startGraceTimer(code: string, player: Player): void {
+    const record = game.getGame(code);
+    if (!record || record.state.status !== "playing" || forfeited.has(code)) return;
+    clearGraceTimer(code, player);
+    const timer = setTimeout(() => {
+      graceTimers.delete(key(code, player));
+      if (forfeited.has(code)) return; // already ended (e.g. the other side also left)
+      // The round may have resolved to a win or a draw while this player was
+      // disconnected (R18's timer keeps running): in that case the game is
+      // already over on its own terms and must not also be forfeited, or the
+      // winner the opponent is told would contradict the real result.
+      const current = game.getGame(code);
+      if (!current || current.state.status !== "playing") return;
+      // The disconnected player did not return in time: the game ends as a
+      // forfeit (R27), the other player wins. This is server-side state, not
+      // an engine Status value (docs/rules.md R27): the engine's GameState is
+      // left exactly as it was, with status still "playing". Saved before
+      // broadcasting (R25).
+      clearTimerFor(code);
+      const winner = opponentOf(player);
+      forfeited.set(code, winner);
+      db.saveEnded(code, { result: "forfeit", winner });
+      logEvent("forfeit", { game: code });
+      logEvent("game_over", { game: code, result: "forfeit" });
+      const winnerSocket = connections.get(key(code, winner));
+      if (winnerSocket) send(winnerSocket, { type: "game_over", result: "forfeit", winner });
+    }, disconnectGraceMs);
+    graceTimers.set(key(code, player), timer);
   }
 
   function sendSnapshot(code: string, player: Player): void {
@@ -222,6 +285,7 @@ export function attachRealtime(
     logEvent("action_received", { type: "choose", round: record?.state.round });
     if (!record) return;
     if (resolving.has(code)) return;
+    if (forfeited.has(code)) return;
 
     const choice: Choice = { column, shield: Boolean(shield) };
     const result = validateChoice(record.state, player, choice);
@@ -309,6 +373,25 @@ export function attachRealtime(
         logEvent("tab_replaced", { game: code });
       }
 
+      // A reconnect within the grace period (R27) means this seat returned
+      // in time, so the forfeit that would otherwise fire must not.
+      clearGraceTimer(code, player);
+      const forfeitWinner = forfeited.get(code);
+      if (forfeitWinner) {
+        // Require the same seatToken check as any other reconnect to an
+        // occupied seat (R32): a stranger must not learn the forfeit result
+        // or take a seat by guessing its letter, even once the game is over.
+        if (seats[player] && seatToken !== seatTokens.get(key(code, player))) {
+          send(socket, { type: "game_full" });
+          return;
+        }
+        seats[player] = true;
+        connections.set(key(code, player), socket);
+        send(socket, { type: "game_over", result: "forfeit", winner: forfeitWinner });
+        logEvent("join", { game: code, role: player, clients_in_game: clientsInGame(code) });
+        return;
+      }
+
       seats[player] = true;
       if (!seatTokens.has(key(code, player))) seatTokens.set(key(code, player), randomUUID());
       // Create the game before this connection is registered, so its
@@ -328,8 +411,15 @@ export function attachRealtime(
       for (const [connectionKey, connectionSocket] of connections) {
         if (connectionSocket === socket) {
           connections.delete(connectionKey);
-          const code = connectionKey.slice(0, connectionKey.lastIndexOf(":"));
-          logEvent("disconnect", { game: code, clients_in_game: clientsInGame(code), grace_s: 30 });
+          const separatorIndex = connectionKey.lastIndexOf(":");
+          const code = connectionKey.slice(0, separatorIndex);
+          const player = connectionKey.slice(separatorIndex + 1) as Player;
+          logEvent("disconnect", {
+            game: code,
+            clients_in_game: clientsInGame(code),
+            grace_s: Math.round(disconnectGraceMs / 1000),
+          });
+          startGraceTimer(code, player);
           break;
         }
       }
@@ -339,6 +429,8 @@ export function attachRealtime(
   function dispose(): void {
     for (const timer of timers.values()) clearTimeout(timer);
     timers.clear();
+    for (const timer of graceTimers.values()) clearTimeout(timer);
+    graceTimers.clear();
   }
 
   return { wss, game, dispose };

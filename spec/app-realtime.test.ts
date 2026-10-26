@@ -140,7 +140,37 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     b2.close();
   });
 
-  it.todo("T5 (R27) a client that disconnects and returns within 30 seconds continues the same game");
+  it("T5 (R27) a client that disconnects and returns well within 30 seconds continues the same game", async () => {
+    // Only the "returns in time" half is tested here, against the real app
+    // and its full 30 second grace period: proving it waits the full 30
+    // seconds before forfeiting needs an injectable grace period, which
+    // spec/unit-realtime-forfeit.test.ts covers against an ephemeral server.
+    const code = freshCode();
+    const a = await joinGame(code, "A");
+    const b = await joinGame(code, "B");
+    a.socket.close();
+
+    const a2 = new WebSocket(wsUrl("/ws"));
+    const a2Next = messageQueue(a2);
+    await onceOpen(a2);
+    a2.send(JSON.stringify({ type: "join", code, player: "A", seatToken: a.seatToken }));
+    const reconnectSnapshot = await a2Next();
+
+    expect(reconnectSnapshot.type).toBe("snapshot");
+    expect(reconnectSnapshot.seatToken).toBe(a.seatToken);
+
+    // The game must still be playable: A can choose and the round resolves.
+    a2.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 2, shield: false }));
+    await b.next(); // opponent_ready
+    b.socket.send(JSON.stringify({ type: "choose", code, player: "B", seatToken: b.seatToken, column: 4, shield: false }));
+
+    const result = await a2Next();
+    expect(result.type).toBe("snapshot");
+    expect(result.state.round).toBe(1);
+
+    a2.close();
+    b.socket.close();
+  });
 
   it("T6 (R32) a second connection for the same player replaces the first and the first is told", async () => {
     const code = freshCode();

@@ -128,4 +128,63 @@ describe("S: what happens is kept (promise 5)", () => {
       rmSync(`${path}-shm`, { force: true });
     }
   });
+
+  it("S2 opening a database created before the 'ended' column existed upgrades it in place", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration.db`);
+    try {
+      // Build a database with exactly the schema that shipped before the
+      // forfeit column was added, with no ended column and no user_version.
+      const old = new DatabaseSync(path);
+      old.exec(`
+        CREATE TABLE games (
+          code TEXT PRIMARY KEY,
+          state TEXT NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      old.prepare("INSERT INTO games (code, state, updated_at) VALUES (?, ?, ?)").run(
+        "OLD01",
+        JSON.stringify(newGame()),
+        Date.now(),
+      );
+      old.close();
+
+      const upgraded = openDb(path);
+      const loaded = upgraded.loadGames();
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0].code).toBe("OLD01");
+      expect(loaded[0].ended).toBeNull();
+
+      // The upgraded schema actually has the column: saveEnded must work.
+      upgraded.saveEnded("OLD01", { result: "forfeit", winner: "A" });
+      const reloaded = upgraded.loadGames();
+      expect(reloaded[0].ended).toEqual({ result: "forfeit", winner: "A" });
+      upgraded.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
+
+  it("S2 opening the same database twice does not re-run a migration that already applied", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration2.db`);
+    try {
+      const first = openDb(path);
+      first.saveGame("TWICE01", newGame());
+      first.close();
+
+      // Re-running ALTER TABLE ... ADD COLUMN on a column that already
+      // exists would throw; opening the same (already migrated) file again
+      // must not attempt it a second time.
+      expect(() => {
+        const second = openDb(path);
+        second.close();
+      }).not.toThrow();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
 });

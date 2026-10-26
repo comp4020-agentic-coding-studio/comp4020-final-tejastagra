@@ -1,50 +1,82 @@
 // SQLite persistence for games (R25, R26, ADR 0005). The file lives at
 // /data/rubble.db in production; tests pass ":memory:" or their own path.
 import { DatabaseSync } from "node:sqlite";
-import type { GameState } from "../engine/index.ts";
+import type { GameState, Player } from "../engine/index.ts";
 import { logEvent } from "./log.ts";
+
+export interface Ended {
+  result: "forfeit";
+  winner: Player;
+}
 
 export interface SavedGame {
   code: string;
   state: GameState;
   updatedAt: number;
+  ended: Ended | null;
 }
 
 export interface Db {
   saveGame(code: string, state: GameState): void;
+  // How the game ended, outside the engine's own Status (docs/rules.md R19,
+  // R27): a forfeit is server-side state, so it is stored alongside the
+  // engine's state rather than inside it.
+  saveEnded(code: string, ended: Ended): void;
   loadGames(): SavedGame[];
   close(): void;
+}
+
+// Each migration runs once, in order, against whatever schema the last
+// deploy left behind: SQLite's `user_version` pragma records how many have
+// already run, so a fresh database and an upgraded one both end up here.
+// Every schema change must add a migration and a test that an old database
+// is upgraded (see CLAUDE.md).
+const MIGRATIONS: string[] = [
+  `CREATE TABLE IF NOT EXISTS games (
+     code TEXT PRIMARY KEY,
+     state TEXT NOT NULL,
+     updated_at INTEGER NOT NULL
+   )`,
+  `ALTER TABLE games ADD COLUMN ended TEXT`,
+];
+
+function migrate(db: DatabaseSync): void {
+  const { user_version: appliedCount } = db.prepare("PRAGMA user_version").get() as { user_version: number };
+  for (let i = appliedCount; i < MIGRATIONS.length; i++) {
+    db.exec(MIGRATIONS[i]);
+    db.exec(`PRAGMA user_version = ${i + 1}`);
+  }
 }
 
 export function openDb(path: string): Db {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode = WAL");
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS games (
-      code TEXT PRIMARY KEY,
-      state TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    )
-  `);
+  migrate(db);
 
   const upsert = db.prepare(`
     INSERT INTO games (code, state, updated_at) VALUES (?, ?, ?)
     ON CONFLICT(code) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at
   `);
-  const selectAll = db.prepare("SELECT code, state, updated_at FROM games");
+  const updateEnded = db.prepare(`UPDATE games SET ended = ? WHERE code = ?`);
+  const selectAll = db.prepare("SELECT code, state, updated_at, ended FROM games");
 
   return {
     saveGame(code: string, state: GameState): void {
       upsert.run(code, JSON.stringify(state), Date.now());
     },
+    saveEnded(code: string, ended: Ended): void {
+      updateEnded.run(JSON.stringify(ended), code);
+    },
     loadGames(): SavedGame[] {
       const saved: SavedGame[] = [];
       for (const row of selectAll.all()) {
         try {
+          const endedColumn = row.ended as string | null;
           saved.push({
             code: row.code as string,
             state: JSON.parse(row.state as string) as GameState,
             updatedAt: row.updated_at as number,
+            ended: endedColumn ? (JSON.parse(endedColumn) as Ended) : null,
           });
         } catch (error) {
           logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
