@@ -4,10 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { GameState, Player } from "../engine/index.ts";
 import { logEvent } from "./log.ts";
 
-export interface Ended {
-  result: "forfeit";
-  winner: Player;
-}
+export type Ended = { result: "forfeit"; winner: Player } | { result: "abandoned" };
 
 export interface SavedGame {
   code: string;

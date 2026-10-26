@@ -107,3 +107,10 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **How it was caught:** the phone-tester subagent, measuring the page in a real browser after a bad submit. My own sweep had measured tap targets and sideways scroll but never where messages land.
 - **Harness fix:** the message now sits directly under the heading, the empty heading is hidden, and the forms use the server's own messages. docs/design.md now says an error or confirmation must appear within the first screen height of the form that caused it, and the Phase 7 browser checks E4 and E5 must assert it after a bad submit.
 - **Commits:** found and fixed before the screens were committed.
+
+### C14. The R19 review found memory ending a game the database did not, a vague restart test and an unresolved computer case
+- **Date:** 26 October 2026
+- **What went wrong:** `abandon()` marked the game ended in memory before saving it, so a failed save would leave memory and the database disagreeing, with nobody told and no timer running. The restart test accepted either of two replies, so it could not show a returning player was told the result, and could hang on a silently ignored join. One test's title said a computer game is abandoned while it asserted the opposite. A silent human in a computer game could never be abandoned, because the computer always chooses, and docs/rules.md did not say what to do.
+- **How it was caught:** the reviewer subagent, reviewing the R19 diff before its commit.
+- **Harness fix:** `abandon()` now saves first and only then updates memory and tells the players, and retries after the next round if the save fails (tested by making the save throw once). The restart test is split into exact checks: a stranger gets `game_full`, the token holder gets the exact abandoned message, and a restarted server never plays the game on. The computer test now asserts what it says. docs/rules.md R19 records the decisions: in a computer game the human missing 3 rounds abandons it, the idle count restarts after a restart, and a failed save keeps the game live.
+- **Commits:** found and fixed before R19 was ever committed.

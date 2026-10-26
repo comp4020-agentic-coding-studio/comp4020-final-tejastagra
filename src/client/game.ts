@@ -114,7 +114,14 @@ socket.addEventListener("message", (event) => {
       break;
     case "game_over":
       over = true;
-      setText("result-line", message.winner === you ? "You win. Your opponent left." : "You lose. You left the game.");
+      setText(
+        "result-line",
+        message.result === "abandoned"
+          ? "Game abandoned. Both players missed 3 rounds in a row."
+          : message.winner === you
+            ? "You win. Your opponent left."
+            : "You lose. You left the game.",
+      );
       renderChoice();
       break;
     case "game_full":

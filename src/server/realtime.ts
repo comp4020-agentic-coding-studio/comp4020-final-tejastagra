@@ -11,7 +11,7 @@ import type { Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { newGame, validateChoice, type Choice, type GameState, type Player } from "../engine/index.ts";
 import { createGameService, ROUND_TIMER_MS, type GameService } from "./game-service.ts";
-import type { Db } from "./db.ts";
+import type { Db, Ended } from "./db.ts";
 import { logEvent } from "./log.ts";
 import { chooseMove, seededRandom } from "./computer.ts";
 
@@ -40,11 +40,9 @@ export interface TabReplaced {
   type: "tab_replaced";
 }
 
-export interface GameOver {
-  type: "game_over";
-  result: "forfeit";
-  winner: Player;
-}
+export type GameOver =
+  | { type: "game_over"; result: "forfeit"; winner: Player }
+  | { type: "game_over"; result: "abandoned" }; // R19: no winner
 
 export type ServerMessage = Snapshot | OpponentReady | Rejected | GameFull | TabReplaced | GameOver;
 
@@ -84,6 +82,7 @@ export interface RealtimeOptions {
 
 export const DISCONNECT_GRACE_MS = 30_000;
 export const COMPUTER_DELAY_MS = 1_500;
+export const ABANDON_AFTER_IDLE_ROUNDS = 3; // R19
 
 export function attachRealtime(
   server: Server,
@@ -126,7 +125,11 @@ export function attachRealtime(
   // Games the server has ended as a forfeit (R27). This is server-side state,
   // not an engine Status value (docs/rules.md R27): the engine never learns
   // about forfeits, so a forfeited game's GameState.status stays "playing".
-  const forfeited = new Map<string, Player>();
+  // R19's abandonment is recorded the same way, so one map holds both.
+  const forfeited = new Map<string, Ended>();
+  // Consecutive rounds in which neither player chose (R19). Kept in memory: a
+  // restart gives the players a fresh count rather than ending their game.
+  const idleRounds = new Map<string, number>();
 
   function key(code: string, player: Player): string {
     return `${code}:${player}`;
@@ -181,7 +184,7 @@ export function attachRealtime(
   // the same rows, so a forfeit survives a restart instead of silently
   // reverting to "playing".
   for (const saved of db.loadGames()) {
-    if (saved.ended) forfeited.set(saved.code, saved.ended.winner);
+    if (saved.ended) forfeited.set(saved.code, saved.ended);
   }
 
   for (const saved of db.loadGames()) {
@@ -258,6 +261,17 @@ export function attachRealtime(
       .resolve(code, choices)
       .then(() => {
         resolving.delete(code);
+        // R19: both players missing 3 rounds in a row ends the game with no
+        // winner. Any choice resets the count.
+        // In a game against the computer the computer always chooses, so the
+        // human missing the round is what counts (docs/rules.md R19 note).
+        const nobodyChose = computerGames.has(code) ? choices.A === null : choices.A === null && choices.B === null;
+        const idle = nobodyChose ? (idleRounds.get(code) ?? 0) + 1 : 0;
+        idleRounds.set(code, idle);
+        if (idle >= ABANDON_AFTER_IDLE_ROUNDS && game.getGame(code)?.state.status === "playing" && !forfeited.has(code)) {
+          abandon(code);
+          return;
+        }
         scheduleTimerFor(code);
       })
       .catch((error) => {
@@ -269,6 +283,30 @@ export function attachRealtime(
         pending.set(code, choices);
         resolving.delete(code);
       });
+  }
+
+  // Ends the game as abandoned (R19): server-side state like a forfeit, not an
+  // engine Status. Saved before anyone is told (R25).
+  function abandon(code: string): void {
+    clearTimerFor(code);
+    for (const player of ["A", "B"] as const) clearGraceTimer(code, player);
+    // Save first: if the save fails, memory must not claim an end the
+    // database does not have. The game stays live and tries again after its
+    // next round (the idle count is still at the limit).
+    try {
+      db.saveEnded(code, { result: "abandoned" });
+    } catch (error) {
+      logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+      scheduleTimerFor(code);
+      return;
+    }
+    forfeited.set(code, { result: "abandoned" });
+    idleRounds.delete(code);
+    logEvent("game_over", { game: code, result: "abandoned" });
+    for (const player of ["A", "B"] as const) {
+      const socket = connections.get(key(code, player));
+      if (socket) send(socket, { type: "game_over", result: "abandoned" });
+    }
   }
 
   function scheduleTimerFor(code: string): void {
@@ -313,7 +351,7 @@ export function attachRealtime(
       // broadcasting (R25).
       clearTimerFor(code);
       const winner = opponentOf(player);
-      forfeited.set(code, winner);
+      forfeited.set(code, { result: "forfeit", winner });
       db.saveEnded(code, { result: "forfeit", winner });
       logEvent("forfeit", { game: code });
       logEvent("game_over", { game: code, result: "forfeit" });
@@ -445,8 +483,8 @@ export function attachRealtime(
       // A reconnect within the grace period (R27) means this seat returned
       // in time, so the forfeit that would otherwise fire must not.
       clearGraceTimer(code, player);
-      const forfeitWinner = forfeited.get(code);
-      if (forfeitWinner) {
+      const endedState = forfeited.get(code);
+      if (endedState) {
         // Require the same seatToken check as any other reconnect to an
         // occupied seat (R32): a stranger must not learn the forfeit result
         // or take a seat by guessing its letter, even once the game is over.
@@ -456,7 +494,7 @@ export function attachRealtime(
         }
         seats[player] = true;
         connections.set(key(code, player), socket);
-        send(socket, { type: "game_over", result: "forfeit", winner: forfeitWinner });
+        send(socket, endedState.result === "forfeit" ? { type: "game_over", result: "forfeit", winner: endedState.winner } : { type: "game_over", result: "abandoned" });
         logEvent("join", { game: code, role: player, clients_in_game: clientsInGame(code) });
         return;
       }

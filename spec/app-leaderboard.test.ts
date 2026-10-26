@@ -117,5 +117,5 @@ describe("B: leaderboard (R37 to R39)", () => {
   });
 
   it.todo("B3 (R39) a win where the opponent missed a round does not count for fewest rounds (rule covered in spec/unit-leaderboard.test.ts; needs a real 15 second timer here)");
-  it.todo("B4 (R19) an abandoned game changes neither list (rule covered in spec/unit-leaderboard.test.ts; R19 is not built yet)");
+  it.todo("B4 (R19) an abandoned game changes neither list (needs three real 15 second rounds here; covered in spec/unit-realtime-abandon.test.ts)");
 });
