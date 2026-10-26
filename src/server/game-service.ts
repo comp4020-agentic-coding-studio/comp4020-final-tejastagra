@@ -16,12 +16,13 @@ export interface GameServiceOptions {
   db: Db;
   broadcast: (code: string, state: GameState) => void;
   now?: () => number;
+  roundTimerMs?: number;
 }
 
 export interface GameService {
   createGame(code: string): GameRecord;
   resolve(code: string, choices: { A: Choice | null; B: Choice | null }): Promise<void>;
-  restore(): void;
+  restore(): string[]; // codes of the games restored, so callers can restart their timers (R26)
   getGame(code: string): GameRecord | undefined;
   timeRemainingMs(code: string): number;
 }
@@ -29,6 +30,7 @@ export interface GameService {
 export function createGameService(options: GameServiceOptions): GameService {
   const { db, broadcast } = options;
   const now = options.now ?? Date.now;
+  const roundTimerMs = options.roundTimerMs ?? ROUND_TIMER_MS;
   const games = new Map<string, GameRecord>();
 
   function save(code: string, state: GameState): void {
@@ -55,11 +57,14 @@ export function createGameService(options: GameServiceOptions): GameService {
       broadcast(code, result.state);
     },
 
-    restore(): void {
+    restore(): string[] {
+      const restored: string[] = [];
       for (const saved of db.loadGames()) {
         if (saved.state.status !== "playing") continue;
         games.set(saved.code, { state: saved.state, roundStartedAt: now() });
+        restored.push(saved.code);
       }
+      return restored;
     },
 
     getGame(code: string): GameRecord | undefined {
@@ -69,7 +74,7 @@ export function createGameService(options: GameServiceOptions): GameService {
     timeRemainingMs(code: string): number {
       const record = games.get(code);
       if (!record) throw new Error(`no such game: ${code}`);
-      return Math.max(0, ROUND_TIMER_MS - (now() - record.roundStartedAt));
+      return Math.max(0, roundTimerMs - (now() - record.roundStartedAt));
     },
   };
 }

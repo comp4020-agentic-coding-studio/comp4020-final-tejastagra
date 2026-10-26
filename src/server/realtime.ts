@@ -10,7 +10,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import type { Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { validateChoice, type Choice, type GameState, type Player } from "../engine/index.ts";
-import { createGameService, type GameService } from "./game-service.ts";
+import { createGameService, ROUND_TIMER_MS, type GameService } from "./game-service.ts";
 import type { Db } from "./db.ts";
 import { logEvent } from "./log.ts";
 
@@ -65,7 +65,16 @@ function send(socket: WebSocket, message: ServerMessage): void {
   }
 }
 
-export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; game: GameService } {
+export interface RealtimeOptions {
+  roundTimerMs?: number; // overridable so tests do not wait 15 real seconds (R18)
+}
+
+export function attachRealtime(
+  server: Server,
+  db: Db,
+  options: RealtimeOptions = {},
+): { wss: WebSocketServer; game: GameService; dispose: () => void } {
+  const roundTimerMs = options.roundTimerMs ?? ROUND_TIMER_MS;
   // Which player letters have ever been assigned in a game, so a game has at
   // most two players (R36).
   const roster = new Map<string, { A: boolean; B: boolean }>();
@@ -84,6 +93,9 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
   // save and broadcast are still in flight is rejected rather than accepted
   // for a round the server has not finished moving on from (R25, R23).
   const resolving = new Set<string>();
+  // The pending round's timer per game (R18): forces a resolve with whatever
+  // choices exist when it fires, even if one or both players never chose.
+  const timers = new Map<string, NodeJS.Timeout>();
 
   function key(code: string, player: Player): string {
     return `${code}:${player}`;
@@ -128,10 +140,56 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
     logEvent("broadcast", { type: "snapshot", recipients, game: code });
   }
 
-  const game = createGameService({ db, broadcast });
-  game.restore();
+  const game = createGameService({ db, broadcast, roundTimerMs });
+  const restoredCodes = game.restore();
 
   const wss = new WebSocketServer({ server, path: "/ws" });
+
+  for (const code of restoredCodes) {
+    scheduleTimerFor(code);
+  }
+
+  function clearTimerFor(code: string): void {
+    const timer = timers.get(code);
+    if (timer) {
+      clearTimeout(timer);
+      timers.delete(code);
+    }
+  }
+
+  function resolveNow(code: string, choices: { A: Choice | null; B: Choice | null }): void {
+    clearTimerFor(code);
+    pending.set(code, { A: null, B: null });
+    resolving.add(code);
+    game
+      .resolve(code, choices)
+      .then(() => {
+        resolving.delete(code);
+        scheduleTimerFor(code);
+      })
+      .catch((error) => {
+        // The round did not actually advance (resolve's save failed before
+        // broadcasting), so put the choices back rather than lose them
+        // silently, and do not re-arm the timer: a game that cannot be
+        // saved should stop, not keep retrying on its own every tick.
+        logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+        pending.set(code, choices);
+        resolving.delete(code);
+      });
+  }
+
+  function scheduleTimerFor(code: string): void {
+    clearTimerFor(code);
+    const record = game.getGame(code);
+    if (!record || record.state.status !== "playing") return;
+    const timer = setTimeout(() => {
+      // The timer firing is itself "the round ending": resolve with
+      // whatever choices exist, even none (R18, R10).
+      const choices = pendingFor(code);
+      resolveNow(code, { A: choices.A, B: choices.B });
+    }, roundTimerMs);
+    timers.set(code, timer);
+  }
 
   function sendSnapshot(code: string, player: Player): void {
     const record = game.getGame(code);
@@ -183,17 +241,7 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
       // `resolving` closes the window between here and the save+broadcast
       // inside game.resolve() completing, so a choice arriving in between is
       // rejected rather than silently accepted for a round already in flight.
-      const toResolve = { A: choices.A, B: choices.B };
-      pending.set(code, { A: null, B: null });
-      resolving.add(code);
-      game
-        .resolve(code, toResolve)
-        .catch((error) => {
-          logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
-        })
-        .finally(() => {
-          resolving.delete(code);
-        });
+      resolveNow(code, { A: choices.A, B: choices.B });
     } else {
       const opponentSocket = connections.get(key(code, opponentOf(player)));
       if (opponentSocket) send(opponentSocket, { type: "opponent_ready" });
@@ -266,7 +314,10 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
       // Create the game before this connection is registered, so its
       // broadcast (sent to whichever connections already exist) cannot also
       // reach this joiner; sendSnapshot below is this joiner's one snapshot.
-      if (!game.getGame(code)) game.createGame(code);
+      if (!game.getGame(code)) {
+        game.createGame(code);
+        scheduleTimerFor(code);
+      }
       connections.set(key(code, player), socket);
 
       logEvent("join", { game: code, role: player, clients_in_game: clientsInGame(code) });
@@ -285,5 +336,10 @@ export function attachRealtime(server: Server, db: Db): { wss: WebSocketServer; 
     });
   });
 
-  return { wss, game };
+  function dispose(): void {
+    for (const timer of timers.values()) clearTimeout(timer);
+    timers.clear();
+  }
+
+  return { wss, game, dispose };
 }
