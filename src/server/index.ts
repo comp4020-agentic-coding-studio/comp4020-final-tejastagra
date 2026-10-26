@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { marked } from "marked";
 import { logEvent } from "./log.ts";
 import { openDb } from "./db.ts";
@@ -7,6 +8,7 @@ import { attachRealtime } from "./realtime.ts";
 import { bundleClient } from "./client-bundle.ts";
 import { generateCode } from "./codes.ts";
 import { createRateLimiter } from "./rate-limit.ts";
+import { arcadePage, button, roundButton, title } from "./arcade-html.ts";
 import { createMatchmaker } from "./matchmaker.ts";
 import { leaderboardFrom } from "./leaderboard.ts";
 import {
@@ -60,6 +62,8 @@ const clientBundles: Record<string, string> = {
   "quick.js": bundleClient("src/client/quick.ts"),
   "leaderboard.js": bundleClient("src/client/leaderboard.ts"),
   "account.js": bundleClient("src/client/account.ts"),
+  "preview.js": bundleClient("src/client/preview.ts"),
+  "bubbles.js": bundleClient("src/client/bubbles.ts"),
 };
 
 const reloadScript = DEV
@@ -68,6 +72,7 @@ const reloadScript = DEV
 
 // Phone first (docs/design.md): one centred column, 44px tap targets, nothing
 // scrolls sideways at 320px, discs differ by shape (ring and cross) as well as colour.
+// LEGACY-STYLES-START (removed when the last screen is restyled; spec/unit-theme.test.ts)
 const STYLES = `
   *{box-sizing:border-box}
   body{margin:0;font:16px/1.4 system-ui,sans-serif;color:#1a1a1a;background:#fafafa;
@@ -117,6 +122,7 @@ const STYLES = `
   }
   @media (prefers-reduced-motion:no-preference){.cell{transition:background .2s}}
 `;
+// LEGACY-STYLES-END
 
 function page(title: string, body: string, script?: string): string {
   return `<!doctype html>
@@ -145,7 +151,7 @@ const GAME_CODE_PATTERN = /^\/g\/([A-Za-z0-9]+)\/?$/;
 function board(): string {
   let cells = "";
   // Row 5 (top) down to row 0 (bottom), so the board reads top-to-bottom on
-  // screen the way a Connect 4 board does, while column 0 stays column 0.
+  // screen the way a four in a row board does, while column 0 stays column 0.
   // A grid of divs, not a table: browsers ignore aspect-ratio on table cells,
   // which collapsed empty cells to nothing.
   for (let row = 5; row >= 0; row--) {
@@ -209,6 +215,63 @@ function quickScreen(): string {
   `;
 }
 
+// The look Tejas approves before any real screen is restyled (ADR 0006).
+function stylePreview(): string {
+  const body = `
+    <main class="arena" data-testid="style-preview">
+      ${title()}
+      <p class="tagline">Style preview: the navy toy look for Rubble</p>
+
+      <h2>Menu buttons</h2>
+      <div class="stack">
+        ${button({ label: "Play the computer", iconName: "computer", kind: "red", block: true, testid: "preview-red" })}
+        ${button({ label: "Play a friend", iconName: "friends", kind: "blue", block: true })}
+        ${button({ label: "Quick match", iconName: "bolt", kind: "blue", block: true })}
+        ${button({ label: "Join with a code", iconName: "key", kind: "yellow", block: true })}
+        ${button({ label: "Not yet", iconName: "drop", kind: "blue", block: true, disabled: true })}
+      </div>
+      <div class="round-row">
+        ${roundButton({ label: "Leaderboard", iconName: "podium", href: "/leaderboard" })}
+        ${roundButton({ label: "How to play", iconName: "question" })}
+        ${roundButton({ label: "Account", iconName: "user", href: "/account" })}
+        ${roundButton({ label: "About", iconName: "book", href: "/readme/" })}
+      </div>
+
+      <h2>A panel and the players</h2>
+      <div class="panel" data-testid="preview-panel">
+        <strong>Panels are navy with a dark outline and a hard offset shadow, like toy pieces.</strong>
+        <p class="note">No gradients and no gloss on panels or buttons.</p>
+      </div>
+
+      <h2>The reveal, looping</h2>
+      <div class="stage">
+        <div class="players" data-testid="preview-players">
+          <div data-testid="preview-you"></div>
+          <span class="vs" aria-hidden="true">VS</span>
+          <div data-testid="preview-opponent"></div>
+        </div>
+        <div class="board-wrap" data-testid="preview-board">
+          <div class="countdown" data-testid="preview-countdown" aria-hidden="true"></div>
+        </div>
+      </div>
+      <p class="result" data-testid="preview-result" role="status"></p>
+
+      <h2>Discs and rubble</h2>
+      <ul class="key" data-testid="preview-key"></ul>
+
+      <h2>Leaderboard rows</h2>
+      <ol class="rows" data-testid="preview-rows">
+        <li class="row"><span class="row-rank">1</span><span class="avatar" id="av1"></span><span class="row-name">Maya <span class="player-tag">&#35;a7f3</span></span><span class="row-value">12 wins</span></li>
+        <li class="row"><span class="row-rank">2</span><span class="avatar" id="av2"></span><span class="row-name">Tejas <span class="player-tag">&#35;c3ce</span></span><span class="row-value">9 wins</span></li>
+        <li class="row"><span class="row-rank">3</span><span class="avatar" id="av3"></span><span class="row-name">Sam <span class="player-tag">&#35;09bd</span></span><span class="row-value">4 wins</span></li>
+      </ol>
+      <p class="note">Everything here is drawn from variables in <code>public/theme.css</code>. Nothing on this page talks to a game.</p>
+      <p><a href="/">Back to Home</a></p>
+    </main>
+  `;
+  return arcadePage({ title: "Rubble: style preview", body, script: "/static/preview.js", reload: reloadScript, version: assetVersion() });
+}
+
 function leaderboardScreen(): string {
   return `
     <main data-testid="leaderboard-screen">
@@ -260,7 +323,7 @@ function homeScreen(): string {
   return `
     <main data-testid="home-screen">
       <h1>Rubble</h1>
-      <p>Simultaneous Connect 4. Both players choose at once.</p>
+      <p>Four in a row, but you both move at once.</p>
       <form id="nick-form" class="join" data-testid="nick-form">
         <label for="home-nickname">Your nickname</label>
         <input id="home-nickname" data-testid="nickname-input" autocomplete="nickname" minlength="2" maxlength="16" />
@@ -286,6 +349,33 @@ function homeScreen(): string {
       <p class="links"><a href="/leaderboard">Full leaderboard</a> <a href="/account">Sign up or sign in</a> <a href="/readme/">About this app</a></p>
     </main>
   `;
+}
+
+// Files in public/ (the theme, the shared styles, the title font) are served at
+// the site root. Only these exact names are served: no directory listing, no
+// path from the request ever reaches the file system.
+const PUBLIC_FILES: Record<string, string> = {
+  "/theme.css": "text/css; charset=utf-8",
+  "/components.css": "text/css; charset=utf-8",
+  "/fredoka-700.woff2": "font/woff2",
+};
+function publicFile(path: string): { type: string; body: Buffer } | null {
+  const type = PUBLIC_FILES[path];
+  if (!type) return null;
+  try {
+    return { type, body: readFileSync(`public${path}`) }; // read each time so editing theme.css shows on refresh
+  } catch {
+    return null;
+  }
+}
+
+let cachedVersion: string | null = null;
+function assetVersion(): string {
+  if (cachedVersion && !DEV) return cachedVersion;
+  const hash = createHash("sha1");
+  for (const name of ["/theme.css", "/components.css"]) hash.update(publicFile(name)?.body ?? "");
+  cachedVersion = hash.digest("hex").slice(0, 10);
+  return cachedVersion;
 }
 
 const isSecure = (req: IncomingMessage) => req.headers["x-forwarded-proto"] === "https";
@@ -450,6 +540,13 @@ const server = createServer((req, res) => {
   } else if (path === "/play/quick" || path === "/play/quick/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(page("Rubble: quick match", quickScreen(), "/static/quick.js"));
+  } else if (path === "/style-preview" || path === "/style-preview/") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(stylePreview());
+  } else if (publicFile(path)) {
+    const file = publicFile(path)!;
+    res.writeHead(200, { "content-type": file.type, "cache-control": DEV ? "no-store" : "public, max-age=3600" });
+    res.end(file.body);
   } else if (path === "/leaderboard" || path === "/leaderboard/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(page("Rubble: leaderboard", leaderboardScreen(), "/static/leaderboard.js"));

@@ -1,0 +1,135 @@
+/* The one place for every colour, gradient, outline, shadow, radius, font and
+   animation duration (ADR 0006, docs/design/look-and-feel.md U1 and U2). No
+   other file may define any of them: components.css and the screens only use
+   these variables. Change the look here, not in a screen. The token table in
+   look-and-feel.md and the contrast ratios there are checked against this file
+   by spec/unit-theme.test.ts. */
+
+@font-face {
+  font-family: "Fredoka";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fredoka-700.woff2") format("woff2");
+}
+
+:root {
+  /* Fonts: Fredoka for the title, buttons and headings. Body text stays on the
+     system font, so a failed font load never breaks reading. */
+  --font-display: "Fredoka", ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Ground and text */
+  --ground-top: #0e1638;
+  --ground-bottom: #18245a;
+  --panel: #1f2c6b;
+  --ink: #060a20;
+  --text: #ffffff;
+  --text-muted: #c9d1f5;
+  --link: #9ccbff;
+  --focus: #ffc72c;
+  --error: #ffb4a8;
+  --ok: #7ce3a1;
+
+  /* The three toy colours. Buttons and discs are flat, with an ink edge. */
+  --red: #d21f27;
+  --blue: #1e5bd8;
+  --yellow: #ffc72c;
+
+  /* Board */
+  --board-edge: #1546a8;
+  --board-shine: #4d82ea;
+  --hole: #0a1030;
+
+  /* Rubble */
+  --rubble: #8a94a8;
+  --rubble-hatch: #4b5568;
+
+  /* Markers: a ring on your discs, a cross on the opponent's. */
+  --marker-you: #ffffff;
+  --marker-opponent: var(--ink);
+
+  /* Avatars: picked by a hash of the player's id. Each takes --ink on top. */
+  --avatar-1: #ff6b73;
+  --avatar-2: #ffd866;
+  --avatar-3: #6e9bff;
+  --avatar-4: #7ce3a1;
+  --avatar-5: #c4a6ff;
+  --avatar-6: #ff9f5a;
+
+  /* Shield states and the win glow */
+  --shield-on: #7ce3a1;
+  --shield-off: #8a94a8;
+  --win-glow: rgba(255, 199, 44, 0.9);
+  --disc-glow-you: rgba(210, 31, 39, 0.85);
+  --disc-glow-opponent: rgba(255, 199, 44, 0.85);
+
+  /* Bubbles: faint, translucent disc shapes rising behind everything (U3).
+     Their opacity never goes above 0.22, so text over them keeps its contrast. */
+  --bubble-red: rgba(210, 31, 39, 0.22);
+  --bubble-yellow: rgba(255, 199, 44, 0.2);
+  --bubble-blue: rgba(77, 130, 234, 0.22);
+  --bubble-rim: rgba(255, 255, 255, 0.18);
+
+  /* Confetti, built from the three toy colours plus white */
+  --confetti-1: var(--red);
+  --confetti-2: var(--yellow);
+  --confetti-3: var(--blue);
+  --confetti-4: var(--text);
+
+  /* Outlines and hard offset shadows: toy pieces, no glossy gradients. */
+  --outline: 3px solid var(--ink);
+  --outline-thin: 2px solid var(--ink);
+  --outline-thick: 4px solid var(--ink);
+  --outline-marker: 3px solid var(--marker-you);
+  --outline-marker-small: 2px solid var(--marker-you);
+  --outline-bubble: 2px solid var(--bubble-rim);
+  --outline-bubble-marker: 3px solid var(--bubble-rim);
+  --accent-you: 7px solid var(--red);
+  --accent-opponent: 7px solid var(--yellow);
+  --shadow: 0 5px 0 var(--ink);
+  --shadow-raised: 0 7px 0 var(--ink);
+  --shadow-pressed: 0 0 0 var(--ink);
+  --shadow-small: 0 2px 0 var(--ink);
+  --shadow-title: 6px 6px 0 var(--red);
+
+  /* Radii */
+  --radius-button: 14px;
+  --radius-panel: 20px;
+  --radius-board: 22px;
+  --radius-pill: 999px;
+  --radius-chip: 2px;
+  --radius-foot: 0 0 10px 10px;
+
+  /* Durations (U19, U20 and the rest of motion-and-endings.md) */
+  --dur-press: 0.08s;
+  --dur-pop: 0.45s;
+  --dur-drop: 0.4s;
+  --dur-shake: 0.35s;
+  --dur-countdown-step: 0.48s;
+  --dur-win-pulse: 0.7s;
+  --dur-confetti: 1.6s;
+  --dur-chip: 5s;
+  --dur-confetti-clear: 2.4s;
+  --dur-bubble-min: 18s;
+  --dur-bubble-step: 5s;
+  --dur-bubble-stagger: 2.7s;
+  --dur-chip-stagger: 1.1s;
+  --dur-bubble-spread: 17s;
+  --dur-confetti-spread: 0.5s;
+
+  /* The preview's pacing, in milliseconds (read by the preview script). The
+     countdown is 900 ms in total (U19): three numbers and DROP. */
+  --ms-count-step: 240;
+  --ms-count-drop: 180;
+  --ms-beat: 900;
+  --ms-after-round: 1400;
+  --ms-after-crash: 1000;
+  --ms-win-hold: 3200;
+  --ms-shake: 450;
+  --ms-drop-land: 420;
+
+  /* Bubble sizes in pixels: the smallest, and the spread above it (U3). */
+  --bubble-size-min: 24;
+  --bubble-size-spread: 49;
+}

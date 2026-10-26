@@ -25,6 +25,7 @@ RUN corepack enable \
     && pnpm store prune
 
 COPY src ./src
+COPY public ./public
 COPY README.md ./README.md
 
 ENV NODE_ENV=production

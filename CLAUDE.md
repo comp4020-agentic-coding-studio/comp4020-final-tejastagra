@@ -37,6 +37,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 - Never broadcast a result before it is saved to the database (rule R25).
 - Never let a game against the computer change the leaderboard (rule R37).
 - Never store a password in plain text, and never log passwords, cookies or tokens.
+- Never define a colour or a font outside `public/theme.css`. Every colour, radius, shadow and font is a CSS variable there (ADR 0006, `docs/design.md` "Look and feel"); screens and components only use the variables. A test fails if a colour code appears anywhere else.
 - Never put an API key or token in a tracked file, including `.claude/settings.json`. Keys live in environment variables or `mise.local.toml`, which is gitignored.
 - Never weaken, skip or delete a test to make it pass. If a test is wrong, stop and ask Tejas.
 - Never delete or weaken the course's shipped checks, `spec/invariants.test.ts` and `spec/global-setup.ts`. Other course files (`Dockerfile`, `fly.toml`, `package.json`, `tsconfig.json`, `vitest.config.ts`, `.github/`, `.githooks/`) may change when the work needs it, but read their comments first, keep what they say is fixed (one shared-cpu-1x machine with 256 MB, one volume at `/data`, HTTP on `0.0.0.0:$PORT`, the API key scan in `.githooks/pre-commit`) and give the reason in the commit's `Why:` line.
