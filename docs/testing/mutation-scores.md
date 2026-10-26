@@ -4,3 +4,4 @@
 
 | Date | Commit | Score | Survived mutants worth noting | Tests added in response |
 | --- | --- | --- | --- | --- |
+| 2026-10-26 | cc449b8 | 90.57% (189 killed, 3 timeout, 20 survived) | Nothing tests player B symmetrically (shield win, B winning, invalid B choice); falling diagonal [1,-1] and line-scan bounds untested; error message text untested | Next commit: B-side and diagonal tests |

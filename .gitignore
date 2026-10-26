@@ -28,3 +28,7 @@ mise.local.toml
 !.claude/commands/
 !.claude/hooks/
 !.claude/settings.json
+
+# mutation testing output
+reports/
+.stryker-tmp/
