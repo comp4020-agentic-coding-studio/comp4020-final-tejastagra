@@ -90,6 +90,8 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`,
+  // R53: games saved before Earthquake have no earthquakesLeft in their state; both are available.
+  `UPDATE games SET state = json_set(state, '$.earthquakesLeft', json('{"A":true,"B":true}')) WHERE json_extract(state, '$.earthquakesLeft') IS NULL`,
 ];
 
 function migrate(db: DatabaseSync): void {

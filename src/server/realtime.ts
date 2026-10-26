@@ -72,8 +72,9 @@ interface ChooseMessage {
   code: string;
   player: Player;
   seatToken: string;
-  column: number;
+  column?: number;
   shield?: boolean;
+  earthquake?: boolean; // Earthquake instead of a column (R54)
 }
 
 type ClientMessage = JoinMessage | ChooseMessage | { type: string; [key: string]: unknown };
@@ -422,7 +423,7 @@ export function attachRealtime(
   }
 
   function handleChoose(message: ChooseMessage): void {
-    const { code, player, seatToken, column, shield } = message;
+    const { code, player, seatToken, column, shield, earthquake } = message;
     if (typeof code !== "string" || (player !== "A" && player !== "B")) return;
     // A missing or unrecognised token must never be treated as a match: an
     // unissued seat has no token in the map (`undefined`), and a message
@@ -430,7 +431,10 @@ export function attachRealtime(
     // explicit identity check, not a `!==` that two absences can satisfy.
     const expectedToken = seatTokens.get(key(code, player));
     if (typeof seatToken !== "string" || typeof expectedToken !== "string" || seatToken !== expectedToken) return;
-    if (typeof column !== "number" || (shield !== undefined && typeof shield !== "boolean")) return;
+    if (earthquake !== undefined && earthquake !== true) return; // a malformed flag is not a choice
+    if (earthquake === undefined && typeof column !== "number") return;
+    if (shield !== undefined && typeof shield !== "boolean") return;
+    if (column !== undefined && typeof column !== "number") return;
 
     const record = game.getGame(code);
     logEvent("action_received", { type: "choose", round: record?.state.round });
@@ -446,7 +450,9 @@ export function attachRealtime(
       return;
     }
 
-    const choice: Choice = { column, shield: Boolean(shield) };
+    // R53: an Earthquake carrying a column or a shield is passed on as it is, so the engine rejects
+    // it as one_power_up rather than the server guessing what was meant.
+    const choice = (earthquake === true ? { earthquake: true, ...(column !== undefined ? { column } : {}), ...(shield ? { shield } : {}) } : { column: column as number, shield: Boolean(shield) }) as Choice;
     const result = validateChoice(record.state, player, choice);
     if (!result.ok) {
       const socket = connections.get(key(code, player));

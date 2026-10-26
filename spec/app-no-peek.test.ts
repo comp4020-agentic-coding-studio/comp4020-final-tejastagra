@@ -164,6 +164,28 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     await closeAndWait(b2);
   });
 
+  it("N5 (R21, R22, R54) a pending Earthquake is never revealed: B receives exactly the same opponent_ready as for a column", async () => {
+    const code = freshCode();
+    const a = await joinGame(code, "A");
+    const b = await joinGame(code, "B");
+    await expectArrival(a);
+    // One round first, so there is something to shake (R55).
+    a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 0, shield: false }));
+    await b.next();
+    b.socket.send(JSON.stringify({ type: "choose", code, player: "B", seatToken: b.seatToken, column: 3, shield: false }));
+    await a.next();
+    await b.next();
+    const bMessages = recordRawMessages(b.socket);
+
+    a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, earthquake: true }));
+    expect(await b.next()).toEqual({ type: "opponent_ready" });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(bMessages).toEqual([JSON.stringify({ type: "opponent_ready" })]);
+    for (const raw of bMessages) expect(raw.toLowerCase()).not.toContain("earthquake");
+    await closeAndWait(a.socket);
+    await closeAndWait(b.socket);
+  });
+
   it("N1 (R22) a choose for a seat nobody has joined yet, with no seat token, is ignored rather than accepted", async () => {
     const code = freshCode();
     const a = await joinGame(code, "A");

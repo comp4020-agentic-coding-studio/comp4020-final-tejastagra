@@ -41,7 +41,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 
 ## No peeking (`spec/app-no-peek.test.ts`)
 
-N1 to N4. See the file. N5 adds: an Earthquake choice is never revealed to the opponent before the round resolves (R21, R22, R54), todo.
+N1 to N4. See the file. N5 adds: an Earthquake choice is never revealed to the opponent before the round resolves (R21, R22, R54), passing (also `spec/unit-realtime-earthquake.test.ts`).
 
 ## Real time (`spec/app-realtime.test.ts`)
 
@@ -53,7 +53,7 @@ L1 to L5, I1 to I6, B1 to B5. See the files.
 
 ## Computer, persistence and logging (`spec/unit-computer.test.ts`, `spec/unit-persistence.test.ts`, `spec/unit-logging.test.ts`)
 
-C1 to C7, S1 to S3, G1 to G3. See the files. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), todo. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), todo.
+C1 to C7, S1 to S3, G1 to G3. See the files. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), todo. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), passing.
 
 ## Phone layout (`e2e/`, Playwright, `pnpm test:e2e`)
 
