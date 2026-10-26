@@ -32,3 +32,6 @@ mise.local.toml
 # mutation testing output
 reports/
 .stryker-tmp/
+
+# local dev database (production uses the Fly volume at /data)
+data-dev/

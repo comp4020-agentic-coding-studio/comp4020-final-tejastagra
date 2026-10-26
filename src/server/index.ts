@@ -2,10 +2,15 @@ import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { marked } from "marked";
 import { logEvent } from "./log.ts";
+import { openDb } from "./db.ts";
+import { attachRealtime } from "./realtime.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DEV = process.env.DEV === "1";
+const DB_PATH = process.env.RUBBLE_DB_PATH ?? (DEV ? "./data-dev/rubble.db" : "/data/rubble.db");
 const startedAt = String(Date.now());
+
+const db = openDb(DB_PATH);
 
 const reloadScript = DEV
   ? `<script>(function(){var v;setInterval(function(){fetch("/__dev/version").then(function(r){return r.text()}).then(function(t){if(v&&v!==t)location.reload();v=t}).catch(function(){})},700)})()</script>`
@@ -47,6 +52,8 @@ const server = createServer((req, res) => {
     res.end("Not found");
   }
 });
+
+attachRealtime(server, db);
 
 server.listen(PORT, "0.0.0.0", () => {
   logEvent("server_start", { port: PORT });
