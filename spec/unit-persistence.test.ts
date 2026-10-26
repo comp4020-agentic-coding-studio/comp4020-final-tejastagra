@@ -76,7 +76,8 @@ describe("S: what happens is kept (promise 5)", () => {
     db.close();
   });
 
-  it("S3 (R26) on restore, the open round's timer restarts at 15 seconds", () => {
+  it("S3 (R26) on restore, the open round's timer restarts at 10 seconds (R18)", () => {
+    expect(ROUND_TIMER_MS).toBe(10_000);
     const db = openDb(":memory:");
     db.saveGame("GAME02", newGame());
 

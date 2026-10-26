@@ -2,9 +2,34 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
-## Where we are
+## Fix list of 27 October 2026 (done)
 
-Phases 0 to 7 and the navy toy restyle (docs/design/plan.md, steps 9.1 to 9.7) are done. The app is ready to deploy. **Phase 8 (the multi-user test session) needs real people: stop and wait for Tejas.** Nothing is pushed and nothing is deployed; the assistant cannot push (permissions deny it), so Tejas pushes and deploys himself.
+Tejas's fix list, in the order he gave it. Every item was recorded in `docs/rules.md`, `docs/design/` or an ADR first, then tested, then coded. Never pushed or deployed.
+
+| Commit | What it fixed |
+| --- | --- |
+| `8636f0a` | Rules: R4 replaced (choices lock, `already_chosen`), R18 and D2 at 10 seconds, R19 and R26 only with both players, new R51 and R52, ADR 0009 |
+| `91deb35` | Server: no timer, round or missed round until both players are present (also for restored games); `already_chosen`; computer thinks 1 to 3 seconds; tests for R51, R4 and R52 |
+| `743391f` | Design docs: U10 to U16, U19 (no countdown), U25 (timer bar), U27a (centred popup), U35a, U41 to U46 (interactive tutorial), new `docs/design/game-screen.md` U54 to U60 |
+| `1353004` | Correction C17 and the new theme tokens in the docs |
+| `e2e7c04` | Real names in each panel (U57), waiting card and game markup, "Save nickname", message inside the player card |
+| `cac351f` | Client: locked choice and ghost disc lift, no countdown, "Get ready" once, slim timer bar, shield badge with info, popup centred over the board, narrow 320px layout, 560px lists and forms |
+| `fe83e07` | Interactive tutorial (six steps, Next only after acting, scripted shield step) |
+| `19bf6b5` | Browser checks: highlight edges within 2px at three widths, centred game group, popup titles, 560px limit, timer bar, tutorial played by tapping; screenshot baselines |
+
+Earlier stage (restyle): `999273d`, `120f355`, `47dbc61`.
+
+**New rules:** R4 (final choices), R18 (10 seconds), R51 (a game starts only with both players), R52 (computer thinks 1 to 3 seconds). **Correction added:** C17. **ADR:** 0009.
+
+**Decisions I made while Tejas was away** (all recorded in ADR 0009 or the docs):
+- `already_chosen` is a server check before the engine's R3 validation, so the engine contract is unchanged.
+- A restored game, and a game whose seat is empty, runs no timer; the timer starts when both are connected. A seat that disconnects mid-game still lets the round timer run until the 30 second grace ends (R27), but those rounds are not counted towards abandonment.
+- `opponent_joined` and the snapshot now carry public display names only (never a choice, R22).
+- The 320px game screen drops the keyboard hint and tightens spacing so the board, timer bar and both names fit 568px; the result line sits just below the first screen.
+- The shield help is an overlay over the board so it never pushes the board off screen.
+- The tutorial's last step offers "Play the computer" or "Back home" (skip becomes "Back home" there).
+
+## State of the app
 
 What exists:
 - **Engine** (`src/engine/`), pure, 97.17% mutation score.
@@ -13,7 +38,7 @@ What exists:
 - **Screens** (`src/client/`, esbuild, target es2020, so no top-level await): Home (laptop: two halves, phone: one column), Game (tap a column to choose, shield badge, countdown only after the server's result, end popup), Tutorial (runs in the browser on a practice board, R47 to R50), Quick match, Leaderboard, Account, `/readme/`.
 - **Protocol additions:** snapshot `opponentPresent` and the `opponent_joined` message (no choice information, R21, R22); `/api/visitor`, `/api/tutorial`, `tutorialDue` on `/api/me`.
 - **`/style-preview`** answers only when `DEV=1` (U50) and no page links to it.
-- **Checks:** `pnpm check` (207 passed, 3 todo), `pnpm check:fast` (153), `pnpm test:e2e` (44 browser checks incl. axe-core on every screen and screenshots), `pnpm check:isolated` (temporary server and data folder). Run `pnpm check` twice in a row; it must stay repeatable.
+- **Checks:** `pnpm check` (211 passed, 3 todo), `pnpm check:fast` (157), `pnpm test:e2e` (62 browser checks incl. axe-core on every screen and screenshots), `pnpm check:isolated` (temporary server and data folder). Run `pnpm check` twice in a row; it must stay repeatable.
 - **Docker:** built and run with an empty `/data`; `/`, `/readme/`, `/leaderboard` and `/theme.css` answered 200 and `/style-preview` 404.
 
 ## Next step: Phase 8, then polish
@@ -28,7 +53,7 @@ Phase 8: run the multi-user test session from `docs/testing/multi-user-test-plan
 - **The marking viewports are not in the repo.** `playwright.config.ts` uses 390 x 844 and 1366 x 768 plus 320 px wide, as `docs/design.md` says to until they are confirmed. Change `PHONE` and `LAPTOP` there once he reads them off the course assessment page.
 - **ADR 0004 and the other ADRs are "Accepted (default, pending Tejas's review)".** The identity implementation notes in ADR 0004 record two behaviours to review: a taken username is shown as taken at sign-up, and a guest cookie keeps working as the account after sign-up.
 - **Rule notes added without asking** (the standing instruction was to pick the simpler option and record it): R19 (a computer game is abandoned when the human misses 3 rounds; idle count restarts after a restart), R31 (the 4 hex digit tag is shown), R34 (30 games a minute per address; first timer starts at first join).
-- **Two app-level leaderboard checks are todo** (B3, B4): they need real 15 second rounds. Their rules are covered by `spec/unit-leaderboard.test.ts` and `spec/unit-realtime-abandon.test.ts`.
+- **Two app-level leaderboard checks are todo** (B3, B4): they need real 10 second rounds. Their rules are covered by `spec/unit-leaderboard.test.ts` and `spec/unit-realtime-abandon.test.ts`.
 - **Per-address limits behind Fly:** the code reads `Fly-Client-IP` (CLAUDE.md). Anyone on one shared network shares a bucket; the limits are generous (30 guests, 30 games, 60 sign-ins, 120 reads a minute).
 - **The Web Share button only shows where the browser supports it** (phones, mostly). Copy link works everywhere over HTTPS, but over plain HTTP on a LAN address the clipboard is unavailable and it says "Copy failed".
 
