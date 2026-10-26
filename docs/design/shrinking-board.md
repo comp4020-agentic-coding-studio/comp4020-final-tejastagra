@@ -1,0 +1,22 @@
+# Shrinking board
+
+Added on 27 October 2026 for the shrinking board (ADR 0011, rules R61 to R68). It extends `motion-and-endings.md` (the reveal), `earthquake.md` and `tutorial.md`.
+
+The board on screen is always drawn as 7 columns by 6 rows. It never changes size, so the phone layout cannot change (promise 4). What shrinks is the **open area**: closed cells turn into rock.
+
+## The warning
+
+- **U68** The round before a collapse, a warning banner (`shrink-warning`) sits on the round line above the board, beside "Round N" and sharing its row so no row is added (the 320 x 568 screen has under 20px to spare). It is shown while the round that comes right before a collapse is open, that is when the round number on screen is 6, 12 or 18 (R61, R62). It says "The ceiling drops after this round" before a ceiling drop, "The walls collapse after this round" before a wall collapse, and "The ceiling drops and the walls collapse after this round" when both are due (R63). It has a small crack icon, so it differs by shape as well as colour, is an `aria-live` status, uses `--timer-warn` for its edge and `--ink` for its text on a `--yellow` fill, and may wrap to two lines on a narrow screen. It is hidden when no collapse is due and once the game is over. The browser works out when from the engine's `shapeAt` (the one schedule), only to show the warning (R20).
+- **U69** In the same round the cells that are about to close flash with a crack pattern (class `doomed`, `data-doomed="true"`): the top row of the open area for the ceiling, the leftmost and rightmost open columns for the walls. The flash is a crack pattern in `--timer-warn` and a slow pulse of its opacity (`--dur-doomed`). Under reduced motion the crack pattern shows and does not pulse, so the information is the same. Nothing about the flash depends on a choice: it is the same for both players (R22).
+
+## When it happens
+
+- **U70** When a round resolves with a collapse, the closed cells **crack** and **crumble** into dust and then **turn into rock**. It starts as the round's discs land (`--ms-collapse-start`, 250ms after the drop begins) and takes `--dur-collapse` (200ms) in all, using `transform` and `opacity` only. An earthquake round still takes shake, crumble and slide (U65) first, so the longest round is about 900ms, inside the one-second promise (R23, U23). The sequence always ends with the board exactly as the server sent it. **Under reduced motion** nothing moves: the closed cells simply change to rock.
+- **U71** Rock is solid and clearly not rubble. A closed cell loses its round hole and shows a square-cornered block (`data-piece` stays empty and the cell carries `data-closed="true"`) filled with `--rock`, shaded with `--rock-dark` and cut by `--ink` crack lines, with no hatch pattern. Rubble stays a round grey hatched piece in a hole, so the two differ by shape and colour (`docs/design.md`). Rock belongs to nobody. It never carries a win glow.
+- **U72** A closed column cannot be chosen (R64). Its hit area is disabled (`aria-disabled="true"`), hovering it shows no ghost disc and no glow, tapping it or pressing its key says "That column is closed. Pick another." and sends nothing. A full column still says "That column is full. Pick another." (U14), judged at the current number of rows. If the server answers `column_closed` the same message shows.
+- **U73** The result line adds what closed, after the usual sentence: "The ceiling dropped. The top row turned to rock." or "The walls collapsed. The outer columns turned to rock." or both sentences, ceiling first (R63). The browser knows because the shape in the new state is smaller than the one it had drawn.
+- **U74** A tutorial step "The board shrinks" after the Earthquake step. A warning banner and a flashing top row show on the practice board, and the player is asked to tap any column. Their disc drops and the top row cracks, crumbles and turns to rock. Caption: "The board shrinks as rounds pass: after round 6 the ceiling drops and after round 12 the walls collapse. Pieces in closed rows and columns crumble away." The step follows the rules of U41 to U48 (it waits for the player, Next appears only once it is done, it works by tap and keyboard, and under reduced motion it still makes sense). The practice board never has a piece in its top row, as in U41. Later steps move down by one (see `tutorial.md`).
+
+## Test hooks
+
+`shrink-warning`, `result-line` (U73), and on every cell `data-closed` and `data-doomed`. In the tutorial: `tutorial-warning`.

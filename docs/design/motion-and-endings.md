@@ -12,6 +12,8 @@ Every animation uses only `transform` and `opacity` so it stays smooth on phones
 
 - **U23a** An earthquake round is drawn as shake, crumble, slide and then the drop, still within one second (U65). Under reduced motion the board simply updates.
 
+- **U23b** A collapse is drawn as crack, crumble and rock, starting as the discs land, and the longest round (an earthquake and a collapse) still takes under a second (U70). Under reduced motion the closed cells simply change to rock.
+
 ## Live feedback
 
 - **U24** When the opponent becomes ready, their panel pulses once and their status changes to "Ready!".

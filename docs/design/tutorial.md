@@ -1,6 +1,6 @@
 # First-time tutorial
 
-Rubble has four rules a newcomer has never seen: both players move at once, matching columns crash into rubble, each player has one shield and each has one Earthquake. The tutorial teaches all four in about a minute.
+Rubble has four rules a newcomer has never seen: both players move at once, matching columns crash into rubble, each player has one shield and one Earthquake, and the board shrinks over time. The tutorial teaches all five in about a minute.
 
 ## Rules (to add to docs/rules.md)
 
@@ -18,8 +18,9 @@ The tutorial is an overlay over a practice board against a scripted computer. It
 - **U43** Step 3, "Crash!": the computer is scripted to pick the same column as the player (the player taps a column and the computer takes it). The discs crash and leave rubble. Caption: "If you both pick the same column, the discs crash and leave rubble that belongs to nobody. Rubble blocks lines."
 - **U44** Step 4, "Power-ups: your shield": the board is set up so the computer is about to win in one column. The shield badge shows on the player's panel and the player is asked to tap it, then to tap that same column. Their disc lands and blocks the win, and the computer's disc is lost. Caption: "Your shield wins one crash per game. Use it when you both need the same column."
 - **U44a** Step 5, "Power-ups: Earthquake" (U67): the player uses Earthquake to break up a line the computer is building. Caption: "Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Use it to break up a line."
-- **U45** Step 6, "Four in a row wins": four of the player's discs line up and glow, with confetti. Caption: "Get four of your discs in a row, across, down or diagonally. If you both do it in the same round, it is a draw."
-- **U46** Step 7 offers "Play the computer" or "Back home".
+- **U44b** Step 6, "The board shrinks" (U74): a warning shows, the player taps a column and the top row turns to rock. Caption: "The board shrinks as rounds pass: after round 6 the ceiling drops and after round 12 the walls collapse. Pieces in closed rows and columns crumble away."
+- **U45** Step 7, "Four in a row wins": four of the player's discs line up and glow, with confetti. Caption: "Get four of your discs in a row, across, down or diagonally. If you both do it in the same round, it is a draw."
+- **U46** Step 8 offers "Play the computer" or "Back home".
 
 - **U47** Every caption is short, uses the words in `docs/glossary.md` and is readable on a 320px screen. Captions are announced in an `aria-live` region.
 - **U48** The tutorial works by tap, mouse and keyboard, and under reduced motion every step still makes sense without animation.

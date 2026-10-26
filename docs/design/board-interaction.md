@@ -8,7 +8,7 @@ The game screen has no column buttons and no Drop button. Players act on the boa
 - **U11** On a laptop, hovering a column brightens it and shows a faint ghost disc in the player's colour centred just above it, outside the board. Moving across columns moves the ghost.
 - **U12** Clicking or tapping a column chooses it, and the choice is final (R4, ADR 0009). The ghost disc lifts a little and locks into place, centred above the chosen column and outside the board, and the player panel shows "Chosen". This sends the choice to the server, with the shield flag as it is at that moment.
 - **U13** After choosing, every column and the shield badge are locked until the round resolves; tapping again does nothing except say "Your choice is locked in.". If the server still gets a second choice it answers `already_chosen` and the first choice stands. There is no separate confirm step, so a stray tap cannot be undone: the lift and lock of the ghost disc makes the choice obvious.
-- **U14** A full column cannot be chosen: hovering it shows nothing and tapping it gives a short shake and the message "That column is full".
+- **U14** A full column cannot be chosen: hovering it shows nothing and tapping it gives a short shake and the message "That column is full". A closed column is the same (U72).
 - **U15** Each column hit area is at least 44px wide at 320px screen width.
 
 ## The shield

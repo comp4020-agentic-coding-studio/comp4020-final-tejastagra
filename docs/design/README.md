@@ -10,6 +10,7 @@ This folder is the source of truth for how Rubble looks, moves and teaches itsel
 | `home.md` | The redesigned home screen, laid out like a game menu (U31 to U40) |
 | `tutorial.md` | The first-time tutorial, including what the shield does (U41 to U48, rules R47 to R50) |
 | `earthquake.md` | The Earthquake badge, the shake and crumble, its result line and tutorial step (U61 to U67) |
+| `shrinking-board.md` | The warning, the collapse to rock, closed columns, the result line and the tutorial step (U68 to U74) |
 | `game-screen.md` | The waiting card, timer bar, names and layout (U54 to U60) |
 | `plan.md` | The order of work, the commits and where to stop for Tejas |
 

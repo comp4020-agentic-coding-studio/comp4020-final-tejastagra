@@ -31,7 +31,7 @@ The aim is a lively, original navy toy game site that works fully on a phone (AD
 
 ## What the game screen always shows
 
-- Round number and the round timer bar.
+- Round number and the round timer bar, and a warning on the round before the ceiling drops or the walls collapse (docs/design/shrinking-board.md).
 - Whether the opponent has chosen yet (R21), shown as "Ready" or "Choosing".
 - Whether each player still has their shield and their Earthquake.
 - Your current choice, until the round resolves.
@@ -67,7 +67,7 @@ The reveal starts when the server's result arrives and never before, so an anima
 
 Use these `data-testid` values so tests do not depend on layout:
 
-`column-0` to `column-6`, `shield-badge`, `earthquake-badge`, `round-number`, `timer`, `opponent-status`, `my-shield`, `opponent-shield`, `result-line`, `game-code`, `copy-link`, `nickname-input`, `play-computer`, `play-friend`, `quick-match`, `code-input`, `leaderboard-wins`, `leaderboard-rounds`, `cell-<column>-<row>` (with `data-piece="A" | "B" | "R" | ""`).
+`column-0` to `column-6`, `shield-badge`, `earthquake-badge`, `shrink-warning`, `round-number`, `timer`, `opponent-status`, `my-shield`, `opponent-shield`, `result-line`, `game-code`, `copy-link`, `nickname-input`, `play-computer`, `play-friend`, `quick-match`, `code-input`, `leaderboard-wins`, `leaderboard-rounds`, `cell-<column>-<row>` (with `data-piece="A" | "B" | "R" | ""`).
 
 ## Words
 
