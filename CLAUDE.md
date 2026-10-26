@@ -61,6 +61,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 - Add or update a test when it changes behaviour, with the rule ID in the test name. Name test files `spec/app-<name>.test.ts` (checks against the running app, using `inject("baseUrl")`) or `spec/unit-<name>.test.ts` (no app needed). Browser checks go in `e2e/` and never in `spec/`. See `spec/CHECKS.md`.
 - Be one logical change per commit.
 - Pass the reviewer subagent (`.claude/agents/reviewer.md`, always by name) once per group of related commits that touch `src/` or `spec/` (for example once after all the R13 to R17 commits, or once per screen), and always before a commit that touches the no-peek rules (R21, R22) or persistence (R25). If the reviewer is not available, tell Tejas.
+- Give every endpoint that creates server state (a game, a ticket, a row) a rate limit, and an expiry on anything it keeps in memory, so a public URL cannot fill the 256 MB machine or the volume. Key limits on the client address Fly passes in `Fly-Client-IP`, not the proxy's socket address.
 - Every database schema change (a new column, table or index in `src/server/db.ts`) must come with a numbered migration, applied through `PRAGMA user_version` so it runs exactly once against an existing database, and a test that opens a database built with the old schema and checks it is upgraded correctly. A deploy must never crash because the database on `/data` was created before the change.
 
 ## Commit messages

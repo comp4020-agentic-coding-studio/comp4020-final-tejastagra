@@ -53,7 +53,33 @@ describe("L: playing modes (R33 to R36)", () => {
     a.close();
     b.close();
   });
-  it.todo("L4 (R35) 20 clients arriving at once in quick match are paired into exactly 10 games, each client once");
+  it("L4 (R35) 20 clients arriving at once in quick match are paired into exactly 10 games, each client once", async () => {
+    const base = inject("baseUrl");
+    // Clear any ticket left waiting by an earlier run, so the count is exact.
+    const probe = await (await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST" })).json();
+    if (probe.state === "waiting") await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST" });
+    const tickets = Array.from({ length: 20 }, () => crypto.randomUUID());
+    const codes = new Map<string, string>();
+    await Promise.all(
+      tickets.map(async (ticket) => {
+        const joined = await (await fetch(`${base}/api/quick/${ticket}`, { method: "POST" })).json();
+        if (joined.state === "matched") codes.set(ticket, joined.code);
+      }),
+    );
+    for (let i = 0; i < 20 && codes.size < 20; i++) {
+      for (const ticket of tickets) {
+        if (codes.has(ticket)) continue;
+        const status = await (await fetch(`${base}/api/quick/${ticket}`)).json();
+        if (status.state === "matched") codes.set(ticket, status.code);
+      }
+    }
+    expect(codes.size).toBe(20);
+    const perGame = new Map<string, number>();
+    for (const code of codes.values()) perGame.set(code, (perGame.get(code) ?? 0) + 1);
+    expect(perGame.size).toBe(10);
+    for (const count of perGame.values()) expect(count).toBe(2);
+    for (const code of perGame.keys()) expect((await fetch(`${base}/g/${code}`)).status).toBe(200);
+  });
 
   it("L5 (R36) a third client joining a full game is refused with game_full", async () => {
     const code = freshCode();

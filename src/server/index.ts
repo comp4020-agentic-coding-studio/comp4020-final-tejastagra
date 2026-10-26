@@ -7,6 +7,7 @@ import { attachRealtime } from "./realtime.ts";
 import { bundleClient } from "./client-bundle.ts";
 import { generateCode } from "./codes.ts";
 import { createRateLimiter } from "./rate-limit.ts";
+import { createMatchmaker } from "./matchmaker.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DEV = process.env.DEV === "1";
@@ -14,13 +15,21 @@ const DB_PATH = process.env.RUBBLE_DB_PATH ?? (DEV ? "./data-dev/rubble.db" : "/
 const startedAt = String(Date.now());
 
 const db = openDb(DB_PATH);
+// Behind Fly's proxy the socket address is the proxy's; Fly sets Fly-Client-IP.
+function clientAddress(req: import("node:http").IncomingMessage): string {
+  const fly = req.headers["fly-client-ip"];
+  return (typeof fly === "string" ? fly : undefined) ?? req.socket.remoteAddress ?? "unknown";
+}
 const allowCreate = createRateLimiter(30, 60_000);
+// Generous: joining plus a few retries per player; 20 test clients share one address.
+const allowQuick = createRateLimiter(120, 60_000);
 
 // Bundled once at start; pnpm dev's --watch restarts the whole process on
 // any source change, so this never goes stale while developing.
 const clientBundles: Record<string, string> = {
   "game.js": bundleClient("src/client/game.ts"),
   "home.js": bundleClient("src/client/home.ts"),
+  "quick.js": bundleClient("src/client/quick.ts"),
 };
 
 const reloadScript = DEV
@@ -51,6 +60,8 @@ const STYLES = `
   .join{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}
   .join label{grid-column:1/-1}
   input{min-height:44px;font:inherit;padding:0 10px;border:2px solid #1a1a1a;border-radius:8px;width:100%;text-transform:uppercase}
+  a.button{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border:2px solid #1a1a1a;border-radius:8px;background:#fff;color:#1a1a1a;text-decoration:none}
+  [hidden]{display:none!important}
   a{display:inline-block;padding:12px 0;color:#1d4ed8}
   .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}
   @media (max-width:360px){
@@ -130,6 +141,20 @@ function gameScreen(code: string): string {
   return page("Rubble: game", body, "/static/game.js");
 }
 
+function quickScreen(): string {
+  return `
+    <main data-testid="quick-screen">
+      <h1>Quick match</h1>
+      <p data-testid="quick-status" role="status">Waiting for another player...</p>
+      <div data-testid="computer-offer" hidden>
+        <p>No one has arrived yet. You can play the computer instead, or keep waiting.</p>
+        <p><span data-testid="computer-offer-note">Playing the computer is coming soon.</span></p>
+      </div>
+      <button type="button" data-testid="quick-cancel">Cancel</button>
+    </main>
+  `;
+}
+
 function homeScreen(): string {
   return `
     <main data-testid="home-screen">
@@ -138,7 +163,7 @@ function homeScreen(): string {
       <div class="stack">
         <button type="button" data-testid="play-computer" disabled>Play the computer (coming soon)</button>
         <button type="button" data-testid="play-friend">Play a friend</button>
-        <button type="button" data-testid="quick-match" disabled>Quick match (coming soon)</button>
+        <a class="button" data-testid="quick-match" href="/play/quick">Quick match</a>
       </div>
       <form id="join-form" class="join">
         <label for="code-input">Enter a game code</label>
@@ -159,12 +184,33 @@ const server = createServer((req, res) => {
   } else if (path === "/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(page("Rubble", homeScreen(), "/static/home.js"));
+  } else if (path === "/play/quick" || path === "/play/quick/") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(page("Rubble: quick match", quickScreen(), "/static/quick.js"));
   } else if (path === "/readme/" || path === "/readme") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(readme());
+  } else if (/^\/api\/quick\/[A-Za-z0-9-]{8,64}$/.test(path)) {
+    const ticket = path.split("/").pop()!;
+    let body: unknown;
+    if (req.method === "POST") {
+      if (!allowQuick(clientAddress(req))) {
+        res.writeHead(429, { "content-type": "text/plain; charset=utf-8", "retry-after": "60" });
+        res.end("Too many requests. Try again in a minute.");
+        return;
+      }
+      body = matchmaker.join(ticket);
+    } else if (req.method === "DELETE") {
+      matchmaker.leave(ticket);
+      body = { state: "unknown" };
+    } else {
+      body = matchmaker.status(ticket);
+    }
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify(body));
   } else if (path === "/api/games" && req.method === "POST") {
     // Play a friend (R34): the server makes the code, so clients never invent one.
-    if (!allowCreate(req.socket.remoteAddress ?? "unknown")) {
+    if (!allowCreate(clientAddress(req))) {
       res.writeHead(429, { "content-type": "text/plain; charset=utf-8", "retry-after": "60" });
       res.end("Too many games started. Try again in a minute.");
       return;
@@ -187,6 +233,15 @@ const server = createServer((req, res) => {
 });
 
 const realtime = attachRealtime(server, db);
+
+// Quick match (R35): pairs make a fresh game and wait for both to open it.
+const matchmaker = createMatchmaker({
+  makeGame: () => {
+    const code = generateCode((c) => realtime.game.getGame(c) !== undefined);
+    realtime.game.createGame(code);
+    return code;
+  },
+});
 
 server.listen(PORT, "0.0.0.0", () => {
   logEvent("server_start", { port: PORT });
