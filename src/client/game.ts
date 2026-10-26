@@ -432,12 +432,17 @@ $("copy-link").addEventListener("click", () => {
   else failed();
 });
 
-if (typeof navigator.share === "function") {
-  $("share").hidden = false;
-  $("share").addEventListener("click", () => {
+// Share uses the phone's share sheet where there is one; elsewhere it copies the link, so the
+// button always works (U54).
+$("share").addEventListener("click", () => {
+  if (typeof navigator.share === "function") {
     navigator.share({ title: "Rubble", text: `Play me at Rubble. Game code ${code}`, url: location.href }).catch(() => {});
-  });
-}
+    return;
+  }
+  const label = $("share");
+  if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(() => (label.textContent = "Link copied"), () => (label.textContent = "Copy failed"));
+  else label.textContent = "Copy failed";
+});
 
 $("play-again").addEventListener("click", async () => {
   // Play again starts a fresh game of the same kind: a friend game gets a new link to share,

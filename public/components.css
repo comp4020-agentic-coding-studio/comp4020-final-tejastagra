@@ -1703,12 +1703,77 @@ input {
   max-width: var(--stack-width);
 }
 
-@media (max-width: 359px) {
-  /* The practice board in the tutorial gets the full width of the card, so every column is 44 px. */
+.tutorial-status[hidden],
+.tutorial-hint[hidden] {
+  display: none;
+}
+
+/* Next and Skip stay on screen however short it is: they stick to the bottom of the card. */
+.tutorial-actions {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 4px 0 2px;
+  background: var(--panel);
+}
+
+/* On a small or short screen the card is compact, so all of it, with Next and Skip, fits. */
+@media (max-width: 359px), (max-height: 640px) {
   .tutorial {
     padding: 4px;
   }
 
+  .tutorial-card {
+    padding-top: 8px;
+    padding-bottom: 4px;
+  }
+
+  .tutorial-card h2 {
+    margin: 0 0 2px;
+    font-size: 1.1rem;
+  }
+
+  .tutorial-caption {
+    margin: 2px 0;
+    font-size: 0.9rem;
+    line-height: 1.25;
+  }
+
+  .tutorial-board {
+    margin: 2px 0;
+  }
+
+  .tutorial-hint {
+    min-height: 2.5em;
+    font-size: 0.85rem;
+    line-height: 1.2;
+  }
+
+  .tutorial-board .board-wrap {
+    margin: calc(var(--ghost-size) + 2px) 0 2px;
+    padding-bottom: 12px;
+  }
+
+  .tutorial-board .board-wrap::before,
+  .tutorial-board .board-wrap::after {
+    height: 12px;
+  }
+
+  .tutorial-board .columns-hit,
+  .tutorial-board .columns-glow {
+    bottom: calc(12px + var(--frame));
+  }
+
+  .tutorial-shield {
+    min-height: 44px;
+    margin: 2px auto;
+  }
+}
+
+@media (max-width: 359px) {
+  /* The practice board gets the full width of the card, so every column is 44 px. */
   .tutorial-card {
     padding-left: 0;
     padding-right: 0;
@@ -1728,12 +1793,6 @@ input {
     padding-left: 8px;
     padding-right: 8px;
   }
-}
-
-.tutorial-actions {
-  display: grid;
-  gap: 6px;
-  justify-items: center;
 }
 
 /* ---- Wider screens ---- */

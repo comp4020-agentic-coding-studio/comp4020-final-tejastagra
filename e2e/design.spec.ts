@@ -838,3 +838,39 @@ test.describe("Forms and lists stay narrow and centred (U60)", () => {
     await context.close();
   });
 });
+
+test.describe("Small screens and the Share fallback", () => {
+  test("U54 Share always works: with no Web Share it copies the link", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, LAPTOP);
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.addInitScript(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
+    await page.goto(`/g/${await makeGameCode(page)}`);
+    await expect(page.locator(testid("share"))).toBeVisible();
+    await page.locator(testid("share")).click();
+    await expect(page.locator(testid("share"))).toHaveText("Link copied");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("/g/");
+    await context.close();
+  });
+
+  for (const viewport of [NARROW, { width: 360, height: 640 }]) {
+    test(`U41 to U46 the tutorial card never hides its title, Next or Skip at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { tutorial: "new", reducedMotion: true });
+      await page.goto("/");
+      await expect(page.locator(testid("tutorial"))).toBeVisible();
+      for (let step = 1; step <= 6; step++) {
+        if (step <= 5) await doStep(page, step);
+        const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
+        const title = await box("tutorial-title");
+        const skip = await box("tutorial-skip");
+        expect(title.y, `step ${step}: title on screen`).toBeGreaterThanOrEqual(0);
+        expect(skip.y + skip.height, `step ${step}: Skip on screen`).toBeLessThanOrEqual(viewport.height);
+        if (step <= 5) {
+          const next = await box("tutorial-next");
+          expect(next.y + next.height, `step ${step}: Next on screen`).toBeLessThanOrEqual(viewport.height);
+          await page.click(testid("tutorial-next"));
+        }
+      }
+      await context.close();
+    });
+  }
+});

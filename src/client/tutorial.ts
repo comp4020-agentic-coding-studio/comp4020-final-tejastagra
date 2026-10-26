@@ -24,6 +24,7 @@ interface Stage {
   showShield(show: boolean): void;
   shieldUsed(): void;
   status(text: string): void;
+  hideStatus(): void;
   hint(text: string): void;
   pause(ms: number): Promise<void>;
   win(cells: Array<[number, number]>): void;
@@ -145,6 +146,7 @@ const STEPS: Step[] = [
       s.reset();
       s.showShield(false);
       s.hint("");
+      s.hideStatus();
     },
   },
 ];
@@ -283,7 +285,12 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
       shieldLabel.textContent = "Shield used";
     },
     status(text) {
+      status.hidden = false;
       status.textContent = `Opponent: ${text}`;
+    },
+    hideStatus() {
+      status.hidden = true;
+      hint.hidden = true;
     },
     hint(text) {
       hint.textContent = text;
@@ -364,6 +371,7 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     caption.textContent = step.caption; // an aria-live region, so it is announced (U47)
     next.textContent = last ? "Play the computer" : "Next";
     skip.textContent = last ? "Back home" : "Skip";
+    hint.hidden = false;
     next.hidden = true; // Next only appears once the step's action is done (U41 to U46)
     tapWaiter = null;
     shieldWaiter = null;
