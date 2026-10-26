@@ -37,7 +37,7 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 ## Timing
 
 - **R18** Each round has a 15 second timer that starts when the round begins. The round resolves as soon as both players have chosen, or when the timer ends.
-- **R19** If both players miss 3 rounds in a row, the game is **abandoned**: no winner, and it never affects the leaderboard.
+- **R19** If both players miss 3 rounds in a row, the game is **abandoned**: no winner, and it never affects the leaderboard. The engine's `Status` stays `'playing' | 'won' | 'draw'`: the engine never produces an "abandoned" state itself, because nothing it sees (a round of null choices) distinguishes an abandoned game from an ordinary quiet one. The server tracks how a game ended (a line, a draw, a forfeit or abandonment) as server-side state alongside the engine's `GameState`, and the leaderboard reads that server-side record, not the engine's `status` field.
 
 ## Server, real time and persistence
 
@@ -48,7 +48,7 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 - **R24** When a player connects or reconnects to a game, they receive a full snapshot of the game, without the opponent's pending choice.
 - **R25** Every change to a game is saved to the database before it is broadcast.
 - **R26** After a restart or redeploy, every game in progress continues from its last saved round. The timer for the open round restarts at 15 seconds.
-- **R27** If a player disconnects, the game waits 30 seconds for them. If they return, play continues. If not, the game ends as a **forfeit** and the other player wins.
+- **R27** If a player disconnects, the game waits 30 seconds for them. If they return, play continues. If not, the game ends as a **forfeit** and the other player wins. As with R19's abandonment, "forfeit" is not a value the engine's `Status` ever takes: the engine only knows `'playing' | 'won' | 'draw'`. A forfeit is server-side state (who forfeited, who wins) recorded next to the engine's `GameState`, not a new engine outcome, so a forfeited game's `GameState.status` stays `'playing'` even though the server has ended the game and the leaderboard now has a result to show.
 
 ## Identity
 
