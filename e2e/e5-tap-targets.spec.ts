@@ -38,7 +38,7 @@ for (const [name, viewport] of [["390", PHONE], ["320", NARROW]] as const) {
   });
 }
 
-test("E5 the board's own column buttons and Drop stay 44 px even with a 7-column row at 320 px", async ({ browser }) => {
+test("E5 and U15 each column of the board is a hit area at least 44 px wide at 320 px, and the shield badge is 44 px tall", async ({ browser }) => {
   const { context, page } = await newPlayer(browser, NARROW);
   await page.goto(`/g/${await makeGameCode(page)}`);
   for (let c = 0; c < 7; c++) {
@@ -46,5 +46,21 @@ test("E5 the board's own column buttons and Drop stay 44 px even with a 7-column
     expect(box.width, `column-${c} width`).toBeGreaterThanOrEqual(43.5);
     expect(box.height, `column-${c} height`).toBeGreaterThanOrEqual(43.5);
   }
+  const badge = (await page.locator(testid("shield-badge")).boundingBox())!;
+  expect(badge.height).toBeGreaterThanOrEqual(43.5);
+  await context.close();
+});
+
+test("E5 the tutorial's controls and the Home forms are 44 px at 320 px", async ({ browser }) => {
+  const { context, page } = await newPlayer(browser, NARROW, { tutorial: "new" });
+  await page.goto("/");
+  await expect(page.locator(testid("tutorial"))).toBeVisible();
+  expect(await tooSmall(page), "tutorial open").toEqual([]);
+  await page.click(testid("tutorial-skip"));
+  await page.click(testid("join-toggle"));
+  await page.click(testid("rename"));
+  await expect(page.locator(testid("join-form"))).toBeVisible();
+  await expect(page.locator(testid("nick-form"))).toBeVisible();
+  expect(await tooSmall(page), "Home with the code and nickname forms open").toEqual([]);
   await context.close();
 });

@@ -10,15 +10,38 @@ export function fakeAddress(): string {
 export async function newPlayer(
   browser: Browser,
   viewport: { width: number; height: number },
-  touch = viewport.width < 600,
+  options: { touch?: boolean; tutorial?: "seen" | "new"; reducedMotion?: boolean } = {},
 ): Promise<{ context: BrowserContext; page: Page }> {
+  const touch = options.touch ?? viewport.width < 600;
   const context = await browser.newContext({
     viewport,
     hasTouch: touch,
     isMobile: touch,
+    reducedMotion: options.reducedMotion ? "reduce" : "no-preference",
     extraHTTPHeaders: { "fly-client-ip": fakeAddress() },
   });
-  return { context, page: await context.newPage() };
+  const page = await context.newPage();
+  // The tutorial opens by itself for a new visitor (R47) and would cover every other check, so
+  // by default each check starts as a player who has already finished it, through the real
+  // endpoint. The tutorial checks ask for "new".
+  if ((options.tutorial ?? "seen") === "seen") {
+    await page.request.post("/api/tutorial", { data: { result: "finished" } });
+  }
+  return { context, page };
+}
+
+// Chooses a column on the board (U10 to U13): tapping or clicking the column is the whole choice.
+export async function chooseColumn(page: Page, column: number): Promise<void> {
+  await page.locator(testid(`column-${column}`)).click();
+}
+
+// Waits until the round counter shows `round`.
+export async function waitForRound(page: Page, round: number): Promise<void> {
+  await page.waitForFunction(
+    (n) => document.querySelector('[data-testid="round-number"]')?.textContent === String(n),
+    round,
+    { timeout: 6_000 },
+  );
 }
 
 export const testid = (id: string) => `[data-testid="${id}"]`;

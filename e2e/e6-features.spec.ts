@@ -9,8 +9,7 @@ test("E6 play the computer: a game starts at once and a round resolves", async (
   await page.tap(testid("play-computer"));
   await page.waitForURL(/\/g\/[A-Z2-9]{6}$/);
   await expect(page.locator(testid("round-number"))).toHaveText("1");
-  await page.tap(testid("column-3"));
-  await page.tap(testid("drop"));
+  await page.tap(testid("column-3")); // tapping the column is the whole choice (U12)
   await expect(page.locator(testid("round-number"))).toHaveText("2", { timeout: 5_000 });
   await context.close();
 });
@@ -25,6 +24,7 @@ test("E6 play a friend: the link and code are shown, and a second player joins b
 
   const guest = await newPlayer(browser, PHONE);
   await guest.page.goto("/");
+  await guest.page.tap(testid("join-toggle")); // opens the code box in place (U33)
   await guest.page.fill(testid("code-input"), code.toLowerCase()); // entry is not case sensitive
   await guest.page.keyboard.press("Enter");
   await guest.page.waitForURL(new RegExp(`/g/${code}$`));
@@ -37,9 +37,10 @@ test("E6 play a friend: the link and code are shown, and a second player joins b
 test("E6 code entry shows a clear error for a bad code, in view", async ({ browser }) => {
   const { context, page } = await newPlayer(browser, PHONE);
   await page.goto("/");
+  await page.tap(testid("join-toggle"));
   await page.fill(testid("code-input"), "AB1");
   await page.keyboard.press("Enter");
-  const message = page.locator("#home-message");
+  const message = page.locator(testid("home-message"));
   await expect(message).toContainText("6 letters or numbers");
   const box = (await message.boundingBox())!;
   expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height); // the message is on the first screen
@@ -59,7 +60,7 @@ test("E6 quick match: two phones are paired into one game", async ({ browser }) 
   const two = await newPlayer(browser, PHONE);
   await one.page.goto("/");
   await one.page.tap(testid("quick-match"));
-  await expect(one.page.locator(testid("quick-status"))).toContainText("Waiting");
+  await expect(one.page.locator(testid("quick-status"))).toContainText("Looking for another player");
   await two.page.goto("/");
   await two.page.tap(testid("quick-match"));
   await one.page.waitForURL(/\/g\/[A-Z2-9]{6}$/, { timeout: 8_000 });
