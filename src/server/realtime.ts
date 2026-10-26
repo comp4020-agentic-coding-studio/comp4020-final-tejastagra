@@ -21,6 +21,14 @@ export interface Snapshot {
   seatToken: string;
   state: GameState;
   opponentReady: boolean;
+  // Whether the other seat is taken by someone connected, so the waiting panel can go away
+  // (docs/design.md "Waiting"). Presence is not a choice: nothing here reveals a column,
+  // a shield or whether the opponent has chosen (R21, R22).
+  opponentPresent: boolean;
+}
+
+export interface OpponentJoined {
+  type: "opponent_joined";
 }
 
 export interface OpponentReady {
@@ -44,7 +52,7 @@ export type GameOver =
   | { type: "game_over"; result: "forfeit"; winner: Player }
   | { type: "game_over"; result: "abandoned" }; // R19: no winner
 
-export type ServerMessage = Snapshot | OpponentReady | Rejected | GameFull | TabReplaced | GameOver;
+export type ServerMessage = Snapshot | OpponentJoined | OpponentReady | Rejected | GameFull | TabReplaced | GameOver;
 
 interface JoinMessage {
   type: "join";
@@ -135,6 +143,12 @@ export function attachRealtime(
     return `${code}:${player}`;
   }
 
+  // The opponent is present when their seat is the computer's, or a person is connected to it.
+  function presentFor(code: string, player: Player): boolean {
+    const them = opponentOf(player);
+    return computerGames.has(code) ? them === "B" : connections.has(key(code, them));
+  }
+
   function opponentOf(player: Player): Player {
     return player === "A" ? "B" : "A";
   }
@@ -167,6 +181,7 @@ export function attachRealtime(
           seatToken: seatTokens.get(key(code, player))!,
           state,
           opponentReady: false,
+          opponentPresent: presentFor(code, player),
         });
         recipients++;
       }
@@ -373,6 +388,7 @@ export function attachRealtime(
       seatToken: seatTokens.get(key(code, player))!,
       state: record.state,
       opponentReady: choices[opponentOf(player)] !== null,
+      opponentPresent: presentFor(code, player),
     });
     logEvent("snapshot_sent", { game: code, round: record.state.round, reason: "join" });
   }
@@ -517,6 +533,9 @@ export function attachRealtime(
 
       logEvent("join", { game: code, role: player, clients_in_game: clientsInGame(code) });
       sendSnapshot(code, player);
+      // The player already waiting learns that someone has arrived. This carries no choice (R21, R22).
+      const waiting = connections.get(key(code, opponentOf(player)));
+      if (waiting && waiting !== socket) send(waiting, { type: "opponent_joined" });
     });
 
     socket.on("close", () => {

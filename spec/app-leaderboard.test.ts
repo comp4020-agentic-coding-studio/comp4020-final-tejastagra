@@ -41,6 +41,8 @@ async function seat(code: string, who: { cookie: string }) {
 
 // A drops in column 0 four times while B alternates columns 1 and 2, so only A makes four in a row.
 async function playVertical(a: Awaited<ReturnType<typeof seat>>, b: Awaited<ReturnType<typeof seat>>, code: string) {
+  // A was waiting when B joined, so A is told that someone arrived (no choice in it, R21, R22).
+  expect(await a.next()).toEqual({ type: "opponent_joined" });
   let last: any;
   for (let i = 0; i < 4; i++) {
     a.socket.send(JSON.stringify({ type: "choose", code, player: a.you, seatToken: a.seatToken, column: 0, shield: false }));

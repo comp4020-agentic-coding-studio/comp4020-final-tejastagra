@@ -58,6 +58,13 @@ async function joinGame(
   return { socket, next, seatToken: snapshot.seatToken };
 }
 
+// When the second seat joins, the first seat is told that someone arrived (opponent_joined).
+// It carries nothing about a choice (R21, R22). Tests that go on to read the next message
+// from the first seat call this first, so the protocol step is visible and not skipped.
+async function expectArrival(first: { next: () => Promise<any> }): Promise<void> {
+  expect(await first.next()).toEqual({ type: "opponent_joined" });
+}
+
 function closeAndWait(socket: WebSocket): Promise<void> {
   return new Promise((resolve) => {
     socket.addEventListener("close", () => resolve(), { once: true });
@@ -70,6 +77,7 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
+    await expectArrival(a);
     const bMessages = recordRawMessages(b.socket);
 
     // A chooses a column far from any value B might coincidentally also use,
@@ -117,6 +125,7 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
+    await expectArrival(a);
     const bMessages = recordRawMessages(b.socket);
 
     // column 99 is out of range: bad_column (R3). A is told; B must hear nothing.

@@ -17,6 +17,7 @@
     "check:isolated": "bash scripts/check-isolated.sh"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "1.64.1",
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",

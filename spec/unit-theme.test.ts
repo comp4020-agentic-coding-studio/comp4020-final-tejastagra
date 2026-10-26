@@ -107,7 +107,7 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
       ["--link", "--ground-bottom"], ["--link", "--panel"],
       ["--text", "--red"], ["--text", "--blue"], ["--ink", "--yellow"],
       ["--yellow", "--ground-bottom"], ["--yellow", "--panel"],
-      ["--error", "--panel"], ["--ok", "--panel"], ["--disabled-text", "--disabled"],
+      ["--error", "--panel"], ["--ok", "--panel"], ["--disabled-text", "--disabled"], ["--text", "--field"], ["--text-muted", "--field"], ["--error", "--ground-bottom"], ["--ok", "--ground-bottom"],
     ];
     for (const [fg, bg] of text) expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
     expect(ratio("--text", "--yellow")).toBeLessThan(3); // which is why no button puts white on yellow
@@ -130,6 +130,9 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
       ["--text", "--blue", "white on `--blue` (button labels)", 5.93],
       ["--ink", "--yellow", "`--ink` on `--yellow` (button labels)", 12.55],
       ["--disabled-text", "--disabled", "`--disabled-text` on `--disabled` (a disabled button)", 5.94],
+      ["--text", "--field", "`--text` on `--field` (an input)", 16.5],
+      ["--error", "--ground-bottom", "`--error` on `--ground-bottom`", 8.58],
+      ["--ok", "--ground-bottom", "`--ok` on `--ground-bottom`", 9.28],
       ["--text", "--yellow", "white on `--yellow`", 1.56],
     ];
     for (const [fg, bg, label, value] of printed) {
@@ -209,10 +212,12 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
     }
   });
 
-  it("U19 the countdown is 900 ms in total, from the theme", () => {
+  it("U19 the countdown and the fall land within one second of the result arriving, from the theme", () => {
     const step = Number(token("--ms-count-step"));
-    const drop = Number(token("--ms-count-drop"));
-    expect(step * 3 + drop).toBe(900);
+    const fall = Number(token("--ms-count-drop"));
+    expect(fall).toBe(parseFloat(token("--dur-drop")) * 1000); // DROP stays up for the whole fall
+    expect(step * 3 + fall).toBe(790);
+    expect(step * 3 + fall).toBeLessThan(1000); // promise 2
   });
 
   it("the shape check itself catches a literal outline and radius and allows variables", () => {

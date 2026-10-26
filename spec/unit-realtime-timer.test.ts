@@ -56,6 +56,13 @@ async function joinGame(
   return { socket, next, seatToken: snapshot.seatToken };
 }
 
+// When the second seat joins, the first seat is told that someone arrived (opponent_joined).
+// It carries nothing about a choice (R21, R22). Tests that go on to read the next message
+// from the first seat call this first, so the protocol step is visible and not skipped.
+async function expectArrival(first: { next: () => Promise<any> }): Promise<void> {
+  expect(await first.next()).toEqual({ type: "opponent_joined" });
+}
+
 let cleanup: (() => void) | undefined;
 
 afterEach(() => {
@@ -84,6 +91,7 @@ describe("R18: the round timer resolves a round even if a player never chooses",
     const code = "TIMER1";
     const a = await joinGame(url, code, "A");
     const b = await joinGame(url, code, "B");
+    await expectArrival(a);
 
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 2, shield: false }));
     await b.next(); // opponent_ready
@@ -110,6 +118,7 @@ describe("R18: the round timer resolves a round even if a player never chooses",
     const code = "TIMER2";
     const a = await joinGame(url, code, "A");
     const b = await joinGame(url, code, "B");
+    await expectArrival(a);
 
     const aResult = await a.next();
     const bResult = await b.next();
@@ -129,6 +138,7 @@ describe("R18: the round timer resolves a round even if a player never chooses",
     const code = "TIMER3";
     const a = await joinGame(url, code, "A");
     const b = await joinGame(url, code, "B");
+    await expectArrival(a);
 
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 0, shield: false }));
     await b.next(); // opponent_ready

@@ -89,4 +89,19 @@ describe("Tutorial (R47 to R50)", () => {
   // the page opens no WebSocket and calls neither /api/games nor /api/computer
   // (e2e/design.spec.ts, "R50").
   it.todo("R50 a tutorial run opens no game on the server, so it cannot change the leaderboard (browser check in e2e/design.spec.ts)");
+
+  it("R28 a first-time visitor is given a generated nickname, and an existing one is left alone", async () => {
+    const b = browser();
+    const made = await b("/api/visitor", { body: {} });
+    expect(made.status).toBe(200);
+    expect(made.json.player.displayName).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+ #[0-9a-f]{4}$/);
+    const again = await b("/api/visitor", { body: {} });
+    expect(again.json.player.displayName).toBe(made.json.player.displayName);
+    expect((await b("/api/me")).json.player.displayName).toBe(made.json.player.displayName);
+  });
+
+  it("R28 an empty nickname is still refused on the nickname path (I1 is unchanged)", async () => {
+    const b = browser();
+    expect((await b("/api/guest", { body: { nickname: "" } })).status).toBe(400);
+  });
 });

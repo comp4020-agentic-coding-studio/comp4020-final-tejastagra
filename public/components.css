@@ -203,7 +203,7 @@ h3 {
 /* Chips: small yellow bits that fall away from the cracks, in a loop. */
 .chip {
   position: absolute;
-  top: 62%;
+  top: 40%;
   left: var(--x);
   width: 0.13em;
   height: 0.13em;
@@ -848,6 +848,12 @@ button.round-item {
     top: var(--rest);
   }
 
+  .spinner,
+  .ghost[data-chosen="true"],
+  .popup-card {
+    animation: none;
+  }
+
   .chip {
     animation: none;
     transform: translateY(1em) rotate(60deg);
@@ -918,11 +924,542 @@ button.round-item {
   font-size: 0.9rem;
 }
 
+/* ---- Forms and messages (U51) ---- */
+
+label {
+  display: block;
+  margin: 6px 0 4px;
+  font-weight: 700;
+}
+
+input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  font: 1rem/1.2 var(--font-body);
+  color: var(--text);
+  background: var(--field);
+  border: var(--outline);
+  border-radius: var(--radius-button);
+}
+
+.form {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.message {
+  min-height: 1.4em;
+  margin: 6px 0;
+  font-weight: 700;
+}
+
+.message[data-kind="error"] {
+  color: var(--error);
+}
+
+.message[data-kind="ok"] {
+  color: var(--ok);
+}
+
+.narrow {
+  max-width: var(--stack-width);
+}
+
+.link-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  background: none;
+  border: 0;
+  font: 700 1rem/1 var(--font-display);
+  color: var(--link);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.icon-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  background: var(--panel);
+  color: var(--text);
+  border: var(--outline);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.icon-only .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.prose {
+  overflow-wrap: anywhere;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  font-family: var(--font-display);
+}
+
+.prose img,
+.prose table,
+.prose pre {
+  max-width: 100%;
+}
+
+.prose pre {
+  overflow-x: auto;
+}
+
+/* ---- Waiting and loading (U53) ---- */
+
+.waiting {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: var(--outline-spinner);
+  border-top: var(--outline-spinner-head);
+  border-radius: var(--radius-pill);
+  animation: spin var(--dur-spin) linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Home (U31 to U40) ---- */
+
+.home-left,
+.home-right {
+  min-width: 0;
+}
+
+.player-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 8px auto;
+  max-width: var(--stack-width);
+}
+
+.nick-form,
+.join-form {
+  display: grid;
+  gap: 8px;
+  max-width: var(--stack-width);
+  margin: 0 auto 12px;
+}
+
+.top {
+  max-width: var(--stack-width);
+  margin: 0 auto;
+}
+
+.demo {
+  margin: 8px 0;
+}
+
+/* U37: on a phone the order is title, tagline, player card, buttons, icon row, top
+   players and then the demo board, so the menu is on the first screen. Both halves
+   dissolve into one column and the demo board is moved to the end. */
+.home {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-left,
+.home-right {
+  display: contents;
+}
+
+.home .title,
+.home .tagline {
+  order: 1;
+}
+
+.home-right > * {
+  order: 2;
+}
+
+.home .demo {
+  order: 3;
+}
+
+/* ---- Playing on the board (U10 to U18) ---- */
+
+.play-area {
+  position: relative;
+}
+
+.columns-hit {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  z-index: 2;
+}
+
+.column-hit {
+  position: relative;
+  min-width: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.column-hit:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.column-hit[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .column-hit:not([aria-disabled="true"]):hover {
+    background: var(--gloss-column);
+  }
+}
+
+.column-hit[aria-pressed="true"] {
+  background: var(--gloss-column);
+}
+
+.ghost {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 78%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border: var(--outline-thin);
+  border-radius: var(--radius-pill);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.ghost[data-piece="you"] {
+  background: var(--red);
+}
+
+.ghost[data-chosen="true"] {
+  opacity: 1;
+  animation: ghost-pulse var(--dur-ghost) ease-in-out infinite;
+}
+
+@keyframes ghost-pulse {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.08);
+  }
+}
+
+.shield-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 8px;
+  white-space: nowrap;
+  font: 700 0.9rem/1 var(--font-display);
+  color: var(--text);
+  background: var(--panel);
+  border: var(--outline);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-small);
+  cursor: pointer;
+}
+
+.shield-badge svg {
+  width: 20px;
+  height: 20px;
+  fill: var(--shield-on);
+}
+
+.shield-badge[aria-pressed="true"] {
+  background: var(--yellow);
+  color: var(--ink);
+  box-shadow: var(--shadow-small), 0 0 14px 3px var(--win-glow);
+}
+
+.shield-badge[aria-pressed="true"] svg {
+  fill: var(--ink);
+}
+
+.shield-badge[data-state="spent"] {
+  background: var(--disabled);
+  color: var(--disabled-text);
+  cursor: default;
+}
+
+.shield-badge[data-state="spent"] svg {
+  fill: var(--shield-off);
+}
+
+.timer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 56px;
+  font: 700 1.3rem/1 var(--font-display);
+  color: var(--text);
+  background: var(--panel);
+  border: var(--outline);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-small);
+}
+
+.timer[data-urgency="warn"] {
+  color: var(--yellow);
+}
+
+.timer[data-urgency="urgent"] {
+  color: var(--error);
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.game .players {
+  gap: 6px;
+  align-items: start;
+}
+
+.you-cell {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* The VS ribbon sits between the two panels, not over a button. */
+.game .vs {
+  align-self: start;
+  margin-top: 18px;
+}
+
+.game .player {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+/* At 320 px the two panels stack the avatar over the words so "Opponent" never breaks,
+   and the keyboard hint (useless on a touch screen) is left out so the whole game fits. */
+@media (max-width: 359px) {
+  .game .player {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+    padding: 6px 4px;
+    gap: 4px;
+  }
+  .game .board-wrap {
+    margin: 4px 0 12px;
+    padding-bottom: 10px;
+  }
+  .game .result {
+    min-height: 1.3em;
+    margin: 0;
+    font-size: 0.95rem;
+  }
+  .game .message {
+    min-height: 0;
+    margin: 2px 0;
+  }
+  .game .timer {
+    min-width: 44px;
+    height: 44px;
+    font-size: 1.1rem;
+  }
+}
+
+@media (hover: none) {
+  .game [data-testid="keys-hint"] {
+    display: none;
+  }
+}
+
+.share {
+  display: grid;
+  gap: 8px;
+  text-align: center;
+}
+
+.share .code {
+  margin: 0;
+  font: 700 clamp(28px, 9vw, 40px) / 1 var(--font-display);
+  letter-spacing: 0.2em;
+  color: var(--yellow);
+}
+
+.share-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* ---- Tutorial and end popup (U27 to U29, U41 to U48, U52) ---- */
+
+.tutorial,
+.popup {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: var(--scrim);
+  overflow-y: auto;
+}
+
+/* U27a: the end popup sits low on a phone so the board and its glowing line stay visible above
+   it, and beside the board on a laptop. The dim is light enough to see the board through. */
+.popup {
+  align-items: flex-end;
+  background: var(--scrim-light);
+  pointer-events: none;
+}
+
+.popup-card {
+  pointer-events: auto;
+}
+
+@media (min-width: 900px) {
+  /* Beside the board: the card is centred in the space to the right of the board and the
+     players' panels, so nothing is covered. */
+  .popup {
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: calc(50vw + (300px + 24px + 60vh * 7 / 6) / 2 + 16px);
+    padding-right: 16px;
+  }
+
+  .popup-card {
+    max-width: 300px;
+  }
+}
+
+.tutorial-card,
+.popup-card {
+  width: 100%;
+  max-width: var(--stack-width);
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.popup-card {
+  animation: pop var(--dur-popup) ease-out both;
+}
+
+.popup-title {
+  margin: 4px 0 8px;
+  font: 700 clamp(36px, 12vw, 56px) / 1 var(--font-display);
+  color: var(--yellow);
+  -webkit-text-stroke: 0.04em var(--ink);
+  paint-order: stroke fill;
+  text-shadow: var(--shadow-title);
+}
+
+.tutorial-caption {
+  margin: 8px 0;
+  font-size: 1.05rem;
+}
+
+.tutorial-board {
+  margin: 8px 0;
+}
+
+.tutorial-actions {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
 /* ---- Wider screens ---- */
 
 @media (min-width: 900px) {
   :root {
     --page-pad: 24px;
+  }
+
+  /* Home (U38): two halves share the width evenly, both vertically centred, nothing stretched. */
+  .home {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: center;
+    min-height: calc(100vh - 48px);
+    max-width: 1100px;
+  }
+
+  /* Tighter vertical rhythm so the whole right half fits a 768px-tall laptop. */
+  .home-right .stack {
+    gap: 12px;
+    margin: 8px auto 12px;
+  }
+
+  .home-right .round-row {
+    margin: 4px 0 8px;
+  }
+
+  .home-right .top h2 {
+    margin: 8px 0 6px;
+  }
+
+  .home-right .rows {
+    gap: 6px;
+  }
+
+  .home-left,
+  .home-right {
+    display: block;
+    min-width: 0;
+  }
+
+  .home .title,
+  .home .tagline,
+  .home-right > *,
+  .home .demo {
+    order: 0;
+  }
+
+  .home-left {
+    display: grid;
+    justify-items: center;
+  }
+
+  .home-left .demo {
+    width: min(100%, 440px);
   }
 
   .arena {
@@ -931,10 +1468,20 @@ button.round-item {
 
   .stage {
     display: grid;
-    grid-template-columns: minmax(230px, 300px) minmax(0, calc(68vh * 7 / 6));
+    grid-template-columns: minmax(230px, 300px) minmax(0, calc(60vh * 7 / 6));
     gap: 24px;
     align-items: start;
     justify-content: center;
+  }
+
+  .game .status-row {
+    max-width: calc(300px + 24px + 60vh * 7 / 6);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .game .note {
+    text-align: center;
   }
 
   /* The players sit beside the board, stacked, with the badge between. */

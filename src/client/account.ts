@@ -4,6 +4,12 @@
 import { $, currentPlayer } from "./common.ts";
 
 const message = document.getElementById("account-message")!;
+
+// Messages show directly under the heading (docs/design.md), as text and in a colour.
+function say(text: string, kind: "error" | "ok"): void {
+  message.textContent = text;
+  message.dataset.kind = kind;
+}
 const who = document.getElementById("account-who")!;
 
 async function post(path: string, body: unknown): Promise<{ ok: boolean; data: any }> {
@@ -31,7 +37,7 @@ function value(form: HTMLFormElement, name: string): string {
 $("guest-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const r = await post("/api/guest", { nickname: value(event.target as HTMLFormElement, "nickname").trim() });
-  message.textContent = r.ok ? "Nickname saved." : r.data.error ?? "Could not save the nickname.";
+  say(r.ok ? "Nickname saved." : r.data.error ?? "Could not save the nickname.", r.ok ? "ok" : "error");
   await refresh();
 });
 
@@ -39,7 +45,7 @@ $("signup-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.target as HTMLFormElement;
   const r = await post("/api/account/signup", { username: value(form, "username"), password: value(form, "password") });
-  message.textContent = r.ok ? "Account created. Your games and wins are kept." : r.data.error ?? "Could not create the account.";
+  say(r.ok ? "Account created. Your games and wins are kept." : r.data.error ?? "Could not create the account.", r.ok ? "ok" : "error");
   if (r.ok) form.reset();
   await refresh();
 });
@@ -48,14 +54,14 @@ $("signin-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.target as HTMLFormElement;
   const r = await post("/api/account/signin", { username: value(form, "username"), password: value(form, "password") });
-  message.textContent = r.ok ? "Signed in." : r.data.error ?? "Could not sign in.";
+  say(r.ok ? "Signed in." : r.data.error ?? "Could not sign in.", r.ok ? "ok" : "error");
   if (r.ok) form.reset();
   await refresh();
 });
 
 $("signout").addEventListener("click", async () => {
   await post("/api/signout", {});
-  message.textContent = "Signed out.";
+  say("Signed out.", "ok");
   await refresh();
 });
 

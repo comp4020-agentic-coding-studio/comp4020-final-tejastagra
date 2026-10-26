@@ -51,6 +51,7 @@ describe("R19 abandonment", () => {
     cleanup = () => { rt.dispose(); server.close(); };
     const a = await join(url, "ABN234", "A");
     const b = await join(url, "ABN234", "B");
+    expect(await a.next()).toEqual({ type: "opponent_joined" }); // A is told B arrived
     const seen: any[] = [];
     for (let i = 0; i < 4; i++) {
       const m = await a.next();

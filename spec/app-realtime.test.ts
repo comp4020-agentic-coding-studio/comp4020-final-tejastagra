@@ -53,11 +53,19 @@ async function joinGame(
   return { socket, next, seatToken: snapshot.seatToken };
 }
 
+// When the second seat joins, the first seat is told that someone arrived (opponent_joined).
+// It carries nothing about a choice (R21, R22). Tests that go on to read the next message
+// from the first seat call this first, so the protocol step is visible and not skipped.
+async function expectArrival(first: { next: () => Promise<any> }): Promise<void> {
+  expect(await first.next()).toEqual({ type: "opponent_joined" });
+}
+
 describe("T: both players see the same result at the same moment (promise 2)", () => {
   it("T1 (R23) both clients receive a round's result within 1 second of the second choice", async () => {
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
+    await expectArrival(a);
 
     const startedAt = Date.now();
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 2, shield: false }));
@@ -80,6 +88,7 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
+    await expectArrival(a);
 
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 1, shield: false }));
     await b.next();
@@ -99,6 +108,7 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
+    await expectArrival(a);
 
     const startedAt = Date.now();
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 3, shield: false }));
@@ -148,6 +158,7 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
+    await expectArrival(a);
     a.socket.close();
 
     const a2 = new WebSocket(wsUrl("/ws"));
@@ -225,5 +236,26 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     const response = await fetch(inject("baseUrl"));
     expect(response.status).toBe(200);
     probe.close();
+  });
+
+  it("T7 (R24) a snapshot says whether the opponent is present, and the waiting player is told when they arrive, and nothing else", async () => {
+    const code = freshCode();
+    const a = new WebSocket(wsUrl("/ws"));
+    const nextA = messageQueue(a);
+    await onceOpen(a);
+    a.send(JSON.stringify({ type: "join", code, player: "A" }));
+    const first = await nextA();
+    expect(first.opponentPresent).toBe(false);
+
+    const b = new WebSocket(wsUrl("/ws"));
+    const nextB = messageQueue(b);
+    await onceOpen(b);
+    b.send(JSON.stringify({ type: "join", code, player: "B" }));
+    const second = await nextB();
+    expect(second.opponentPresent).toBe(true);
+    // A is told only that someone arrived: the whole message is the type, nothing about a choice.
+    expect(await nextA()).toEqual({ type: "opponent_joined" });
+    a.close();
+    b.close();
   });
 });

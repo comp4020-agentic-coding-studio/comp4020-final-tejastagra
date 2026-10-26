@@ -6,6 +6,7 @@ const message = document.getElementById("board-message")!;
 loadBoard(20).then((board) => {
   if (!board) {
     message.textContent = "Could not load the leaderboard. Try again.";
+    message.dataset.kind = "error";
     return;
   }
   fillList($("leaderboard-wins"), board.wins, "win", "No wins yet.");

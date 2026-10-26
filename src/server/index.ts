@@ -9,6 +9,7 @@ import { bundleClient } from "./client-bundle.ts";
 import { generateCode } from "./codes.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import { arcadePage, button, roundButton, title } from "./arcade-html.ts";
+import * as screens from "./screens.ts";
 import { createMatchmaker } from "./matchmaker.ts";
 import { leaderboardFrom } from "./leaderboard.ts";
 import {
@@ -73,148 +74,7 @@ const reloadScript = DEV
 
 // Phone first (docs/design.md): one centred column, 44px tap targets, nothing
 // scrolls sideways at 320px, discs differ by shape (ring and cross) as well as colour.
-// LEGACY-STYLES-START (removed when the last screen is restyled; spec/unit-theme.test.ts)
-const STYLES = `
-  *{box-sizing:border-box}
-  body{margin:0;font:16px/1.4 system-ui,sans-serif;color:#1a1a1a;background:#fafafa;
-    padding:env(safe-area-inset-top) max(12px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(12px,env(safe-area-inset-left))}
-  main{max-width:480px;margin:0 auto;padding:8px 0}
-  p{margin:4px 0;overflow-wrap:anywhere}
-  img,table,pre{max-width:100%}
-  pre{overflow-x:auto}
-  button{min-height:44px;min-width:44px;font:inherit;border:2px solid #1a1a1a;border-radius:8px;background:#fff;color:#1a1a1a;padding:0 12px}
-  button[aria-pressed="true"]{background:#1a1a1a;color:#fff}
-  button:disabled{opacity:.5}
-  .board{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:3px;background:#1d4ed8;border-radius:8px}
-  .cell{aspect-ratio:1;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.3rem;line-height:1}
-  .cell[data-mark="you"]{background:#fde047;color:#1a1a1a}
-  .cell[data-mark="them"]{background:#f87171;color:#1a1a1a}
-  .cell[data-mark="R"]{background:repeating-linear-gradient(45deg,#6b7280 0 4px,#d1d5db 4px 8px)}
-  .columns{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:6px 0}
-  .columns button{padding:0}
-  .stack{display:grid;gap:8px;margin:12px 0}
-  .message{min-height:1.4em;font-weight:600}
-  .links{display:flex;flex-wrap:wrap}
-  .form{display:grid;gap:6px;margin:8px 0}
-  ol{padding-left:24px;overflow-wrap:anywhere}
-  [hidden]{display:none!important}
-  .join{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}
-  .join label{grid-column:1/-1}
-  input{min-height:44px;font:inherit;padding:0 10px;border:2px solid #1a1a1a;border-radius:8px;width:100%;text-transform:uppercase}
-  a.button{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border:2px solid #1a1a1a;border-radius:8px;background:#fff;color:#1a1a1a;text-decoration:none}
-  [hidden]{display:none!important}
-  a{display:inline-flex;align-items:center;min-height:44px;min-width:44px;padding:0 4px;margin-right:8px;color:#1d4ed8}
-  .share{border:2px dashed #1a1a1a;border-radius:8px;padding:8px;margin:6px 0}
-  .row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 12px}
-  .share .actions{margin:4px 0 0}
-  .code{font-size:1.6rem;font-weight:700;letter-spacing:.2em;text-align:center;margin:4px 0}
-  .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}
-  @media (max-height:640px){
-    body{line-height:1.2}
-    main{padding:0}
-    p{margin:2px 0}
-    .share{padding:4px;margin:3px 0}
-    .code{font-size:1.3rem;margin:0}
-    .columns,.actions{margin:3px 0}
-  }
-  @media (max-width:360px){
-    body{padding-left:max(4px,env(safe-area-inset-left));padding-right:max(4px,env(safe-area-inset-right))}
-    .columns{gap:0}
-  }
-  @media (prefers-reduced-motion:no-preference){.cell{transition:background .2s}}
-`;
-// LEGACY-STYLES-END
-
-function page(title: string, body: string, script?: string): string {
-  return `<!doctype html>
-<html lang="en-GB">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>${title}</title>
-    <style>${STYLES}</style>
-  </head>
-  <body>
-    ${body}
-    ${script ? `<script type="module" src="${script}"></script>` : ""}
-    ${reloadScript}
-  </body>
-</html>`;
-}
-
-function readme(): string {
-  const html = marked.parse(readFileSync("README.md", "utf8"), { async: false });
-  return page("Rubble: about", `<main>${html}<p><a href="/">Back to the game</a></p></main>`);
-}
-
 const GAME_CODE_PATTERN = /^\/g\/([A-Za-z0-9]+)\/?$/;
-
-function board(): string {
-  let cells = "";
-  // Row 5 (top) down to row 0 (bottom), so the board reads top-to-bottom on
-  // screen the way a four in a row board does, while column 0 stays column 0.
-  // A grid of divs, not a table: browsers ignore aspect-ratio on table cells,
-  // which collapsed empty cells to nothing.
-  for (let row = 5; row >= 0; row--) {
-    for (let column = 0; column < 7; column++) {
-      cells += `<div class="cell" data-testid="cell-${column}-${row}" data-piece=""></div>`;
-    }
-  }
-  return `<div class="board" role="img" aria-label="Board, 7 columns by 6 rows">${cells}</div>`;
-}
-
-function columnButtons(): string {
-  let buttons = "";
-  for (let column = 0; column < 7; column++) {
-    buttons += `<button type="button" data-testid="column-${column}" data-column="${column}" aria-label="Column ${column + 1}">${column + 1}</button>`;
-  }
-  return buttons;
-}
-
-function gameScreen(code: string): string {
-  const body = `
-    <main data-testid="game-screen">
-      <section data-testid="waiting-panel" class="share">
-        <p class="code" data-testid="game-code">${code}</p>
-        <div class="actions">
-          <button type="button" data-testid="copy-link">Copy link</button>
-          <button type="button" data-testid="share" hidden>Share</button>
-        </div>
-      </section>
-      <p class="row">
-        <span>Round <span data-testid="round-number">0</span></span>
-        <span><span data-testid="timer">15</span>s left</span>
-        <span>Opponent: <span data-testid="opponent-status">Choosing</span></span>
-      </p>
-      <p class="row">
-        <span>Your shield: <span data-testid="my-shield">available</span></span>
-        <span>Their shield: <span data-testid="opponent-shield">available</span></span>
-      </p>
-      ${board()}
-      <div class="columns">${columnButtons()}</div>
-      <div class="actions">
-        <button type="button" data-testid="shield-toggle" aria-pressed="false">Shield off</button>
-        <button type="button" data-testid="drop" disabled>Drop</button>
-      </div>
-      <p data-testid="result-line"></p>
-    </main>
-  `;
-  return page("Rubble: game", body, "/static/game.js");
-}
-
-function quickScreen(): string {
-  return `
-    <main data-testid="quick-screen">
-      <h1>Quick match</h1>
-      <p data-testid="quick-status" role="status">Waiting for another player...</p>
-      <div data-testid="computer-offer" hidden>
-        <p>No one has arrived yet. You can play the computer instead, or keep waiting.</p>
-        <p><button type="button" data-testid="computer-offer-play">Play the computer</button></p>
-      </div>
-      <button type="button" data-testid="quick-cancel">Cancel</button>
-    </main>
-  `;
-}
 
 // The look Tejas approves before any real screen is restyled (ADR 0006).
 function stylePreview(): string {
@@ -273,85 +133,6 @@ function stylePreview(): string {
   return arcadePage({ title: "Rubble: style preview", body, script: "/static/preview.js", reload: reloadScript, version: assetVersion() });
 }
 
-function leaderboardScreen(): string {
-  return `
-    <main data-testid="leaderboard-screen">
-      <h1>Leaderboard</h1>
-      <h2>Most wins</h2>
-      <ol data-testid="leaderboard-wins"><li>Loading...</li></ol>
-      <h2>Fewest rounds to win</h2>
-      <ol data-testid="leaderboard-rounds"><li>Loading...</li></ol>
-      <p id="board-message" role="status"></p>
-      <p><a href="/">Back to Home</a></p>
-    </main>
-  `;
-}
-
-function accountScreen(): string {
-  return `
-    <main data-testid="account-screen">
-      <h1>Your name</h1>
-      <p id="account-who" role="status"></p>
-      <p id="account-message" role="status" class="message"></p>
-      <form id="guest-form" data-testid="guest-form" class="form" novalidate>
-        <label for="nickname">Nickname (2 to 16 letters, numbers, spaces, hyphens or underscores)</label>
-        <input id="nickname" name="nickname" data-testid="nickname-input" autocomplete="nickname" minlength="2" maxlength="16" required />
-        <button type="submit">Play as a guest</button>
-      </form>
-      <h2 id="keep-heading" hidden>Keep your record</h2>
-      <form id="signup-form" data-testid="signup-form" class="form" novalidate hidden>
-        <label for="su-username">Username</label>
-        <input id="su-username" name="username" data-testid="signup-username" autocomplete="username" minlength="3" maxlength="20" required />
-        <label for="su-password">Password (at least 8 characters)</label>
-        <input id="su-password" name="password" data-testid="signup-password" type="password" autocomplete="new-password" minlength="8" required />
-        <button type="submit">Sign up</button>
-      </form>
-      <h2>Sign in</h2>
-      <form id="signin-form" data-testid="signin-form" class="form" novalidate>
-        <label for="si-username">Username</label>
-        <input id="si-username" name="username" data-testid="signin-username" autocomplete="username" required />
-        <label for="si-password">Password</label>
-        <input id="si-password" name="password" data-testid="signin-password" type="password" autocomplete="current-password" required />
-        <button type="submit">Sign in</button>
-      </form>
-      <button type="button" data-testid="signout" hidden>Sign out</button>
-      <p><a href="/">Back to Home</a></p>
-    </main>
-  `;
-}
-
-function homeScreen(): string {
-  return `
-    <main data-testid="home-screen">
-      <h1>Rubble</h1>
-      <p>Four in a row, but you both move at once.</p>
-      <form id="nick-form" class="join" data-testid="nick-form">
-        <label for="home-nickname">Your nickname</label>
-        <input id="home-nickname" data-testid="nickname-input" autocomplete="nickname" minlength="2" maxlength="16" />
-        <button type="submit">Save</button>
-      </form>
-      <p id="home-who" role="status"></p>
-      <div class="stack">
-        <button type="button" data-testid="play-computer">Play the computer</button>
-        <button type="button" data-testid="play-friend">Play a friend</button>
-        <a class="button" data-testid="quick-match" href="/play/quick">Quick match</a>
-      </div>
-      <form id="join-form" class="join">
-        <label for="code-input">Enter a game code</label>
-        <input id="code-input" data-testid="code-input" autocomplete="off" autocapitalize="characters" maxlength="6" />
-        <button type="submit">Join</button>
-      </form>
-      <p id="home-message" role="status"></p>
-      <h2>Leaderboard</h2>
-      <h3>Most wins</h3>
-      <ol data-testid="leaderboard-wins"><li>Loading...</li></ol>
-      <h3>Fewest rounds to win</h3>
-      <ol data-testid="leaderboard-rounds"><li>Loading...</li></ol>
-      <p class="links"><a href="/leaderboard">Full leaderboard</a> <a href="/account">Sign up or sign in</a> <a href="/readme/">About this app</a></p>
-    </main>
-  `;
-}
-
 // Files in public/ (the theme, the shared styles, the title font) are served at
 // the site root. Only these exact names are served: no directory listing, no
 // path from the request ever reaches the file system.
@@ -368,6 +149,10 @@ function publicFile(path: string): { type: string; body: Buffer } | null {
   } catch {
     return null;
   }
+}
+
+function screenContext(): screens.ScreenContext {
+  return { version: assetVersion(), reload: reloadScript };
 }
 
 let cachedVersion: string | null = null;
@@ -454,6 +239,25 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
     }
     db.setTutorialSeen(player.id, result !== "replay");
     json(res, 200, { ok: true });
+    return true;
+  }
+  if (path === "/api/visitor" && req.method === "POST") {
+    // A first-time visitor who has not chosen a nickname gets a generated one (R28 note), so they
+    // can play at once. A visitor who already has a session is left exactly as they are.
+    if (currentPlayer(req)) {
+      json(res, 200, { player: publicPlayer(currentPlayer(req)!) });
+      return true;
+    }
+    if (!allowGuest(clientAddress(req))) {
+      json(res, 429, { error: "Too many new players from here. Try again in a minute." }, { "retry-after": "60" });
+      return true;
+    }
+    const id = newPlayerId();
+    const nickname = generatedNickname(id);
+    db.createPlayer(id, nickname);
+    const token = newSessionToken();
+    db.createSession(hashToken(token), id);
+    json(res, 200, { player: publicPlayer({ id, nickname, username: null }) }, { "set-cookie": sessionCookie(token, isSecure(req)) });
     return true;
   }
   if (path === "/api/guest" && req.method === "POST") {
@@ -547,7 +351,7 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
 
 const server = createServer((req, res) => {
   const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
-  if (requestPath.startsWith("/api/") && (requestPath === "/api/me" || requestPath === "/api/tutorial" || requestPath === "/api/guest" || requestPath.startsWith("/api/account/") || requestPath === "/api/signout")) {
+  if (requestPath.startsWith("/api/") && (requestPath === "/api/me" || requestPath === "/api/visitor" || requestPath === "/api/tutorial" || requestPath === "/api/guest" || requestPath.startsWith("/api/account/") || requestPath === "/api/signout")) {
     handleIdentity(requestPath, req, res).then((handled) => {
       if (!handled) {
         res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
@@ -565,11 +369,13 @@ const server = createServer((req, res) => {
     res.end(startedAt);
   } else if (path === "/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(page("Rubble", homeScreen(), "/static/home.js"));
+    res.end(screens.homeScreen(screenContext()));
   } else if (path === "/play/quick" || path === "/play/quick/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(page("Rubble: quick match", quickScreen(), "/static/quick.js"));
-  } else if (path === "/style-preview" || path === "/style-preview/") {
+    res.end(screens.quickScreen(screenContext()));
+  } else if (DEV && (path === "/style-preview" || path === "/style-preview/")) {
+    // Development only (docs/design/look-and-feel.md U50): in production this route does not
+    // exist, so it falls through to the 404 below, and no page links to it.
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(stylePreview());
   } else if (publicFile(path)) {
@@ -578,13 +384,13 @@ const server = createServer((req, res) => {
     res.end(file.body);
   } else if (path === "/leaderboard" || path === "/leaderboard/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(page("Rubble: leaderboard", leaderboardScreen(), "/static/leaderboard.js"));
+    res.end(screens.leaderboardScreen(screenContext()));
   } else if (path === "/account" || path === "/account/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(page("Rubble: your name", accountScreen(), "/static/account.js"));
+    res.end(screens.accountScreen(screenContext()));
   } else if (path === "/readme/" || path === "/readme") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(readme());
+    res.end(screens.readmeScreen(screenContext(), marked.parse(readFileSync("README.md", "utf8"), { async: false })));
   } else if (/^\/api\/quick\/[A-Za-z0-9-]{8,64}$/.test(path)) {
     const ticket = path.split("/").pop()!;
     let body: unknown;
@@ -637,7 +443,7 @@ const server = createServer((req, res) => {
   } else if (GAME_CODE_PATTERN.test(path)) {
     const code = path.match(GAME_CODE_PATTERN)![1];
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(gameScreen(code));
+    res.end(screens.gameScreen(screenContext(), code));
   } else if (path.startsWith("/static/") && path.slice("/static/".length) in clientBundles) {
     res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
     res.end(clientBundles[path.slice("/static/".length)]);

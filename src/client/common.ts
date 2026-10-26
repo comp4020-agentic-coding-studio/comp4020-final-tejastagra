@@ -1,5 +1,7 @@
 // Small helpers shared by the screens. The browser only shows what the
 // server sends (R20); it never decides who a player is or who has won.
+import { avatar } from "./arcade.ts";
+
 export const $ = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
 
 export interface BoardRow {
@@ -7,20 +9,32 @@ export interface BoardRow {
   value: number;
 }
 
-// Rows are built with textContent, never innerHTML, so a nickname cannot inject markup.
+// Leaderboard rows (docs/design/look-and-feel.md): a rank, an avatar, the name with its tag and the
+// value. Built with textContent, never innerHTML, so a nickname cannot inject markup.
 export function fillList(list: HTMLElement, rows: BoardRow[], unit: string, empty: string): void {
   list.replaceChildren();
   if (rows.length === 0) {
     const item = document.createElement("li");
+    item.className = "row";
     item.textContent = empty;
     list.append(item);
     return;
   }
-  for (const row of rows) {
+  rows.forEach((row, i) => {
     const item = document.createElement("li");
-    item.textContent = `${row.name}: ${row.value} ${unit}${row.value === 1 ? "" : "s"}`;
+    item.className = "row";
+    const rank = document.createElement("span");
+    rank.className = "row-rank";
+    rank.textContent = String(i + 1);
+    const name = document.createElement("span");
+    name.className = "row-name";
+    name.textContent = row.name;
+    const value = document.createElement("span");
+    value.className = "row-value";
+    value.textContent = `${row.value} ${unit}${row.value === 1 ? "" : "s"}`;
+    item.append(rank, avatar(row.name), name, value);
     list.append(item);
-  }
+  });
 }
 
 export async function loadBoard(limit: number): Promise<{ wins: BoardRow[]; rounds: BoardRow[] } | null> {
