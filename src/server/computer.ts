@@ -28,6 +28,7 @@ export function seededRandom(seed: number): () => number {
 const BLOCK_CHANCE = 0.75; // R43: at least 70%, with margin for the rest of the logic
 const LATE_SHIELD_CHANCE = 0.12; // R45: a random point after round 6
 const SHIELD_FROM_ROUND = 6;
+const EARTHQUAKE_CHANCE = 0.5; // R60: it may, not always, so it cannot be predicted perfectly
 
 function winsAt(view: PublicView, player: Player, column: number): boolean {
   const other: Player = player === "A" ? "B" : "A";
@@ -47,6 +48,41 @@ function winsAt(view: PublicView, player: Player, column: number): boolean {
   return result.state.status === "won" && result.state.winner === player;
 }
 
+// R60: a window is four squares in a line (on the 7 by 6 board, empty squares included) holding at
+// least one of the player's discs and nothing of the other player's or rubble. The count of such
+// windows is the player's "potential lines": how much of a line they have started and could still finish.
+function potentialLines(board: Board, player: Player): number {
+  const directions: Array<[number, number]> = [[1, 0], [0, 1], [1, 1], [1, -1]];
+  let count = 0;
+  for (let column = 0; column < COLUMNS; column++) {
+    for (let row = 0; row < ROWS; row++) {
+      for (const [dc, dr] of directions) {
+        const endColumn = column + dc * 3;
+        const endRow = row + dr * 3;
+        if (endColumn < 0 || endColumn >= COLUMNS || endRow < 0 || endRow >= ROWS) continue;
+        let mine = 0;
+        let blocked = false;
+        for (let step = 0; step < 4; step++) {
+          const cell = board[column + dc * step][row + dr * step];
+          if (cell === player) mine++;
+          else if (cell !== undefined) blocked = true;
+        }
+        if (!blocked && mine > 0) count++;
+      }
+    }
+  }
+  return count;
+}
+
+// R60: shaking is worth it when it breaks more of the human's potential lines than the computer's own.
+function earthquakeHelps(view: PublicView, me: Player, them: Player): boolean {
+  if (!view.earthquakesLeft[me] || view.board.every((column) => column.length === 0)) return false;
+  const shaken = view.board.map((column) => column.slice(1));
+  const theirLoss = potentialLines(view.board, them) - potentialLines(shaken, them);
+  const myLoss = potentialLines(view.board, me) - potentialLines(shaken, me);
+  return theirLoss > myLoss;
+}
+
 function pick<T>(items: T[], rng: () => number): T {
   return items[Math.floor(rng() * items.length)];
 }
@@ -63,6 +99,9 @@ export function chooseMove(view: PublicView, me: Player, rng: () => number): Cho
   if (shared.length) return { column: pick(shared, rng), shield: haveShield }; // R45
   if (myWins.length) return { column: pick(myWins, rng), shield: false }; // R42
   if (theirWins.length && rng() < BLOCK_CHANCE) return { column: pick(theirWins, rng), shield: false }; // R43
+
+  // R60: after the winning and blocking logic, and without looking at the human's choice.
+  if (earthquakeHelps(view, me, them) && rng() < EARTHQUAKE_CHANCE) return { earthquake: true };
 
   // R44: central columns are more likely, but any open column can be chosen.
   const weights = open.map((c) => COLUMNS - Math.abs(c - (COLUMNS - 1) / 2) * 1.5);

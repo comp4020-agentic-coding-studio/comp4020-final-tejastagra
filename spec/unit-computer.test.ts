@@ -3,8 +3,18 @@ import { describe, expect, it } from "vitest";
 import { COLUMNS, ROWS, newGame, resolveRound, validateChoice, type Choice, type GameState, type Player } from "../src/engine/index.ts";
 import { chooseMove, seededRandom, type PublicView } from "../src/server/computer.ts";
 
+// The column and shield tests (C1 to C7) are about discs, so their view has both Earthquakes
+// spent. C8 below uses quakeView, where they are available (R60).
 function view(state: GameState, opponentReady = false): PublicView {
+  return { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: { A: false, B: false }, opponentReady };
+}
+function quakeView(state: GameState, opponentReady = false): PublicView {
   return { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: state.earthquakesLeft, opponentReady };
+}
+function boardOf(columns: Record<number, string>): GameState {
+  const state = newGame();
+  for (const [column, pieces] of Object.entries(columns)) state.board[Number(column)] = pieces.split("") as GameState["board"][number];
+  return state;
 }
 
 // The computer's choice, as a disc (these tests are about columns and the shield).
@@ -112,7 +122,7 @@ describe("C: computer player (R40 to R46)", () => {
       for (let i = 0; i < 80 && state.status === "playing"; i++) {
         const win = winningColumns(state, "A")[0];
         const column = win ?? order.find((c) => state.board[c].length < ROWS)!;
-        state = resolveRound(state, { A: { column, shield: false }, B: chooseMove(view(state), "B", rng) }).state;
+        state = resolveRound(state, { A: { column, shield: false }, B: chooseMove(quakeView(state), "B", rng) }).state; // as it really plays: Earthquake available (R60)
       }
       if (state.status === "won" && state.winner === "A") scriptedWins++;
     }
@@ -159,5 +169,64 @@ describe("C: computer player (R40 to R46)", () => {
       const b = chooseMove(view(state, true), "B", seededRandom(seed));
       expect(a).toEqual(b);
     }
+  });
+});
+
+describe("C8 (R60) the computer and Earthquake", () => {
+  // The human's discs sit in the bottom row and the computer's are above them: removing the
+  // bottom row breaks the human's potential lines and keeps the computer's.
+  const humanBottom = () => boardOf({ 1: "AB", 2: "AB" });
+  // The mirror: the computer's discs are in the bottom row, the human's above.
+  const computerBottom = () => boardOf({ 1: "BA", 2: "BA" });
+
+  const picks = (state: GameState, seeds: number): number => {
+    let quakes = 0;
+    for (let seed = 1; seed <= seeds; seed++) {
+      const choice = chooseMove(quakeView(state), "B", seededRandom(seed));
+      if (!("column" in choice)) quakes++;
+    }
+    return quakes;
+  };
+
+  it("C8 (R60) uses Earthquake sometimes when it breaks more of the human's potential lines than its own", () => {
+    expect(picks(humanBottom(), 300)).toBeGreaterThan(30);
+  });
+
+  it("C8 (R60) never uses Earthquake when it would break more of its own potential lines", () => {
+    expect(picks(computerBottom(), 300)).toBe(0);
+  });
+
+  it("C8 (R60) never uses Earthquake on an empty board, or once it is spent (R53, R55)", () => {
+    expect(picks(newGame(), 100)).toBe(0);
+    const spent = humanBottom();
+    spent.earthquakesLeft.B = false;
+    expect(picks(spent, 100)).toBe(0);
+  });
+
+  it("C8 (R42) a winning move still comes before Earthquake", () => {
+    const state = boardOf({ 0: "BBB", 1: "A", 2: "A" }); // the computer wins at column 0 by a vertical four
+    for (let seed = 1; seed <= 100; seed++) {
+      const choice = chooseMove(quakeView(state), "B", seededRandom(seed));
+      expect("column" in choice && choice.column === 0).toBe(true);
+    }
+  });
+
+  it("C8 (R40) its choice never depends on whether the human has chosen: Ready only changes nothing about Earthquake", () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const a = chooseMove(quakeView(humanBottom(), false), "B", seededRandom(seed));
+      const b = chooseMove(quakeView(humanBottom(), true), "B", seededRandom(seed));
+      expect(a).toEqual(b);
+    }
+  });
+
+  it("C8 (R40) extra fields, such as the human's Earthquake choice, change nothing", () => {
+    for (let seed = 1; seed <= 100; seed++) {
+      const plain = chooseMove(quakeView(humanBottom()), "B", seededRandom(seed));
+      const smuggled = chooseMove({ ...quakeView(humanBottom()), humanEarthquake: true, humanColumn: 3 } as PublicView, "B", seededRandom(seed));
+      expect(smuggled).toEqual(plain);
+    }
+    // The type itself: this literal must be exactly what the computer is given.
+    const exact: PublicView = { board: [], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, opponentReady: false };
+    expect(Object.keys(exact).sort()).toEqual(["board", "earthquakesLeft", "opponentReady", "round", "shieldsLeft"]);
   });
 });
