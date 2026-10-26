@@ -1,6 +1,6 @@
 # 0003. Resolving simultaneous choices fairly
 
-- **Status:** Proposed
+- **Status:** Accepted (default, pending Tejas's review)
 - **Decided by:** Tejas
 
 ## Context
@@ -15,7 +15,7 @@ The game only works if neither player can learn the other's choice before the ro
 
 ## Decision
 
-Proposed: option 1. The server is the referee.
+Option 1. The server is the referee.
 
 ## What it costs
 
