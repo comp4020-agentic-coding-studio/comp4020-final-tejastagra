@@ -18,6 +18,7 @@ import {
   clearedCookie,
   hashPassword,
   hashToken,
+  generatedNickname,
   newPlayerId,
   newSessionToken,
   passwordProblem,
@@ -424,7 +425,35 @@ function currentPlayer(req: IncomingMessage) {
 async function handleIdentity(path: string, req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   if (path === "/api/me" && req.method === "GET") {
     const player = currentPlayer(req);
-    json(res, 200, { player: player ? publicPlayer(player) : null });
+    // R47: a visitor with no player yet, or a player who has not finished or skipped it, is due the tutorial.
+    json(res, 200, { player: player ? publicPlayer(player) : null, tutorialDue: !player || !player.tutorialSeen });
+    return true;
+  }
+  if (path === "/api/tutorial" && req.method === "POST") {
+    // R48 and R49: finishing or skipping saves it with the player; replay makes it due again.
+    const body = await readBody(req);
+    const result = body?.result;
+    if (result !== "finished" && result !== "skipped" && result !== "replay") {
+      json(res, 400, { error: "Send application/json with a result of finished, skipped or replay." });
+      return true;
+    }
+    let player = currentPlayer(req);
+    if (!player) {
+      // A visitor with no name yet: the flag needs somewhere to live, so make a nameless guest.
+      if (!allowGuest(clientAddress(req))) {
+        json(res, 429, { error: "Too many new players from here. Try again in a minute." }, { "retry-after": "60" });
+        return true;
+      }
+      const id = newPlayerId();
+      db.createPlayer(id, generatedNickname(id));
+      const token = newSessionToken();
+      db.createSession(hashToken(token), id);
+      db.setTutorialSeen(id, result !== "replay");
+      json(res, 200, { ok: true }, { "set-cookie": sessionCookie(token, isSecure(req)) });
+      return true;
+    }
+    db.setTutorialSeen(player.id, result !== "replay");
+    json(res, 200, { ok: true });
     return true;
   }
   if (path === "/api/guest" && req.method === "POST") {
@@ -518,7 +547,7 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
 
 const server = createServer((req, res) => {
   const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
-  if (requestPath.startsWith("/api/") && (requestPath === "/api/me" || requestPath === "/api/guest" || requestPath.startsWith("/api/account/") || requestPath === "/api/signout")) {
+  if (requestPath.startsWith("/api/") && (requestPath === "/api/me" || requestPath === "/api/tutorial" || requestPath === "/api/guest" || requestPath.startsWith("/api/account/") || requestPath === "/api/signout")) {
     handleIdentity(requestPath, req, res).then((handled) => {
       if (!handled) {
         res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });

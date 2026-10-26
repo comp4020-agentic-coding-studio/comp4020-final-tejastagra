@@ -23,6 +23,7 @@ export interface PlayerRow {
   nickname: string;
   username: string | null;
   passwordHash: string | null;
+  tutorialSeen: boolean; // R48: finished or skipped, saved with the player
 }
 
 export interface Db {
@@ -32,6 +33,8 @@ export interface Db {
   // Turns a guest into an account in place, keeping the same id (R29).
   // Returns false when the username is already taken (case-insensitive).
   upgradeToAccount(id: string, username: string, passwordHash: string): boolean;
+  // R48 and R49: whether this player has finished or skipped the tutorial.
+  setTutorialSeen(id: string, seen: boolean): void;
   playerByUsername(username: string): PlayerRow | undefined;
   createSession(tokenHash: string, playerId: string): void;
   // Sessions older than maxAgeMs are not honoured, whatever the cookie says.
@@ -86,6 +89,7 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE games ADD COLUMN player_b TEXT`,
   `ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`,
 ];
 
 function migrate(db: DatabaseSync): void {
@@ -115,16 +119,17 @@ export function openDb(path: string): Db {
   `);
   const seatA = db.prepare(`UPDATE games SET player_a = ? WHERE code = ? AND player_a IS NULL`);
   const seatB = db.prepare(`UPDATE games SET player_b = ? WHERE code = ? AND player_b IS NULL`);
-  const selectById = db.prepare(`SELECT id, nickname, username, password_hash FROM players WHERE id = ?`);
+  const selectById = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen FROM players WHERE id = ?`);
   const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer, player_a, player_b, missed_a, missed_b FROM games");
 
   const insertPlayer = db.prepare(`INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)`);
   const updateNickname = db.prepare(`UPDATE players SET nickname = ? WHERE id = ?`);
+  const updateTutorial = db.prepare(`UPDATE players SET tutorial_seen = ? WHERE id = ?`);
   const upgrade = db.prepare(`UPDATE players SET username = ?, password_hash = ? WHERE id = ? AND username IS NULL`);
-  const selectByUsername = db.prepare(`SELECT id, nickname, username, password_hash FROM players WHERE username = ?`);
+  const selectByUsername = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen FROM players WHERE username = ?`);
   const insertSession = db.prepare(`INSERT INTO sessions (token_hash, player_id, created_at) VALUES (?, ?, ?)`);
   const selectBySession = db.prepare(`
-    SELECT p.id, p.nickname, p.username, p.password_hash FROM sessions s
+    SELECT p.id, p.nickname, p.username, p.password_hash, p.tutorial_seen FROM sessions s
     JOIN players p ON p.id = s.player_id WHERE s.token_hash = ? AND s.created_at > ?
   `);
   const purgeSessions = db.prepare(`DELETE FROM sessions WHERE created_at <= ?`);
@@ -136,12 +141,16 @@ export function openDb(path: string): Db {
           nickname: row.nickname as string,
           username: (row.username as string | null) ?? null,
           passwordHash: (row.password_hash as string | null) ?? null,
+          tutorialSeen: row.tutorial_seen === 1,
         }
       : undefined;
 
   return {
     createPlayer(id: string, nickname: string): void {
       insertPlayer.run(id, nickname, Date.now());
+    },
+    setTutorialSeen(id: string, seen: boolean): void {
+      updateTutorial.run(seen ? 1 : 0, id);
     },
     setNickname(id: string, nickname: string): void {
       updateNickname.run(nickname, id);

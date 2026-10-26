@@ -278,4 +278,40 @@ describe("S: what happens is kept (promise 5)", () => {
       rmSync(`${path}-shm`, { force: true });
     }
   });
+
+  it("R48 opening a database created before the tutorial flag existed upgrades it in place", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration6.db`);
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
+      old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN player_a TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN player_b TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`PRAGMA user_version = 9`); // one per statement in MIGRATIONS: nine had run before the tutorial flag
+      old.prepare("INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)").run("p-old", "Old Timer", Date.now());
+      old.close();
+
+      const upgraded = openDb(path);
+      // The tutorial flag was the tenth migration, applied once.
+      const raw = new DatabaseSync(path);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(10);
+      raw.close();
+      // An existing player has not seen the tutorial, so it is due for them.
+      expect(upgraded.playerById("p-old")?.tutorialSeen).toBe(false);
+      upgraded.setTutorialSeen("p-old", true);
+      expect(upgraded.playerById("p-old")?.tutorialSeen).toBe(true);
+      upgraded.setTutorialSeen("p-old", false); // replay
+      expect(upgraded.playerById("p-old")?.tutorialSeen).toBe(false);
+      upgraded.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
 });

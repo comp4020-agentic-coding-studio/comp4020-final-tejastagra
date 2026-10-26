@@ -52,7 +52,7 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 
 ## Identity
 
-- **R28** A visitor becomes a **guest** by choosing a nickname of 2 to 16 letters, numbers, spaces, hyphens or underscores. No password is needed. The browser keeps a long-lived, httpOnly cookie so the guest is still themselves next time.
+- **R28** A visitor becomes a **guest** by choosing a nickname of 2 to 16 letters, numbers, spaces, hyphens or underscores. No password is needed. The browser keeps a long-lived, httpOnly cookie so the guest is still themselves next time. Implementation note: a first-time visitor who has not chosen a nickname is given a generated one, such as "Brave Wombat" (docs/design/home.md U32), so they can play at once and change it whenever they like.
 - **R29** A guest may sign up for an **account** with a unique username and a password of at least 8 characters. Signing up keeps their past games and wins.
 - **R30** Passwords are stored only as a slow, salted hash (argon2id or bcrypt).
 - **R31** Guests' nicknames need not be unique. Wherever a guest is shown, a short tag from their ID is shown too (for example `Tejas #a7f3`). The tag is the first 4 hex digits of the guest's id and is the only part of it ever shown, including on the leaderboard.

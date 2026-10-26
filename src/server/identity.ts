@@ -88,3 +88,13 @@ export function sessionCookie(token: string, secure: boolean): string {
 export function clearedCookie(secure: boolean): string {
   return `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0${secure ? "; Secure" : ""}`;
 }
+
+// A friendly generated nickname for a first-time visitor (docs/design/home.md U32),
+// chosen from the player's id, so it is stable and needs no choice from the player.
+const ADJECTIVES = ["Brave", "Quick", "Calm", "Bold", "Lucky", "Sneaky", "Mighty", "Jolly", "Clever", "Plucky"];
+const ANIMALS = ["Wombat", "Otter", "Falcon", "Badger", "Panda", "Gecko", "Heron", "Lynx", "Koala", "Walrus"];
+
+export function generatedNickname(id: string): string {
+  const n = parseInt(id.replace(/-/g, "").slice(0, 8), 16);
+  return `${ADJECTIVES[n % ADJECTIVES.length]} ${ANIMALS[Math.floor(n / ADJECTIVES.length) % ANIMALS.length]}`;
+}
