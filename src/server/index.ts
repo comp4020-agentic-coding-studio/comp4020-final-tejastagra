@@ -20,6 +20,7 @@ const allowCreate = createRateLimiter(30, 60_000);
 // any source change, so this never goes stale while developing.
 const clientBundles: Record<string, string> = {
   "game.js": bundleClient("src/client/game.ts"),
+  "home.js": bundleClient("src/client/home.ts"),
 };
 
 const reloadScript = DEV
@@ -46,6 +47,11 @@ const STYLES = `
   .board td[data-mark="R"]{background:repeating-linear-gradient(45deg,#6b7280 0 4px,#d1d5db 4px 8px)}
   .columns{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:6px 0}
   .columns button{padding:0}
+  .stack{display:grid;gap:8px;margin:12px 0}
+  .join{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}
+  .join label{grid-column:1/-1}
+  input{min-height:44px;font:inherit;padding:0 10px;border:2px solid #1a1a1a;border-radius:8px;width:100%;text-transform:uppercase}
+  a{display:inline-block;padding:12px 0;color:#1d4ed8}
   .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}
   @media (max-width:360px){
     body{padding-left:max(4px,env(safe-area-inset-left));padding-right:max(4px,env(safe-area-inset-right))}
@@ -124,6 +130,27 @@ function gameScreen(code: string): string {
   return page("Rubble: game", body, "/static/game.js");
 }
 
+function homeScreen(): string {
+  return `
+    <main data-testid="home-screen">
+      <h1>Rubble</h1>
+      <p>Simultaneous Connect 4. Both players choose at once.</p>
+      <div class="stack">
+        <button type="button" data-testid="play-computer" disabled>Play the computer (coming soon)</button>
+        <button type="button" data-testid="play-friend">Play a friend</button>
+        <button type="button" data-testid="quick-match" disabled>Quick match (coming soon)</button>
+      </div>
+      <form id="join-form" class="join">
+        <label for="code-input">Enter a game code</label>
+        <input id="code-input" data-testid="code-input" autocomplete="off" autocapitalize="characters" maxlength="6" />
+        <button type="submit">Join</button>
+      </form>
+      <p id="home-message" role="status"></p>
+      <p><a href="/readme/">About this app</a></p>
+    </main>
+  `;
+}
+
 const server = createServer((req, res) => {
   const path = new URL(req.url ?? "/", "http://localhost").pathname;
   if (DEV && path === "/__dev/version") {
@@ -131,7 +158,7 @@ const server = createServer((req, res) => {
     res.end(startedAt);
   } else if (path === "/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    res.end(page("Rubble", `<main><h1>Rubble</h1><p>Simultaneous Connect 4. Coming soon.</p><p><a href="/readme/">About this app</a></p></main>`));
+    res.end(page("Rubble", homeScreen(), "/static/home.js"));
   } else if (path === "/readme/" || path === "/readme") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(readme());
