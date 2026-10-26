@@ -1,6 +1,6 @@
 # 0002. How updates reach players in real time
 
-- **Status:** Proposed
+- **Status:** Accepted (default, pending Tejas's review)
 - **Decided by:** Tejas
 
 ## Context
@@ -15,7 +15,7 @@ Promise 2 needs a round's result on both screens within one second, with no acti
 
 ## Decision
 
-Proposed: WebSockets, with a full snapshot on every connect and reconnect (R24) so a dropped connection never leaves a stale board.
+WebSockets, with a full snapshot on every connect and reconnect (R24) so a dropped connection never leaves a stale board.
 
 ## What it costs
 
