@@ -53,7 +53,19 @@ export function validateChoice(
   player: Player,
   choice: Choice,
 ): { ok: true } | { ok: false; reason: "game_over" | "bad_column" | "column_full" | "no_shield" } {
-  throw new Error("not implemented");
+  if (state.status !== "playing") {
+    return { ok: false, reason: "game_over" };
+  }
+  if (!Number.isInteger(choice.column) || choice.column < 0 || choice.column >= COLUMNS) {
+    return { ok: false, reason: "bad_column" };
+  }
+  if (state.board[choice.column].length >= ROWS) {
+    return { ok: false, reason: "column_full" };
+  }
+  if (choice.shield && !state.shieldsLeft[player]) {
+    return { ok: false, reason: "no_shield" };
+  }
+  return { ok: true };
 }
 
 export function resolveRound(
