@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:mutation": "stryker run",
-    "log:process": "node scripts/process-log.mjs"
+    "log:process": "node scripts/process-log.mjs",
+    "dev": "DEV=1 node --watch --watch-path=src --watch-path=README.md src/server/index.ts",
+    "start": "node src/server/index.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
@@ -19,6 +21,7 @@
     "@stryker-mutator/vitest-runner": "10.1.1",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^24.0.0",
+    "@types/ws": "8.18.2",
     "fast-check": "4.10.2",
     "jsdom": "^30.1.0",
     "typescript": "^6.0.3",
@@ -26,5 +29,10 @@
   },
   "engines": {
     "pnpm": ">=11"
+  },
+  "dependencies": {
+    "esbuild": "0.28.2",
+    "marked": "18.1.1",
+    "ws": "8.22.0"
   }
 }
