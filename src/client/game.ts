@@ -42,7 +42,7 @@ function saveSeat(): void {
   }
 }
 
-const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/`);
+const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
 
 socket.addEventListener("open", () => {
   const saved = loadSeat();
