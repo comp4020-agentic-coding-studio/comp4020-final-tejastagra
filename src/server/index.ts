@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { marked } from "marked";
+import { logEvent } from "./log.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DEV = process.env.DEV === "1";
@@ -48,5 +49,5 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`event=server_start machine=${process.env.FLY_MACHINE_ID ?? "local"} port=${PORT}`);
+  logEvent("server_start", { port: PORT });
 });
