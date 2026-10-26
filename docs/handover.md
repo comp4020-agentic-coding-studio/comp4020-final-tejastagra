@@ -15,6 +15,7 @@ Tejas's fix list, in the order he gave it. Every item was recorded in `docs/rule
 | `e2e7c04` | Real names in each panel (U57), waiting card and game markup, "Save nickname", message inside the player card |
 | `cac351f` | Client: locked choice and ghost disc lift, no countdown, "Get ready" once, slim timer bar, shield badge with info, popup centred over the board, narrow 320px layout, 560px lists and forms |
 | `fe83e07` | Interactive tutorial (six steps, Next only after acting, scripted shield step) |
+| `99c4172` | Final review fixes: tutorial Next and Skip stay on screen at 320 x 568 (sticky footer), Share copies the link when there is no share sheet |
 | `19bf6b5` | Browser checks: highlight edges within 2px at three widths, centred game group, popup titles, 560px limit, timer bar, tutorial played by tapping; screenshot baselines |
 
 Earlier stage (restyle): `999273d`, `120f355`, `47dbc61`.
@@ -38,7 +39,7 @@ What exists:
 - **Screens** (`src/client/`, esbuild, target es2020, so no top-level await): Home (laptop: two halves, phone: one column), Game (tap a column to choose, shield badge, countdown only after the server's result, end popup), Tutorial (runs in the browser on a practice board, R47 to R50), Quick match, Leaderboard, Account, `/readme/`.
 - **Protocol additions:** snapshot `opponentPresent` and the `opponent_joined` message (no choice information, R21, R22); `/api/visitor`, `/api/tutorial`, `tutorialDue` on `/api/me`.
 - **`/style-preview`** answers only when `DEV=1` (U50) and no page links to it.
-- **Checks:** `pnpm check` (211 passed, 3 todo), `pnpm check:fast` (157), `pnpm test:e2e` (62 browser checks incl. axe-core on every screen and screenshots), `pnpm check:isolated` (temporary server and data folder). Run `pnpm check` twice in a row; it must stay repeatable.
+- **Checks:** `pnpm check` (211 passed, 3 todo), `pnpm check:fast` (157), `pnpm test:e2e` (65 browser checks incl. axe-core on every screen and screenshots), `pnpm check:isolated` (temporary server and data folder). Run `pnpm check` twice in a row; it must stay repeatable.
 - **Docker:** built and run with an empty `/data`; `/`, `/readme/`, `/leaderboard` and `/theme.css` answered 200 and `/style-preview` 404.
 
 ## Next step: Phase 8, then polish
