@@ -15,6 +15,10 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Shield** | Each player's single use per game that wins a crash | boost |
 | **Earthquake** | Each player's single use per game that replaces their disc: the bottom row crumbles away and everything above drops down one row | quake, shake, tremor |
 | **Power-up** | The shield or the Earthquake; at most one per round | boost, bonus |
+| **Ceiling** | The top of the open area. It drops after rounds 6, 12 and 18, closing the top row | roof, lid |
+| **Walls** | The sides of the open area. They collapse after rounds 12 and 18, closing the leftmost and rightmost open columns | sides, edges |
+| **Rock** | The solid piece that fills a closed row or column. It belongs to nobody and is different from rubble | stone, wall block |
+| **Open area** | The rows and columns still in play | playing area, grid |
 | **Missed round** | A player made no choice before the timer ran out | skip, pass |
 | **Resolve** | The server turning both choices into the next board | |
 | **Game code** | The 6-character code that joins a shared game | room code, PIN |

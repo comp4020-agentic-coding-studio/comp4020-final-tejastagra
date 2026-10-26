@@ -10,9 +10,9 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 
 ## Board and choices
 
-- **R1** The board has 7 columns and 6 rows. Discs and rubble blocks stack from the bottom of a column.
-- **R2** A new game has an empty board, round 0, both shields and both Earthquakes available, status `playing` and no winner.
-- **R3** A choice is either a column (0 to 6) with a shield flag, or an Earthquake (R54). A column choice is rejected if the game is over, the column is not a whole number from 0 to 6, the column is full or the shield flag is set when that player's shield is already used. Rejections are checked in that order and give the reasons `game_over`, `bad_column`, `column_full` and `no_shield`. An Earthquake choice is checked as in R53 and R55. A column's fullness is checked on the board as it is before the round, even if an earthquake in the same round would free a space.
+- **R1** The board has 7 columns and 6 rows at the start, and it shrinks as rounds pass (R61, R62, ADR 0011). Discs and rubble blocks stack from the bottom of a column.
+- **R2** A new game has an empty board with all 7 columns and 6 rows open (the open area, R64), round 0, both shields and both Earthquakes available, status `playing` and no winner.
+- **R3** A choice is either a column (0 to 6) with a shield flag, or an Earthquake (R54). A column choice is rejected if the game is over, the column is not a whole number from 0 to 6, the column is closed (R64), the column is full or the shield flag is set when that player's shield is already used. Rejections are checked in that order and give the reasons `game_over`, `bad_column`, `column_closed`, `column_full` and `no_shield`. An Earthquake choice is checked as in R53 and R55. A column's fullness is checked on the board as it is before the round, even if an earthquake in the same round would free a space.
 - **R4** A choice is final for its round. Once a player has chosen a column, with or without the shield, the server accepts no second choice from that player for the same round and answers it with the rejection reason `already_chosen`. This replaces the earlier rule that let a choice change until the round resolved (ADR 0009). `already_chosen` is a server-side rejection, not one of the engine's R3 reasons, and it says nothing about the opponent (R22).
 
 ## Resolving a round
@@ -24,13 +24,13 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 - **R9** If they chose the same column and both used shields, both shields are spent and the discs crash as in R6.
 - **R10** If only one player made a choice, only that disc lands (or only that earthquake happens). If neither did, the board does not change.
 - **R11** Every resolved round adds 1 to the round count, including rounds where nothing lands.
-- **R12** Pieces already on the board never move or change, except that an earthquake (R56) removes the bottom row and shifts every piece above down one row in its own column.
+- **R12** Pieces already on the board never move or change, except that an earthquake (R56) removes the bottom row and shifts every piece above down one row in its own column, and a collapse (R61, R62) removes every piece in the area it closes.
 
 ## Winning
 
 - **R13** A player wins only when a disc they dropped this round is part of a line of four of their discs, horizontally, vertically or diagonally. Rubble blocks and the opponent's discs break a line. Lines formed only by pieces moving in an earthquake never win, but a disc dropped later can complete them (ADR 0010). A disc that lands because of a shield win counts as dropped.
 - **R14** If a disc dropped by each player this round completes a line for that player, the game is a draw.
-- **R15** If the board is full and nobody has a line, the game is a draw.
+- **R15** If the open area is full (R66) and nobody has a line, the game is a draw.
 - **R16** Once a game is won or drawn, no further choices are accepted.
 - **R17** "Rounds to win" is the round count at the moment of the win. Earthquake rounds count like any other round.
 
@@ -50,6 +50,19 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 - **R58** Earthquake is not a crash, so the shield has no effect on it. A shield flag next to an Earthquake is rejected (R53), and the other player's shield is spent only if they used it on their own column.
 - **R59** Earthquake never affects the leaderboard rules (R37 to R39). "Rounds to win" still counts rounds (R17).
 - **R60** The computer may use Earthquake when removing the bottom row breaks more of the human's potential lines than its own. It still never sees the human's choice (R40).
+
+## The shrinking board
+
+The schedule depends on the round count alone (R11), so the engine needs no clock. "After round n" means once the n-th round has resolved. The numbers are named constants in the engine, first guesses that playtests may tune (ADR 0011); to change one, change this file first.
+
+- **R61** The ceiling drops after round 6 and every 6 rounds after that (rounds 6, 12, 18 and so on), until the board has 3 rows. When it drops, the top row of the open area closes and any piece in it crumbles away. Constants: `CEILING_FIRST_ROUND = 6`, `CEILING_EVERY = 6`, `MIN_ROWS = 3`.
+- **R62** The walls collapse after round 12 and every 6 rounds after that (rounds 12, 18 and so on), until 3 columns remain. When they collapse, the leftmost and rightmost open columns close and every piece in them crumbles away. Constants: `WALLS_FIRST_ROUND = 12`, `WALLS_EVERY = 6`, `MIN_COLUMNS = 3`.
+- **R63** When both happen after the same round, the ceiling drops first, then the walls collapse.
+- **R64** The **open area** is the rows below the current number of rows, in the columns from the first open column to the last. A closed column cannot be chosen: `validateChoice` rejects it with the reason `column_closed` (R3). A column is full when its pieces reach the current number of rows. Closure and fullness are checked on the board as it is before the round, so a collapse after a round never changes what that round accepted.
+- **R65** A collapse happens after the round's discs have dropped and the round's result has been decided (R13 to R15). A collapse can never create a win: under R13 a win needs a disc dropped this round, and lines broken by a collapse are simply broken. A game that ended in this round does not collapse, so the winning line stays on the board. A collapse never affects the leaderboard rules (R37 to R39), and rounds to win still counts rounds (R17).
+- **R66** If the open area is full (every open column holds as many pieces as there are rows) and nobody has won, the game is a draw (R15). This is checked after the round's discs have dropped and again after a collapse, because a collapse can leave the remaining area full.
+- **R67** An Earthquake on a shrunken board removes the bottom row of the open area and shifts every open column down one (R56). Closed columns hold nothing, so nothing is removed from them. The earthquake happens first, then the discs drop, then any collapse applies to the board as it then stands.
+- **R68** The computer chooses only open columns that are not full, and it knows the schedule, like a human who can see the warning (docs/design/shrinking-board.md U68): when it has no winning or blocking move it avoids dropping a disc into a square that is about to close. It still never sees the human's choice (R40).
 
 ## Server, real time and persistence
 
@@ -93,7 +106,7 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 ## Computer player
 
 - **R40** The computer chooses using only what a human opponent could see: the board, the round, both shields' status and whether the human has chosen yet. It never sees the human's choice.
-- **R41** The computer never chooses a full column.
+- **R41** The computer never chooses a full or closed column.
 - **R42** If the computer has a column that wins immediately, it chooses it.
 - **R43** If the human has a column that wins immediately, the computer chooses it to force a crash at least 70% of the time.
 - **R44** Otherwise it prefers central columns, with some randomness so it cannot be predicted perfectly.
@@ -107,7 +120,15 @@ The engine lives in `src/engine/index.ts`. It is pure: no input or output, no cl
 
 ```ts
 export const COLUMNS = 7;
-export const ROWS = 6;
+export const ROWS = 6;                     // the starting number of rows
+
+// The shrinking schedule (R61, R62). Tunable by playtests; change docs/rules.md first.
+export const CEILING_FIRST_ROUND = 6;
+export const CEILING_EVERY = 6;
+export const MIN_ROWS = 3;
+export const WALLS_FIRST_ROUND = 12;
+export const WALLS_EVERY = 6;
+export const MIN_COLUMNS = 3;
 
 export type Player = 'A' | 'B';
 export type Cell = Player | 'R';           // 'R' is a rubble block
@@ -122,6 +143,9 @@ export interface GameState {
   round: number;                           // rounds resolved so far
   shieldsLeft: Record<Player, boolean>;
   earthquakesLeft: Record<Player, boolean>; // R53
+  rows: number;                            // R61: the current number of rows
+  firstColumn: number;                     // R62: the open columns run from firstColumn to lastColumn, inclusive
+  lastColumn: number;
   status: Status;
   winner: Player | null;
 }
@@ -139,13 +163,18 @@ export interface RoundResult {
   outcome: RoundOutcome;
   shieldWinner: Player | null;
   shaken: boolean;                         // R56: the bottom row was removed this round
+  collapsed: { ceiling: boolean; walls: boolean }; // R61, R62: what closed after this round
 }
+
+// The shape of the open area after a number of resolved rounds. Pure: a function of the round count.
+export interface Shape { rows: number; firstColumn: number; lastColumn: number }
+export function shapeAt(round: number): Shape;
 
 export function newGame(): GameState;
 export function validateChoice(
   state: GameState, player: Player, choice: Choice,
 ): { ok: true } | { ok: false; reason: 'game_over' | 'bad_column' | 'column_full' | 'no_shield'
-             | 'one_power_up' | 'no_earthquake' | 'nothing_to_shake' };
+             | 'column_closed' | 'one_power_up' | 'no_earthquake' | 'nothing_to_shake' };
 export function resolveRound(
   state: GameState, choices: { A: Choice | null; B: Choice | null },
 ): RoundResult;  // throws if either choice fails validateChoice
