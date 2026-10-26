@@ -1,37 +1,47 @@
-# 0006. A dark arcade look
+# 0006. Visual style: the navy toy
 
-- **Status:** Accepted (26 October 2026). Tejas chose the direction. The exact look is approved separately, at `/style-preview`, before any real screen is restyled.
+- **Status:** Accepted (27 October 2026) as the direction. The exact look is approved separately, at `/style-preview`, before any real screen is restyled.
 - **Decided by:** Tejas
 
 ## Context
 
-`docs/design.md` began with "a clean, simple and modern game site". That kept the first screens fast to build, but a plain page undersells a game whose point is a simultaneous reveal. The app will be shown in a showcase room, where a lively screen holds attention and makes the moment both players' discs land at once feel like an event. This touches promise 4 (everything works on a phone) most, because a richer look must not cost tap size, contrast, scroll or speed on a phone, and promise 2 (both players see the same result at the same moment), because the reveal animation must not delay or differ between screens.
+The first version followed "clean and simple" in the original design standards. In use it looked plain, more like a form than a game. Rubble will be shown in a room full of people at the showcase, and its signature moment, both discs dropping at once, deserves to feel exciting.
 
-Tejas looked at CrazyGames' Connect 4, papergames.io and Poki for the feel to aim at.
+Tejas looked at CrazyGames' Connect 4, papergames.io and Poki on 27 October 2026. This touches promise 4 (everything works on a phone) most, because a richer look must not cost tap size, contrast, scroll or speed, and promise 2 (both players see the same result at the same moment), because animation must not delay or differ between screens.
+
+The direction changed twice on the same day, so the history is recorded here:
+
+1. First a dark arcade look close to CrazyGames' Connect 4: navy with a starfield, glossy gradient buttons in green and orange.
+2. Then a proposal for the classic Connect 4 toy look: a white dotted background, red and yellow discs, with a CrazyGames-style menu.
+3. Tejas rejected both as written. He kept the navy background with slowly moving bubbles because he liked it, and asked for everything else to be original, so Rubble is not a copy of CrazyGames' Connect 4.
 
 ## Options
 
-1. **Keep it clean and simple.** Cheapest, safest on phones and already built and checked. Cost: it looks like a prototype next to the sites above, and the reveal has nothing to dramatise.
-2. **Dark arcade, like CrazyGames.** A deep navy background with a starfield, a chunky glossy blue board, bright discs that glow and loud buttons. It makes bright pieces stand out and suits a dimmed showcase room. Cost: more CSS, more animation to keep smooth on a phone, and bright-on-dark colour pairs that need checking for contrast.
-3. **Bright playground, like Poki.** A light, saturated, cartoon look. Friendly and readable in daylight. Cost: it needs more illustration to feel finished, and glowing pieces read less well on a light ground.
+1. **Keep it clean and simple.** Cheapest and safest on phones. Cost: it does not feel like a game, and the reveal has nothing to dramatise.
+2. **Dark arcade, as on CrazyGames.** Navy, starfield, glossy buttons. Cost: it is close to another site's look, and glossy gradients cost more to draw on a phone.
+3. **The Connect 4 toy look.** White dotted ground, familiar to newcomers. Cost: it borrows a branded toy's look and layout, and Tejas did not want to lose the navy and bubbles he liked.
+4. **The navy toy (chosen).** A navy gradient ground with rising disc-shaped bubbles, flat red, blue and yellow pieces with dark outlines and hard offset shadows, a cracked yellow "RUBBLE" title with falling chips, and a blue toy board with red ring discs, yellow cross discs and grey hatched rubble. A stacked button menu over a round icon row, ordered for Rubble.
+5. **Bright playground, as on Poki.** Aqua and white tiles. Cost: it reads as a games portal, not one game.
 
 ## Decision
 
-Option 2, the dark arcade look, specified in the "Look and feel" section of `docs/design.md`. Every colour, radius, shadow and font is a CSS variable in `public/theme.css`, so the look can change in one file, and nothing outside that file may define a colour (a rule in `CLAUDE.md`, backed by a test).
+Option 4, specified in `docs/design/look-and-feel.md` and `docs/design/home.md`, with motion and endings in `docs/design/motion-and-endings.md`.
 
-The existing standards stay: 44 px tap targets, 4.5:1 text contrast, no sideways scroll at 320 px and shape as well as colour.
+Why this one: the navy and the bubbles are kept because Tejas liked them. Everything else was changed so the style is not a copy of CrazyGames' Connect 4: no starfield, no glossy gradient buttons, no green and orange buttons, no copied menu art. The bubbles are shaped like game discs, with the ring and cross markers, so the background belongs to this game. Rubble never uses the Connect 4 or Hasbro names, logo, box art or disc characters.
 
-One consequence of keeping contrast: white text on the specified green (#22C55E) is 2.28:1 and on the orange (#F97316) 2.8:1, so button labels are dark navy (7.82:1 and 6.35:1). White is used only on the navy ground and the purple ribbon (5.7:1).
+Every colour, radius, outline, shadow, font and duration is a CSS variable in `public/theme.css`, so the look can change in one file, and nothing outside that file may define a colour or a font (a rule in `CLAUDE.md`, backed by a test).
+
+The standards stay: 44px tap targets, 4.5:1 text contrast, no sideways scroll at 320px, and shape as well as colour. The contrast ratios of every text and background pair are recorded in `docs/design/look-and-feel.md` and recomputed by a test. Button labels are white on red (5.30) and blue (5.93), and dark on yellow (12.55). White on yellow (1.56) is never used.
 
 ## What it costs
 
-- **Phone performance.** Gradients, shadows and animation cost more than flat colour. Mitigations: the starfield is a static background, with no blur or `backdrop-filter`, animation changes only `transform` and `opacity`, and the drop animation stays within 400 ms so the result is visible well inside the one second promise. Under `prefers-reduced-motion` nothing animates.
-- **Accessibility.** More colour pairs to check. An automated contrast check (axe-core) runs in the browser checks, and shape (a ring or a cross) still tells the players apart as well as colour. The countdown is decoration: the result line still states what happened in words.
-- **A web font.** Fredoka (SIL Open Font Licence, so free to self-host) at one weight, about 16 KB as woff2, kept in `public/`, loaded with `font-display: swap`, and falling back to the system rounded font. It is one extra request on first load and it adds a `public/` folder to the Docker image.
-- **More to keep consistent.** Each screen is restyled separately, so screenshot comparisons guard against drift.
+- **Phone performance.** Rising bubbles are one fixed layer of about 7 elements on a phone (12 on a laptop) animating only `transform` and `opacity`, with no blur. The phone-tester measures frame times under a 4x CPU slowdown. Under `prefers-reduced-motion` the bubbles, chips, countdown, shake and confetti all stay still.
+- **Accessibility.** More colour pairs to check; an automated axe-core check runs in the browser checks. One known limit: a red or blue button fill is 2.46 to 3.33:1 against the navy ground (it is a gradient), below the 3:1 guideline for a component's edge at the darker end, and the dark outline is nearly invisible on navy. The button is still identified by its label (above 5:1), icon, size and hard shadow. If Tejas wants the edge itself to pass, a light inner edge is added to buttons in `theme.css`. This is recorded in `look-and-feel.md` so nobody has to rediscover it.
+- **A web font.** Fredoka (SIL Open Font Licence), one weight, about 16 KB as woff2, in `public/`, with `font-display: swap` and a rounded system fallback.
+- **More to keep consistent.** Each screen is restyled separately, with screenshot comparisons to guard against drift.
 
-Revisit this if the dark look fails the contrast check on any screen, if a mid-range phone cannot hold the animation smoothly, or if playtests show the effects distract from reading the board.
+Revisit this if a screen fails the contrast check, if a mid-range phone cannot hold the bubbles smoothly, or if playtests show the effects distract from reading the board.
 
 ## Evidence
 
-To be added.
+To be added: the `/style-preview` approval commit and the design checks.
