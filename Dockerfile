@@ -1,18 +1,33 @@
 # syntax = docker/dockerfile:1
 
-# A placeholder, and yours to replace: it serves one page, plus README.md
-# verbatim at /readme/, which is enough to prove the deploy path end to end.
-# Whatever your app is built with, the image that replaces this one must serve
-# HTTP on 0.0.0.0:$PORT (fly.toml sets PORT) and publish README.md at /readme/
-# (spec/README.md says what's checked).
+# The real app (ADR 0001): Node 24 runs src/server/index.ts directly, type
+# stripping it as it goes (tsconfig.json's erasableSyntaxOnly keeps every
+# file within what that can do), so there is no build step. Serves HTTP on
+# 0.0.0.0:$PORT, publishes README.md at /readme/ (rendered, not verbatim;
+# spec/invariants.test.ts checks its headings), and persists games to the
+# SQLite file at /data/rubble.db, the Fly volume mounted in fly.toml.
 
-FROM docker.io/library/busybox:1.38.0
-COPY placeholder/ /src/
-COPY README.md /src/
-# README.md goes into the page as-is, HTML-escaped, in place of @README@;
-# rendering it properly is your app's job
-RUN mkdir -p /site/readme \
-    && cp /src/index.html /site/ \
-    && sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' /src/README.md > /src/body \
-    && sed -e '/@README@/{r /src/body' -e 'd}' /src/readme.html > /site/readme/index.html
-CMD ["sh", "-c", "exec httpd -f -p 0.0.0.0:${PORT:-8080} -h /site"]
+# Pinned to the Node version mise.toml pins locally, so the image and local
+# dev run the same runtime.
+FROM node:24.21.0-slim
+
+WORKDIR /app
+
+# A lockfile-only install first means this layer is only rebuilt when
+# dependencies change, not on every source edit. pnpm-workspace.yaml allows
+# esbuild's postinstall, which fetches its native binary. pnpm is pinned to
+# the version mise.toml pins locally, so the lockfile is read by the same
+# pnpm that writes it in development.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN corepack enable \
+    && corepack prepare pnpm@11.9.0 --activate \
+    && pnpm install --prod --frozen-lockfile \
+    && pnpm store prune
+
+COPY src ./src
+COPY README.md ./README.md
+
+ENV NODE_ENV=production
+EXPOSE 8080
+
+CMD ["node", "src/server/index.ts"]
