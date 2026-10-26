@@ -4,11 +4,11 @@ Every animation uses only `transform` and `opacity` so it stays smooth on phones
 
 ## The reveal (the game's signature moment)
 
-- **U19** When both players have chosen, a large "3, 2, 1, DROP!" countdown pops over the board, each number scaling in and fading out, lasting 900ms in total (three numbers of 240ms and DROP at 180ms, read from `public/theme.css`).
+- **U19** When both players have chosen and the server's result arrives, a large "3, 2, 1" countdown pops over the board, 130ms for each number (390ms in all, read from `public/theme.css`), and "DROP!" appears as the discs start to fall (U20). Amended on 27 October 2026: the pack first said 900ms in total, but with the 400ms drop that put the discs landing 1.3 seconds after the result arrived, outside the one-second promise (promise 2, U23). Now the discs land 790ms after the result arrives, inside it.
 - **U20** Both discs then fall from above the board at the same moment, with gravity and a small bounce on landing.
 - **U21** A crash: the two discs meet at the top of the column, burst, the column shakes, a rubble block thuds into place with a small puff of dust and the whole screen gives a tiny shake.
 - **U22** A shield win: the winning disc flashes a glowing ring and the losing disc shatters.
-- **U23** The countdown and drop are presentation only. The server still sends the result within the 1-second promise (R23), and both screens show the same result.
+- **U23** The countdown and drop are presentation only, and the whole sequence lands within one second of the result arriving. The server still sends the result within the 1-second promise (R23), and both screens show the same result.
 
 ## Live feedback
 
@@ -20,6 +20,7 @@ Every animation uses only `transform` and `opacity` so it stays smooth on phones
 
 - **U27** When a game ends, the board dims and a large `--panel` popup with the `--outline` and `--shadow` bounces in with `data-testid="end-popup"`.
 - **U28** Win: "YOU WIN!" in huge display letters in the title style (U5), with red, yellow and blue confetti discs bursting across the screen for about 2 seconds and the four winning discs glowing on the board behind. Lose: "SO CLOSE!" with a gentler animation and the opponent's winning line highlighted. Draw: "IT'S A DRAW!" in yellow with a red shadow. Forfeit and abandoned games get their own short titles.
+- **U27a** The popup must not hide the winning line. On a phone the board stays visible above the popup (the popup sits in the lower part of the screen), and on a laptop the popup sits beside the board, so the four winning discs can be seen glowing while the popup is open. The dim behind the popup is `--scrim`, light enough that the board shows through it.
 - **U29** The popup shows the number of rounds played and two funky buttons: "Play again" (`play-again`) and "Home" (`go-home`).
 
 ## Recorded exceptions

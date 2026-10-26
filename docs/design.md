@@ -18,8 +18,8 @@ The aim is a lively, original navy toy game site that works fully on a phone (AD
 ## Touch and input
 
 - Every tap target is at least 44 x 44 CSS px.
-- Tapping a column selects it. A separate **Drop** button confirms the choice, so a stray tap is not final. The choice can be changed until the round resolves (R4).
-- The shield is a toggle next to the Drop button and shows clearly whether it is on.
+- Tapping a column is the whole choice (docs/design/board-interaction.md, U10 to U18). It can be changed until the round resolves (R4).
+- The shield is a badge you tap to arm, and it shows clearly whether it is on.
 - An error or confirmation appears where the player is looking: inside the first screen height of the form that caused it, never below other forms or buttons. Use the interface's own messages, not the browser's validation bubbles.
 - Nothing depends on hover. Everything works by tap, mouse and keyboard (keys 1 to 7 select a column, Enter drops, S toggles the shield).
 
@@ -34,7 +34,7 @@ The aim is a lively, original navy toy game site that works fully on a phone (AD
 - Round number and the round timer.
 - Whether the opponent has chosen yet (R21), shown as "Ready" or "Choosing".
 - Whether each player still has their shield.
-- Your current choice, before you drop.
+- Your current choice, until the round resolves.
 - After each round, a one-line explanation of what happened, for example "You both chose column 4. Crash: rubble landed."
 - The first time a crash, shield win or missed round happens in someone's first game, a short explanation of the rule.
 
@@ -56,7 +56,7 @@ The reveal starts when the server's result arrives and never before, so a countd
 | Screen | Path | Must contain |
 | --- | --- | --- |
 | Home | `/` | Nickname or sign in, Play the computer, Play a friend, Quick match, Enter a game code, leaderboard preview, link to `/readme/` |
-| Game | `/g/<code>` | Board, timer, opponent status, shields, Drop, result line, Share link and code while waiting |
+| Game | `/g/<code>` | Board, timer, opponent status, shields, result line, Share link and code while waiting |
 | Waiting | `/g/<code>` before the opponent arrives | The code in large text, Copy link, Share (Web Share API on phones) |
 | Quick match | `/play/quick` | Waiting state, after 20 seconds an offer to play the computer |
 | Leaderboard | `/leaderboard` | Most wins and fewest rounds to win, as two lists |
@@ -67,7 +67,7 @@ The reveal starts when the server's result arrives and never before, so a countd
 
 Use these `data-testid` values so tests do not depend on layout:
 
-`column-0` to `column-6`, `drop`, `shield-toggle`, `round-number`, `timer`, `opponent-status`, `my-shield`, `opponent-shield`, `result-line`, `game-code`, `copy-link`, `nickname-input`, `play-computer`, `play-friend`, `quick-match`, `code-input`, `leaderboard-wins`, `leaderboard-rounds`, `cell-<column>-<row>` (with `data-piece="A" | "B" | "R" | ""`).
+`column-0` to `column-6`, `shield-badge`, `round-number`, `timer`, `opponent-status`, `my-shield`, `opponent-shield`, `result-line`, `game-code`, `copy-link`, `nickname-input`, `play-computer`, `play-friend`, `quick-match`, `code-input`, `leaderboard-wins`, `leaderboard-rounds`, `cell-<column>-<row>` (with `data-piece="A" | "B" | "R" | ""`).
 
 ## Words
 

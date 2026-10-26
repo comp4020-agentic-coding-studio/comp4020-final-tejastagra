@@ -25,6 +25,7 @@ Tejas chose this style on 27 October 2026 (ADR 0006). He kept the navy backgroun
 | `--board-shine` | `#4D82EA` | Highlight along the top of the board |
 | `--hole` | `#0A1030` | Board holes |
 | `--rubble` | `#8A94A8` with `--rubble-hatch` `#4B5568` | Rubble blocks |
+| `--field` | `#121A4A` | The inside of a text input |
 | `--disabled` | `#3A4580` | A disabled button's fill (opaque, so nothing shows through it) |
 | `--stack-width` | `420px` | The widest a stack of menu buttons gets |
 | `--error` | `#FFB4A8` | Error messages |
@@ -54,6 +55,9 @@ Ratios are WCAG contrast ratios computed from the token values (the unit test re
 | `--error` on `--panel` | 7.57 |
 | `--ok` on `--panel` | 8.19 |
 | `--disabled-text` on `--disabled` (a disabled button) | 5.94 |
+| `--text` on `--field` (an input) | 16.50 |
+| `--error` on `--ground-bottom` | 8.58 |
+| `--ok` on `--ground-bottom` | 9.28 |
 | white on `--yellow` | 1.56: **never used** |
 
 | Graphics | Ratio |
@@ -85,6 +89,12 @@ Known limits, recorded so nobody has to rediscover them:
 
 - **U6** Panels, cards and tiles are `--panel` with the `--outline`, `20px` corners and the `--shadow`, like toy pieces. No gradients and no glossy highlights on panels or buttons.
 - **U7** The board is the blue toy board: a `--blue` face with a `--board-shine` strip along the top edge, a thick `--board-edge` frame, short feet at the bottom corners, and round holes in `--hole`. Discs are flat: `--red` with a white ring marker (yours) or `--yellow` with an `--ink` cross marker (the opponent's), each with the `--outline` and a small hard shadow. Rubble is `--rubble` with a `--rubble-hatch` pattern. The most recent discs glow.
+
+## Forms, panels and overlays
+
+- **U51** Text inputs are `--panel` fields with the `--outline`, `--radius-button` corners and at least 44px of height, with a visible label above each. The focus ring is `--focus`. An error or confirmation appears directly under the heading of the form it belongs to (`docs/design.md`), in `--error` or `--ok`, as text, never as colour alone.
+- **U52** The tutorial and the end-of-game popup are `--panel` cards over a dimmed screen. The dim is `--scrim`, which is faint enough that the page behind stays recognisable. Cards are at most `--stack-width` wide, centred, and scroll inside themselves if the screen is short, so a small phone can always reach every button.
+- **U53** The "waiting" and "loading" states use a small spinning ring (`--spinner`). Under reduced motion the ring does not spin and the words say what is happening.
 
 ## Words on screen
 
