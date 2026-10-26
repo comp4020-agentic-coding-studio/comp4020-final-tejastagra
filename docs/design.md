@@ -49,15 +49,15 @@ The navy toy style (ADR 0006) is specified in `docs/design/`, which wins for loo
 
 In short: a deep navy gradient ground with slowly rising disc-shaped bubbles; flat red, blue and yellow buttons with dark outlines and hard offset shadows; navy panels; a cracked yellow "RUBBLE" title; a blue toy board with red ring discs, yellow cross discs and grey hatched rubble. Every colour, radius, shadow, font and duration is a variable in `public/theme.css`, and nothing else may define a colour or a font.
 
-The reveal starts when the server's result arrives and never before, so a countdown or animation can never show a choice or a result early (promise 3, R22) or delay a result past one second (promise 2). Under `prefers-reduced-motion` nothing moves.
+The reveal starts when the server's result arrives and never before, so an animation can never show a choice or a result early (promise 3, R22) or delay a result past one second (promise 2). Under `prefers-reduced-motion` nothing moves.
 
 ## Screens
 
 | Screen | Path | Must contain |
 | --- | --- | --- |
 | Home | `/` | Nickname or sign in, Play the computer, Play a friend, Quick match, Enter a game code, leaderboard preview, link to `/readme/` |
-| Game | `/g/<code>` | Board, timer, opponent status, shields, result line, Share link and code while waiting |
-| Waiting | `/g/<code>` before the opponent arrives | The code in large text, Copy link, Share (Web Share API on phones) |
+| Game | `/g/<code>` | Board, timer bar, both players' names, opponent status, shields, result line |
+| Waiting | `/g/<code>` before the opponent arrives | A compact centred card (docs/design/game-screen.md U54) with the code, Copy link and Share |
 | Quick match | `/play/quick` | Waiting state, after 20 seconds an offer to play the computer |
 | Leaderboard | `/leaderboard` | Most wins and fewest rounds to win, as two lists |
 | Sign up and sign in | `/account` | Username, password, clear errors |

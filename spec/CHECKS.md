@@ -71,6 +71,8 @@ C1 to C7, S1 to S3, G1 to G3. See the files.
 | U19 to U30 | Reveal within one second, end popups, reduced motion | `e2e/design.spec.ts` | passing |
 | U31 to U40 | Home menu content and the phone and laptop layouts | `e2e/design.spec.ts` | passing |
 | U41 to U48 | Tutorial steps, skip and replay | `e2e/design.spec.ts` | passing |
+| R4, R51, R52 | Locked choices, nothing starts until both are present, the computer thinks | `spec/unit-realtime-timer.test.ts`, `spec/unit-realtime-computer.test.ts` | passing |
+| U10 to U13, U54 to U60 | Column highlight, waiting card, names, centred game, 560px limit | `e2e/design.spec.ts` | todo |
 | Screenshots | Approved look at both viewports | `e2e/design.spec.ts` | passing |
 | Judged | It feels like a cheerful navy toy game and is clearly its own; a newcomer understands crashes and the shield after the tutorial; the reveal is exciting | `/style-preview` approval by Tejas (given 27 October 2026), then playtests in `docs/playtests.md` | judged |
 

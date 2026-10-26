@@ -14,11 +14,12 @@ The home screen is a stacked button menu with a round icon row underneath, dress
 
   Icons are drawn from shapes (inline SVG), never emoji, and every button also has its text label.
 - **U34** Under the stack, a row of round icon buttons, each with a label underneath: "Leaderboard" (podium icon, opens `/leaderboard`), "How to play" (question mark, replays the tutorial), "Account" (person icon, opens `/account`) and "About" (book icon, opens `/readme/`).
+- **U35a** The round icon row is centred under the buttons. The "Nickname saved." message appears inside the player card, aligned with it, and fades after 3 seconds.
 - **U35** Under the icon row, a compact "Top players" strip: the top three by most wins, each with avatar, nickname and wins, on `--panel` rows, keeping the `leaderboard-wins` hook.
 
 ## The demo board
 
-- **U36** A small live demo board, in the navy toy style, loops the reveal: both players choose, the countdown runs, discs drop and one round ends in a crash and rubble. It shows the twist without words. Under reduced motion it shows a still image of a crash.
+- **U36** A small live demo board, in the navy toy style, loops the reveal: both players choose, discs drop and one round ends in a crash and rubble. It shows the twist without words. Under reduced motion it shows a still image of a crash.
 
 ## Responsive
 
