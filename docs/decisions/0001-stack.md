@@ -1,6 +1,6 @@
 # 0001. Stack
 
-- **Status:** Proposed
+- **Status:** Accepted (default, pending Tejas's review)
 - **Decided by:** Tejas
 
 ## Context
@@ -15,7 +15,7 @@
 
 ## Decision
 
-Proposed: option 1. The `Dockerfile` becomes a `node:24` slim image that installs production dependencies, bundles the browser code and runs the server with `node src/server/index.ts`.
+Option 1. The `Dockerfile` becomes a `node:24` slim image that installs production dependencies, bundles the browser code and runs the server with `node src/server/index.ts`.
 
 ## Reasons (Tejas to write)
 
