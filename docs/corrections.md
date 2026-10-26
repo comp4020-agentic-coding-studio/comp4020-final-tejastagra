@@ -100,3 +100,10 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **How it was caught:** the reviewer subagent for the first four problems; a second `pnpm check` run straight after the first for the lockout; the unit test run for the ids.
 - **Harness fix:** the R37 and restart checks now run in `spec/unit-leaderboard.test.ts` against real saved games, with a computer game that has a finished win recorded and a database closed and reopened; the app checks look past the top 10 with `?limit=` and assert that the game actually finished. `/api/leaderboard` is rate limited. Every app check that creates something now sends its own `Fly-Client-IP`, as separate players do, and `pnpm check` was run three times in a row to prove it is repeatable. CLAUDE.md now says a check must pass when run twice in a row and must never depend on a shared rate limit or a shared top-10 list.
 - **Commits:** found and fixed before the leaderboard was ever committed.
+
+### C13. Form feedback on the Account screen was below the fold on a phone
+- **Date:** 26 October 2026
+- **What went wrong:** the Account screen put its one status message under three forms and the sign-out button. After a wrong password or a bad nickname on a 320 x 568 or 390 x 844 phone the message was off screen, so the player saw nothing happen. It also showed a "Keep your record" heading with nothing under it, and used the browser's own validation bubbles, whose wording the app does not control.
+- **How it was caught:** the phone-tester subagent, measuring the page in a real browser after a bad submit. My own sweep had measured tap targets and sideways scroll but never where messages land.
+- **Harness fix:** the message now sits directly under the heading, the empty heading is hidden, and the forms use the server's own messages. docs/design.md now says an error or confirmation must appear within the first screen height of the form that caused it, and the Phase 7 browser checks E4 and E5 must assert it after a bad submit.
+- **Commits:** found and fixed before the screens were committed.

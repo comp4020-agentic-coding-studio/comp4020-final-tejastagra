@@ -20,6 +20,7 @@ The aim is a clean, simple and modern game site that works fully on a phone. The
 - Every tap target is at least 44 x 44 CSS px.
 - Tapping a column selects it. A separate **Drop** button confirms the choice, so a stray tap is not final. The choice can be changed until the round resolves (R4).
 - The shield is a toggle next to the Drop button and shows clearly whether it is on.
+- An error or confirmation appears where the player is looking: inside the first screen height of the form that caused it, never below other forms or buttons. Use the interface's own messages, not the browser's validation bubbles.
 - Nothing depends on hover. Everything works by tap, mouse and keyboard (keys 1 to 7 select a column, Enter drops, S toggles the shield).
 
 ## Telling things apart

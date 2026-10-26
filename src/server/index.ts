@@ -58,6 +58,8 @@ const clientBundles: Record<string, string> = {
   "game.js": bundleClient("src/client/game.ts"),
   "home.js": bundleClient("src/client/home.ts"),
   "quick.js": bundleClient("src/client/quick.ts"),
+  "leaderboard.js": bundleClient("src/client/leaderboard.ts"),
+  "account.js": bundleClient("src/client/account.ts"),
 };
 
 const reloadScript = DEV
@@ -85,12 +87,17 @@ const STYLES = `
   .columns{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:6px 0}
   .columns button{padding:0}
   .stack{display:grid;gap:8px;margin:12px 0}
+  .message{min-height:1.4em;font-weight:600}
+  .links{display:flex;flex-wrap:wrap}
+  .form{display:grid;gap:6px;margin:8px 0}
+  ol{padding-left:24px;overflow-wrap:anywhere}
+  [hidden]{display:none!important}
   .join{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0}
   .join label{grid-column:1/-1}
   input{min-height:44px;font:inherit;padding:0 10px;border:2px solid #1a1a1a;border-radius:8px;width:100%;text-transform:uppercase}
   a.button{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border:2px solid #1a1a1a;border-radius:8px;background:#fff;color:#1a1a1a;text-decoration:none}
   [hidden]{display:none!important}
-  a{display:inline-block;padding:12px 0;color:#1d4ed8}
+  a{display:inline-flex;align-items:center;min-height:44px;min-width:44px;padding:0 4px;margin-right:8px;color:#1d4ed8}
   .share{border:2px dashed #1a1a1a;border-radius:8px;padding:8px;margin:6px 0}
   .row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 12px}
   .share .actions{margin:4px 0 0}
@@ -202,11 +209,64 @@ function quickScreen(): string {
   `;
 }
 
+function leaderboardScreen(): string {
+  return `
+    <main data-testid="leaderboard-screen">
+      <h1>Leaderboard</h1>
+      <h2>Most wins</h2>
+      <ol data-testid="leaderboard-wins"><li>Loading...</li></ol>
+      <h2>Fewest rounds to win</h2>
+      <ol data-testid="leaderboard-rounds"><li>Loading...</li></ol>
+      <p id="board-message" role="status"></p>
+      <p><a href="/">Back to Home</a></p>
+    </main>
+  `;
+}
+
+function accountScreen(): string {
+  return `
+    <main data-testid="account-screen">
+      <h1>Your name</h1>
+      <p id="account-who" role="status"></p>
+      <p id="account-message" role="status" class="message"></p>
+      <form id="guest-form" data-testid="guest-form" class="form" novalidate>
+        <label for="nickname">Nickname (2 to 16 letters, numbers, spaces, hyphens or underscores)</label>
+        <input id="nickname" name="nickname" data-testid="nickname-input" autocomplete="nickname" minlength="2" maxlength="16" required />
+        <button type="submit">Play as a guest</button>
+      </form>
+      <h2 id="keep-heading" hidden>Keep your record</h2>
+      <form id="signup-form" data-testid="signup-form" class="form" novalidate hidden>
+        <label for="su-username">Username</label>
+        <input id="su-username" name="username" data-testid="signup-username" autocomplete="username" minlength="3" maxlength="20" required />
+        <label for="su-password">Password (at least 8 characters)</label>
+        <input id="su-password" name="password" data-testid="signup-password" type="password" autocomplete="new-password" minlength="8" required />
+        <button type="submit">Sign up</button>
+      </form>
+      <h2>Sign in</h2>
+      <form id="signin-form" data-testid="signin-form" class="form" novalidate>
+        <label for="si-username">Username</label>
+        <input id="si-username" name="username" data-testid="signin-username" autocomplete="username" required />
+        <label for="si-password">Password</label>
+        <input id="si-password" name="password" data-testid="signin-password" type="password" autocomplete="current-password" required />
+        <button type="submit">Sign in</button>
+      </form>
+      <button type="button" data-testid="signout" hidden>Sign out</button>
+      <p><a href="/">Back to Home</a></p>
+    </main>
+  `;
+}
+
 function homeScreen(): string {
   return `
     <main data-testid="home-screen">
       <h1>Rubble</h1>
       <p>Simultaneous Connect 4. Both players choose at once.</p>
+      <form id="nick-form" class="join" data-testid="nick-form">
+        <label for="home-nickname">Your nickname</label>
+        <input id="home-nickname" data-testid="nickname-input" autocomplete="nickname" minlength="2" maxlength="16" />
+        <button type="submit">Save</button>
+      </form>
+      <p id="home-who" role="status"></p>
       <div class="stack">
         <button type="button" data-testid="play-computer">Play the computer</button>
         <button type="button" data-testid="play-friend">Play a friend</button>
@@ -218,7 +278,12 @@ function homeScreen(): string {
         <button type="submit">Join</button>
       </form>
       <p id="home-message" role="status"></p>
-      <p><a href="/readme/">About this app</a></p>
+      <h2>Leaderboard</h2>
+      <h3>Most wins</h3>
+      <ol data-testid="leaderboard-wins"><li>Loading...</li></ol>
+      <h3>Fewest rounds to win</h3>
+      <ol data-testid="leaderboard-rounds"><li>Loading...</li></ol>
+      <p class="links"><a href="/leaderboard">Full leaderboard</a> <a href="/account">Sign up or sign in</a> <a href="/readme/">About this app</a></p>
     </main>
   `;
 }
@@ -385,6 +450,12 @@ const server = createServer((req, res) => {
   } else if (path === "/play/quick" || path === "/play/quick/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(page("Rubble: quick match", quickScreen(), "/static/quick.js"));
+  } else if (path === "/leaderboard" || path === "/leaderboard/") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(page("Rubble: leaderboard", leaderboardScreen(), "/static/leaderboard.js"));
+  } else if (path === "/account" || path === "/account/") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(page("Rubble: your name", accountScreen(), "/static/account.js"));
   } else if (path === "/readme/" || path === "/readme") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(readme());
