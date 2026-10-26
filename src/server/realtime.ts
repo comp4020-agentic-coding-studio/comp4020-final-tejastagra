@@ -397,10 +397,10 @@ export function attachRealtime(
       // Create the game before this connection is registered, so its
       // broadcast (sent to whichever connections already exist) cannot also
       // reach this joiner; sendSnapshot below is this joiner's one snapshot.
-      if (!game.getGame(code)) {
-        game.createGame(code);
-        scheduleTimerFor(code);
-      }
+      if (!game.getGame(code)) game.createGame(code);
+      // A game made by POST /api/games (R34) exists before anyone joins; its
+      // first round timer starts when the first player arrives (R18).
+      if (!timers.has(code)) scheduleTimerFor(code);
       connections.set(key(code, player), socket);
 
       logEvent("join", { game: code, role: player, clients_in_game: clientsInGame(code) });

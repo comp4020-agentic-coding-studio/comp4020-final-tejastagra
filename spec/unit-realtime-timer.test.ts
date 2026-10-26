@@ -12,12 +12,12 @@ import { attachRealtime } from "../src/server/realtime.ts";
 // finish before it fires, even on a slow CI runner, but still fast for tests.
 const ROUND_TIMER_MS = 300;
 
-function startServer(): { server: Server; url: string; dispose: () => void } {
+function startServer(): { server: Server; url: string; dispose: () => void; createGame: (code: string) => void } {
   const server = createServer((_req, res) => res.end());
-  const { dispose } = attachRealtime(server, openDb(":memory:"), { roundTimerMs: ROUND_TIMER_MS });
+  const { dispose, game } = attachRealtime(server, openDb(":memory:"), { roundTimerMs: ROUND_TIMER_MS });
   server.listen(0);
   const { port } = server.address() as AddressInfo;
-  return { server, url: `ws://localhost:${port}/ws`, dispose };
+  return { server, url: `ws://localhost:${port}/ws`, dispose, createGame: (code) => void game.createGame(code) };
 }
 
 function onceOpen(socket: WebSocket): Promise<void> {
@@ -61,6 +61,19 @@ let cleanup: (() => void) | undefined;
 afterEach(() => {
   cleanup?.();
   cleanup = undefined;
+});
+
+describe("R18 and R34: a game created before anyone joins", () => {
+  it("R18 the first round of a game made by POST /api/games still times out once a player joins", async () => {
+    const { server, url, dispose, createGame } = startServer();
+    cleanup = () => { dispose(); server.close(); };
+    createGame("ABC234");
+    const a = await joinGame(url, "ABC234", "A");
+    const next = await a.next();
+    expect(next.type).toBe("snapshot");
+    expect(next.state.round).toBe(1);
+    a.socket.close();
+  });
 });
 
 describe("R18: the round timer resolves a round even if a player never chooses", () => {

@@ -5,6 +5,8 @@ import { logEvent } from "./log.ts";
 import { openDb } from "./db.ts";
 import { attachRealtime } from "./realtime.ts";
 import { bundleClient } from "./client-bundle.ts";
+import { generateCode } from "./codes.ts";
+import { createRateLimiter } from "./rate-limit.ts";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DEV = process.env.DEV === "1";
@@ -12,6 +14,7 @@ const DB_PATH = process.env.RUBBLE_DB_PATH ?? (DEV ? "./data-dev/rubble.db" : "/
 const startedAt = String(Date.now());
 
 const db = openDb(DB_PATH);
+const allowCreate = createRateLimiter(30, 60_000);
 
 // Bundled once at start; pnpm dev's --watch restarts the whole process on
 // any source change, so this never goes stale while developing.
@@ -132,6 +135,17 @@ const server = createServer((req, res) => {
   } else if (path === "/readme/" || path === "/readme") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(readme());
+  } else if (path === "/api/games" && req.method === "POST") {
+    // Play a friend (R34): the server makes the code, so clients never invent one.
+    if (!allowCreate(req.socket.remoteAddress ?? "unknown")) {
+      res.writeHead(429, { "content-type": "text/plain; charset=utf-8", "retry-after": "60" });
+      res.end("Too many games started. Try again in a minute.");
+      return;
+    }
+    const code = generateCode((c) => realtime.game.getGame(c) !== undefined);
+    realtime.game.createGame(code);
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ code }));
   } else if (GAME_CODE_PATTERN.test(path)) {
     const code = path.match(GAME_CODE_PATTERN)![1];
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -145,7 +159,7 @@ const server = createServer((req, res) => {
   }
 });
 
-attachRealtime(server, db);
+const realtime = attachRealtime(server, db);
 
 server.listen(PORT, "0.0.0.0", () => {
   logEvent("server_start", { port: PORT });

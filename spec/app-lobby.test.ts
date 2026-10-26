@@ -26,8 +26,33 @@ function freshCode(): string {
 
 describe("L: playing modes (R33 to R36)", () => {
   it.todo("L1 (R33) play the computer starts a game with no waiting");
-  it.todo("L2 (R34) game codes use only the allowed letters and are 6 characters long");
-  it.todo("L3 (R34) opening /g/<code> or entering the code joins the same game");
+  it("L2 (R34) POST /api/games returns a fresh 6-character code from the allowed letters", async () => {
+    const codes = new Set<string>();
+    for (let i = 0; i < 5; i++) {
+      const res = await fetch(inject("baseUrl") + "/api/games", { method: "POST" });
+      expect(res.status).toBe(200);
+      const { code } = await res.json();
+      expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
+      codes.add(code);
+    }
+    expect(codes.size).toBe(5);
+  });
+
+  it("L3 (R34) the created code's /g/<code> page loads and two clients joining it share one game", async () => {
+    const { code } = await (await fetch(inject("baseUrl") + "/api/games", { method: "POST" })).json();
+    expect((await fetch(inject("baseUrl") + "/g/" + code)).status).toBe(200);
+    const a = new WebSocket(wsUrl("/ws"));
+    await onceOpen(a);
+    a.send(JSON.stringify({ type: "join", code }));
+    const first = await onceMessage(a);
+    const b = new WebSocket(wsUrl("/ws"));
+    await onceOpen(b);
+    b.send(JSON.stringify({ type: "join", code }));
+    const second = await onceMessage(b);
+    expect([first.you, second.you].sort()).toEqual(["A", "B"]);
+    a.close();
+    b.close();
+  });
   it.todo("L4 (R35) 20 clients arriving at once in quick match are paired into exactly 10 games, each client once");
 
   it("L5 (R36) a third client joining a full game is refused with game_full", async () => {

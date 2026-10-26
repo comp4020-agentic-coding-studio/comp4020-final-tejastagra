@@ -61,7 +61,7 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 ## Playing modes
 
 - **R33** **Play the computer** starts a game immediately. It never waits for anyone.
-- **R34** **Play a friend** creates a game with a 6-character game code from the letters `ABCDEFGHJKMNPQRSTUVWXYZ23456789` and a link `/g/<code>`. The game starts when a second player opens the link or enters the code.
+- **R34** **Play a friend** creates a game with a 6-character game code from the letters `ABCDEFGHJKMNPQRSTUVWXYZ23456789` and a link `/g/<code>`. The game starts when a second player opens the link or enters the code. Implementation note: the server limits how many games one address may create (30 per minute), so the endpoint cannot be used to fill memory and disk; the first round's timer starts when the first player joins.
 - **R35** **Quick match** pairs a waiting player with the next player to arrive. Two players are never paired into more than one game, even if they arrive at the same moment. If nobody arrives within 20 seconds, the player is offered the computer and may keep waiting.
 - **R36** A game has at most two players. A third visitor to a full game sees a message saying the game is full and a button to start their own.
 
