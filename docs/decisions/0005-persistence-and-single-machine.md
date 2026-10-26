@@ -1,6 +1,6 @@
 # 0005. Persistence and running on one machine
 
-- **Status:** Proposed
+- **Status:** Accepted (default, pending Tejas's review)
 - **Decided by:** Tejas
 
 ## Context
@@ -14,7 +14,7 @@ Promise 5 needs games, names and the leaderboard to survive restarts and redeplo
 
 ## Decision
 
-Proposed: option 1, with the database file at `/data/rubble.db`, the only path that survives restarts and redeploys (`fly.toml`). Live game connections are held in memory on the single machine; the database is the record. CI runs the app with an empty `/data`, so every check must create its own data.
+Option 1, with the database file at `/data/rubble.db`, the only path that survives restarts and redeploys (`fly.toml`). Live game connections are held in memory on the single machine; the database is the record. CI runs the app with an empty `/data`, so every check must create its own data.
 
 ## What it costs
 
