@@ -128,7 +128,7 @@ export function resolveRound(
 ## Open decisions (Tejas to confirm)
 
 - **D1** Accepted (default, pending Tejas's review): yes, a draw is the right result when both players complete a line in the same round (R14).
-- **D2** Is 15 seconds the right round timer (R18)? Playtests should settle this.
+- **D2** Accepted (default, pending Tejas's review): 15 seconds is the round timer (R18). Playtests should settle this.
 - **D3** Should a third visitor to a full game be able to watch instead of only seeing "game full" (R36)? Watching is not in scope unless Tejas adds it here.
 - **D4** Should forfeits count towards most wins (R38)?
 - **D5** Should guests appear on the leaderboard, or only accounts?
