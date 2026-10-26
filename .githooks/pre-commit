@@ -20,3 +20,8 @@ if [ -n "$hits" ]; then
 	echo "rotated: post on Ed." >&2
 	exit 1
 fi
+
+# Rubble harness: rebuild the process log from every commit so far and include
+# it in this commit (see CLAUDE.md, "Commit messages").
+node scripts/process-log.mjs >/dev/null || exit 1
+git add docs/process-log.md

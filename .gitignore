@@ -17,6 +17,14 @@ mise.local.toml
 *.pem
 
 # Claude Code's project directory is machine-local: settings in here can hold
-# your course API key, and this repo goes public when you ship. Your tracked
-# harness is CLAUDE.md (and any AGENTS.md), not this directory.
-.claude/
+# your course API key, and this repo goes public when you ship. Everything in it
+# stays ignored except the parts that are harness, so markers can read them:
+# the subagents, slash commands, hook scripts and shared settings.json (which
+# holds only the Stop hook, never a key). Personal settings stay in
+# .claude/settings.local.json, which remains ignored. The pre-commit hook also
+# blocks anything that looks like a key.
+.claude/*
+!.claude/agents/
+!.claude/commands/
+!.claude/hooks/
+!.claude/settings.json
