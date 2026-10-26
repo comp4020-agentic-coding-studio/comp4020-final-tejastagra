@@ -236,6 +236,55 @@ describe("R13 a player wins with four in a row", () => {
   });
 });
 
+describe("R13 to R7 player B is treated the same as player A", () => {
+  it("R7 lands B's disc when only B used a shield", () => {
+    const result = resolveRound(newGame(), {
+      A: { column: 3, shield: false },
+      B: { column: 3, shield: true },
+    });
+    expect(result.outcome).toBe("shield_win");
+    expect(result.shieldWinner).toBe("B");
+    expect(result.state.board[3]).toEqual(["B"]);
+    expect(result.state.shieldsLeft).toEqual({ A: true, B: false });
+  });
+
+  it("R13 B wins with four in a row", () => {
+    let state = newGame();
+    for (const column of [0, 1, 2]) {
+      state = resolveRound(state, { A: null, B: { column, shield: false } }).state;
+    }
+    const result = resolveRound(state, { A: null, B: { column: 3, shield: false } });
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("B");
+  });
+
+  it("R13 wins on a falling diagonal", () => {
+    // A at (3,0) (2,1) (1,2) (0,3), with B filling underneath.
+    let state = newGame();
+    const a = (column: number) => ({ A: { column, shield: false }, B: null });
+    const b = (column: number) => ({ A: null, B: { column, shield: false } });
+    for (const step of [a(3), b(2), a(2), b(1), b(1), a(1), b(0), b(0), b(0)]) {
+      state = resolveRound(state, step).state;
+    }
+    const result = resolveRound(state, a(0));
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("A");
+  });
+
+  it("R3 resolveRound throws for B's full column or spent shield even when A's choice is fine", () => {
+    const full = newGame();
+    full.board[0] = Array.from({ length: ROWS }, () => "R" as const);
+    expect(() =>
+      resolveRound(full, { A: { column: 2, shield: false }, B: { column: 0, shield: false } }),
+    ).toThrow(/column_full/);
+    const spent = newGame();
+    spent.shieldsLeft.B = false;
+    expect(() =>
+      resolveRound(spent, { A: { column: 2, shield: false }, B: { column: 3, shield: true } }),
+    ).toThrow(/no_shield/);
+  });
+});
+
 describe("R14 both players completing a line in the same round is a draw", () => {
   it("R14 draws when both complete a line in the same round", () => {
     // A builds a horizontal three at columns 0,1,2 row 0; B builds a

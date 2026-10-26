@@ -34,7 +34,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | P5 | A game is won exactly when it has a winner | R13 to R16 | passing |
 | P6 | Nothing is accepted after the game ends | R16 | passing |
 | P7 | Pieces never move or change | R12 | passing |
-| M1 | Mutation score of the engine is at least 85% | all engine rules | todo |
+| M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.17%) |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
 
