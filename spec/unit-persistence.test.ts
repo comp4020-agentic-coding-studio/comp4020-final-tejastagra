@@ -187,4 +187,29 @@ describe("S: what happens is kept (promise 5)", () => {
       rmSync(`${path}-shm`, { force: true });
     }
   });
+
+  it("R37 opening a database created before the vs_computer column existed upgrades it in place", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration3.db`);
+    try {
+      // The schema as shipped after the 'ended' column: two migrations applied.
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
+      old.exec(`PRAGMA user_version = 2`);
+      old.prepare("INSERT INTO games (code, state, updated_at) VALUES (?, ?, ?)").run("OLD02", JSON.stringify(newGame()), Date.now());
+      old.close();
+
+      const upgraded = openDb(path);
+      const loaded = upgraded.loadGames();
+      expect(loaded).toHaveLength(1);
+      expect(loaded[0].vsComputer).toBe(false); // existing games are human games
+      upgraded.markComputer("OLD02", newGame());
+      expect(upgraded.loadGames()[0].vsComputer).toBe(true);
+      upgraded.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
 });

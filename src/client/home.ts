@@ -5,10 +5,10 @@ const $ = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${i
 const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
 const message = document.getElementById("home-message")!;
 
-$("play-friend").addEventListener("click", async () => {
+async function start(endpoint: string): Promise<void> {
   message.textContent = "";
   try {
-    const res = await fetch("/api/games", { method: "POST" });
+    const res = await fetch(endpoint, { method: "POST" });
     if (!res.ok) {
       message.textContent = res.status === 429 ? "Too many games started. Try again in a minute." : "Could not start a game. Try again.";
       return;
@@ -18,7 +18,10 @@ $("play-friend").addEventListener("click", async () => {
   } catch {
     message.textContent = "Could not reach the server. Check your connection.";
   }
-});
+}
+
+$("play-friend").addEventListener("click", () => start("/api/games"));
+$("play-computer").addEventListener("click", () => start("/api/computer"));
 
 document.getElementById("join-form")!.addEventListener("submit", (event) => {
   event.preventDefault();

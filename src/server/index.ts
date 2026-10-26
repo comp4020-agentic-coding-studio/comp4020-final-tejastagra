@@ -167,7 +167,7 @@ function quickScreen(): string {
       <p data-testid="quick-status" role="status">Waiting for another player...</p>
       <div data-testid="computer-offer" hidden>
         <p>No one has arrived yet. You can play the computer instead, or keep waiting.</p>
-        <p><span data-testid="computer-offer-note">Playing the computer is coming soon.</span></p>
+        <p><button type="button" data-testid="computer-offer-play">Play the computer</button></p>
       </div>
       <button type="button" data-testid="quick-cancel">Cancel</button>
     </main>
@@ -180,7 +180,7 @@ function homeScreen(): string {
       <h1>Rubble</h1>
       <p>Simultaneous Connect 4. Both players choose at once.</p>
       <div class="stack">
-        <button type="button" data-testid="play-computer" disabled>Play the computer (coming soon)</button>
+        <button type="button" data-testid="play-computer">Play the computer</button>
         <button type="button" data-testid="play-friend">Play a friend</button>
         <a class="button" data-testid="quick-match" href="/play/quick">Quick match</a>
       </div>
@@ -227,6 +227,17 @@ const server = createServer((req, res) => {
     }
     res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify(body));
+  } else if (path === "/api/computer" && req.method === "POST") {
+    // Play the computer (R33): a game that starts at once, never waiting for anyone.
+    if (!allowCreate(clientAddress(req))) {
+      res.writeHead(429, { "content-type": "text/plain; charset=utf-8", "retry-after": "60" });
+      res.end("Too many games started. Try again in a minute.");
+      return;
+    }
+    const code = generateCode((c) => realtime.game.getGame(c) !== undefined);
+    realtime.createComputerGame(code);
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ code }));
   } else if (path === "/api/games" && req.method === "POST") {
     // Play a friend (R34): the server makes the code, so clients never invent one.
     if (!allowCreate(clientAddress(req))) {

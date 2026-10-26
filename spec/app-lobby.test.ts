@@ -25,7 +25,27 @@ function freshCode(): string {
 }
 
 describe("L: playing modes (R33 to R36)", () => {
-  it.todo("L1 (R33) play the computer starts a game with no waiting");
+  it("L1 (R33) play the computer starts a game with no waiting", async () => {
+    const res = await fetch(inject("baseUrl") + "/api/computer", { method: "POST" });
+    expect(res.status).toBe(200);
+    const { code } = await res.json();
+    expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
+    const human = new WebSocket(wsUrl("/ws"));
+    await onceOpen(human);
+    const started = Date.now();
+    human.send(JSON.stringify({ type: "join", code }));
+    const snapshot = await onceMessage(human);
+    expect(snapshot.type).toBe("snapshot");
+    expect(snapshot.you).toBe("A");
+    expect(Date.now() - started).toBeLessThan(1000);
+    // Nobody else can take the computer's seat (R36).
+    const other = new WebSocket(wsUrl("/ws"));
+    await onceOpen(other);
+    other.send(JSON.stringify({ type: "join", code }));
+    expect((await onceMessage(other)).type).toBe("game_full");
+    human.close();
+    other.close();
+  });
   it("L2 (R34) POST /api/games returns a fresh 6-character code from the allowed letters", async () => {
     const codes = new Set<string>();
     for (let i = 0; i < 5; i++) {

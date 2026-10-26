@@ -45,6 +45,21 @@ setTimeout(() => {
   if (!finished) $("computer-offer").hidden = false;
 }, OFFER_AFTER_MS);
 
+$("computer-offer-play").addEventListener("click", async () => {
+  try {
+    const res = await fetch("/api/computer", { method: "POST" });
+    if (res.ok) {
+      finished = true;
+      await call("DELETE"); // leave Quick match only once the computer game exists
+      location.href = `/g/${(await res.json()).code}`;
+      return;
+    }
+  } catch {
+    // fall through to the message below
+  }
+  status.textContent = "Could not start a game against the computer. You are still waiting.";
+});
+
 $("quick-cancel").addEventListener("click", async () => {
   finished = true;
   await call("DELETE");

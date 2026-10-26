@@ -14,6 +14,7 @@ export interface SavedGame {
   state: GameState;
   updatedAt: number;
   ended: Ended | null;
+  vsComputer: boolean; // R33, R37: the opponent is the computer
 }
 
 export interface Db {
@@ -22,6 +23,10 @@ export interface Db {
   // R27): a forfeit is server-side state, so it is stored alongside the
   // engine's state rather than inside it.
   saveEnded(code: string, ended: Ended): void;
+  // Marks a game as against the computer (R33), so it survives a restart and
+  // never counts for the leaderboard (R37).
+  // An upsert, so the mark can be written before the game itself (one source of truth).
+  markComputer(code: string, state: GameState): void;
   loadGames(): SavedGame[];
   close(): void;
 }
@@ -38,6 +43,7 @@ const MIGRATIONS: string[] = [
      updated_at INTEGER NOT NULL
    )`,
   `ALTER TABLE games ADD COLUMN ended TEXT`,
+  `ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`,
 ];
 
 function migrate(db: DatabaseSync): void {
@@ -58,7 +64,11 @@ export function openDb(path: string): Db {
     ON CONFLICT(code) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at
   `);
   const updateEnded = db.prepare(`UPDATE games SET ended = ? WHERE code = ?`);
-  const selectAll = db.prepare("SELECT code, state, updated_at, ended FROM games");
+  const markComputerRow = db.prepare(`
+    INSERT INTO games (code, state, updated_at, vs_computer) VALUES (?, ?, ?, 1)
+    ON CONFLICT(code) DO UPDATE SET vs_computer = 1
+  `);
+  const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer FROM games");
 
   return {
     saveGame(code: string, state: GameState): void {
@@ -66,6 +76,9 @@ export function openDb(path: string): Db {
     },
     saveEnded(code: string, ended: Ended): void {
       updateEnded.run(JSON.stringify(ended), code);
+    },
+    markComputer(code: string, state: GameState): void {
+      markComputerRow.run(code, JSON.stringify(state), Date.now());
     },
     loadGames(): SavedGame[] {
       const saved: SavedGame[] = [];
@@ -77,6 +90,7 @@ export function openDb(path: string): Db {
             state: JSON.parse(row.state as string) as GameState,
             updatedAt: row.updated_at as number,
             ended: endedColumn ? (JSON.parse(endedColumn) as Ended) : null,
+            vsComputer: row.vs_computer === 1,
           });
         } catch (error) {
           logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });

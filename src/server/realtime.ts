@@ -9,10 +9,11 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import type { Server } from "node:http";
 import { randomUUID } from "node:crypto";
-import { validateChoice, type Choice, type GameState, type Player } from "../engine/index.ts";
+import { newGame, validateChoice, type Choice, type GameState, type Player } from "../engine/index.ts";
 import { createGameService, ROUND_TIMER_MS, type GameService } from "./game-service.ts";
 import type { Db } from "./db.ts";
 import { logEvent } from "./log.ts";
+import { chooseMove, seededRandom } from "./computer.ts";
 
 export interface Snapshot {
   type: "snapshot";
@@ -74,17 +75,27 @@ function send(socket: WebSocket, message: ServerMessage): void {
 export interface RealtimeOptions {
   roundTimerMs?: number; // overridable so tests do not wait 15 real seconds (R18)
   disconnectGraceMs?: number; // overridable so tests do not wait 30 real seconds (R27)
+  computerDelayMs?: number; // how long the computer "thinks" before choosing (R33)
+  computerSeed?: number; // makes the computer's randomness repeatable (R46)
 }
 
 export const DISCONNECT_GRACE_MS = 30_000;
+export const COMPUTER_DELAY_MS = 1_500;
 
 export function attachRealtime(
   server: Server,
   db: Db,
   options: RealtimeOptions = {},
-): { wss: WebSocketServer; game: GameService; dispose: () => void } {
+): { wss: WebSocketServer; game: GameService; dispose: () => void; createComputerGame: (code: string) => void } {
   const roundTimerMs = options.roundTimerMs ?? ROUND_TIMER_MS;
   const disconnectGraceMs = options.disconnectGraceMs ?? DISCONNECT_GRACE_MS;
+  const computerDelayMs = options.computerDelayMs ?? COMPUTER_DELAY_MS;
+  const computerRandom = seededRandom(options.computerSeed ?? Math.floor(Math.random() * 2 ** 32));
+  // Games where seat B is the computer (R33). Seat B is reserved for it, so no
+  // human can take it (R36); the computer decides inside the server and its
+  // choice is held in `pending` like any player's (R21, R22).
+  const computerGames = new Set<string>();
+  const computerTimers = new Map<string, NodeJS.Timeout>();
   // Which player letters have ever been assigned in a game, so a game has at
   // most two players (R36).
   const roster = new Map<string, { A: boolean; B: boolean }>();
@@ -170,8 +181,14 @@ export function attachRealtime(
     if (saved.ended) forfeited.set(saved.code, saved.ended.winner);
   }
 
+  for (const saved of db.loadGames()) {
+    if (saved.vsComputer) reserveComputerSeat(saved.code);
+  }
+
   for (const code of restoredCodes) {
-    if (!forfeited.has(code)) scheduleTimerFor(code);
+    // A restored computer game waits for its human: the timer starts when
+    // they rejoin (the join path), so the computer never plays on alone.
+    if (!forfeited.has(code) && !computerGames.has(code)) scheduleTimerFor(code);
   }
 
   function clearTimerFor(code: string): void {
@@ -179,6 +196,54 @@ export function attachRealtime(
     if (timer) {
       clearTimeout(timer);
       timers.delete(code);
+    }
+    const computerTimer = computerTimers.get(code);
+    if (computerTimer) {
+      clearTimeout(computerTimer);
+      computerTimers.delete(code);
+    }
+  }
+
+  function reserveComputerSeat(code: string): void {
+    computerGames.add(code);
+    const seats = roster.get(code) ?? { A: false, B: false };
+    seats.B = true;
+    roster.set(code, seats);
+    if (!seatTokens.has(key(code, "B"))) seatTokens.set(key(code, "B"), randomUUID()); // never given to anyone
+  }
+
+  function createComputerGame(code: string): void {
+    // Mark first: if a later write failed, the game would still be known as
+    // a computer game (R37) rather than becoming a human one after a restart.
+    db.markComputer(code, newGame());
+    reserveComputerSeat(code);
+    game.createGame(code);
+  }
+
+  // The computer chooses after a short delay, using only public information
+  // (R40). If the human has chosen already this resolves the round; if not,
+  // the human is told only that the opponent is ready (R21).
+  function computerChoose(code: string): void {
+    computerTimers.delete(code);
+    const record = game.getGame(code);
+    if (!record || record.state.status !== "playing" || forfeited.has(code) || resolving.has(code)) return;
+    const choices = pendingFor(code);
+    if (choices.B !== null) return;
+    choices.B = chooseMove(
+      {
+        board: record.state.board,
+        round: record.state.round,
+        shieldsLeft: record.state.shieldsLeft,
+        opponentReady: choices.A !== null,
+      },
+      "B",
+      computerRandom,
+    );
+    if (choices.A !== null) {
+      resolveNow(code, { A: choices.A, B: choices.B });
+    } else {
+      const human = connections.get(key(code, "A"));
+      if (human) send(human, { type: "opponent_ready" });
     }
   }
 
@@ -214,6 +279,7 @@ export function attachRealtime(
       resolveNow(code, { A: choices.A, B: choices.B });
     }, roundTimerMs);
     timers.set(code, timer);
+    if (computerGames.has(code)) computerTimers.set(code, setTimeout(() => computerChoose(code), computerDelayMs));
   }
 
   function clearGraceTimer(code: string, player: Player): void {
@@ -431,7 +497,9 @@ export function attachRealtime(
     timers.clear();
     for (const timer of graceTimers.values()) clearTimeout(timer);
     graceTimers.clear();
+    for (const timer of computerTimers.values()) clearTimeout(timer);
+    computerTimers.clear();
   }
 
-  return { wss, game, dispose };
+  return { wss, game, dispose, createComputerGame };
 }
