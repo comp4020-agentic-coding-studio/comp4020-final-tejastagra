@@ -1,89 +1,155 @@
-// The first-time tutorial (docs/design/tutorial.md, R47 to R50). It runs on a
-// practice board in the browser against a scripted computer. It never opens a
-// game on the server, so it can never change the leaderboard (R50): the only
-// thing it sends is "finished" or "skipped", which saves with the player (R48).
-import { buildBoard, confettiBurst, reducedMotion, shieldIcon, themeNumber } from "./arcade.ts";
+// The first-time tutorial (docs/design/tutorial.md U41 to U48, rules R47 to R50). It is
+// interactive: each step waits for the player to act, and "Next" appears only once the step's
+// action is done. It runs on a practice board in the browser against a scripted computer. It never
+// opens a game on the server, so it can never change the leaderboard (R50): the only thing it
+// sends is "finished" or "skipped", which saves with the player (R48).
+import { buildBoard, confettiBurst, reducedMotion, themeNumber } from "./arcade.ts";
 import { $ } from "./common.ts";
+
+type Piece = "you" | "opponent" | "rubble";
+
+// The practice board and everything the scripted steps use to show a lesson.
+interface Stage {
+  place(column: number, piece: Piece, animation?: boolean): number;
+  reset(): void;
+  lock(column: number): void; // the ghost disc lifts and locks above a column (U12)
+  clearGhost(): void;
+  glow(column: number | null): void;
+  // Waits for the player to tap a column. `refuse` may return a hint to say why a tap was not
+  // the one the lesson needs; the tap is then ignored and the wait goes on.
+  waitTap(refuse?: (column: number) => string | null): Promise<number>;
+  // Waits for the player to tap the shield badge.
+  waitShield(): Promise<void>;
+  armed(): boolean;
+  showShield(show: boolean): void;
+  shieldUsed(): void;
+  status(text: string): void;
+  hint(text: string): void;
+  pause(ms: number): Promise<void>;
+  win(cells: Array<[number, number]>): void;
+  wrap: HTMLElement;
+}
 
 interface Step {
   title: string;
   caption: string;
-  run: (board: ReturnType<typeof buildBoard>, wrap: HTMLElement) => Promise<void>;
+  // Runs the step; resolves once the player has done what it asks. The last step has no action.
+  run: (s: Stage) => Promise<void>;
 }
 
-const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-// The practice board shows each lesson as a short, scripted scene. Under reduced
-// motion the discs simply appear in place (U48), so every step still makes sense.
-async function drop(board: ReturnType<typeof buildBoard>, column: number, row: number, piece: "you" | "opponent" | "rubble"): Promise<void> {
-  board.place(column, row, piece, piece === "rubble" ? "thud" : "dropping");
-  if (!reducedMotion()) await wait(themeNumber("--ms-drop-land"));
-}
+const THINK = () => themeNumber("--ms-beat");
 
 const STEPS: Step[] = [
   {
     title: "Pick a column",
-    caption: "Tap a column to choose it. You can change your mind until the round ends.",
-    async run(board) {
-      board.clear();
-      await wait(themeNumber("--ms-beat") / 3);
-      const ghost = document.createElement("span");
-      ghost.className = "ghost";
-      ghost.dataset.piece = "you";
-      ghost.dataset.chosen = "true";
-      board.cell(3, 5).append(ghost);
+    caption: "Tap a column to choose it. Once you choose, your choice is locked in.",
+    async run(s) {
+      s.reset();
+      const column = await s.waitTap();
+      s.lock(column);
+      s.hint("Locked in. You cannot change it now.");
     },
   },
   {
     title: "You both move at once",
     caption: "Your opponent chooses at the same time. Neither of you sees the other's choice until both discs drop.",
-    async run(board) {
-      board.clear();
-      await wait(themeNumber("--ms-beat") / 3);
-      await Promise.all([drop(board, 2, 0, "you"), drop(board, 4, 0, "opponent")]);
+    async run(s) {
+      s.reset();
+      s.hint("Tap a column.");
+      const column = await s.waitTap();
+      s.lock(column);
+      s.status("Choosing");
+      await s.pause(THINK());
+      s.status("Ready");
+      await s.pause(THINK() / 3);
+      s.clearGhost();
+      s.place(column, "you", true);
+      s.place(column === 6 ? 5 : column + 1, "opponent", true); // a different column: both discs land
+      s.hint("Both discs dropped together.");
     },
   },
   {
     title: "Crash!",
     caption: "If you both pick the same column, the discs crash and leave rubble that belongs to nobody. Rubble blocks lines.",
-    async run(board) {
-      board.clear();
-      board.place(2, 0, "you");
-      board.place(4, 0, "opponent");
-      await wait(themeNumber("--ms-beat") / 3);
-      await drop(board, 3, 0, "rubble");
+    async run(s) {
+      s.reset();
+      s.hint("Tap any column. Your opponent will pick the same one.");
+      const column = await s.waitTap();
+      s.lock(column);
+      s.status("Choosing");
+      await s.pause(THINK());
+      s.status("Ready");
+      await s.pause(THINK() / 3);
+      s.clearGhost();
+      s.place(column, "rubble", true); // the scripted computer chose the same column
+      s.hint("You both chose the same column: rubble.");
     },
   },
   {
-    title: "Your shield",
-    caption: "Your shield wins one crash, once per game. Arm it before you choose. Using it spends it, even if there is no crash.",
-    async run(board) {
-      board.clear();
-      board.place(2, 0, "you");
-      board.place(4, 0, "opponent");
-      await wait(themeNumber("--ms-beat") / 3);
-      await drop(board, 3, 0, "you"); // the shielded disc lands where the other would have crashed
+    title: "Power-ups: your shield",
+    caption: "Your shield wins one crash per game. Use it when you both need the same column.",
+    async run(s) {
+      s.reset();
+      for (const c of [0, 1, 2]) s.place(c, "opponent"); // three in a row: the computer needs column 4
+      s.place(5, "you");
+      s.glow(3);
+      s.showShield(true);
+      s.hint("Your opponent is about to win in the glowing column. Tap your shield.");
+      await s.waitShield();
+      s.hint("Shield armed. Now tap the glowing column.");
+      const column = await s.waitTap((c) => (!s.armed() ? "Tap your shield first." : c !== 3 ? "Tap the glowing column: your opponent needs it." : null));
+      s.lock(column);
+      s.status("Choosing");
+      await s.pause(THINK());
+      s.status("Ready");
+      await s.pause(THINK() / 3);
+      s.clearGhost();
+      s.glow(null);
+      s.place(column, "you", true); // your disc lands and blocks the win; theirs is lost
+      s.shieldUsed();
+      s.hint("Your disc landed. Your opponent's disc was lost.");
     },
   },
   {
     title: "Four in a row wins",
     caption: "Get four of your discs in a row, across, down or diagonally. If you both do it in the same round, it is a draw.",
-    async run(board, wrap) {
-      board.clear();
-      board.place(0, 0, "opponent");
-      board.place(6, 0, "opponent");
-      for (let c = 1; c <= 3; c++) board.place(c, 0, "you");
-      await wait(themeNumber("--ms-beat") / 3);
-      await drop(board, 4, 0, "you");
-      for (let c = 1; c <= 4; c++) board.cell(c, 0).querySelector(".piece")?.classList.add("win");
-      confettiBurst(wrap);
+    async run(s) {
+      s.reset();
+      s.showShield(false);
+      s.place(0, "opponent");
+      s.place(0, "opponent");
+      s.place(5, "opponent");
+      for (const c of [1, 2, 3]) s.place(c, "you");
+      s.glow(4);
+      s.hint("Tap the glowing column to finish your row.");
+      const column = await s.waitTap((c) => (c !== 4 ? "Tap the glowing column to finish your row." : null));
+      s.lock(column);
+      s.status("Choosing");
+      await s.pause(THINK());
+      s.status("Ready");
+      await s.pause(THINK() / 3);
+      s.clearGhost();
+      s.glow(null);
+      s.place(column, "you", true);
+      s.place(6, "opponent", true);
+      await s.pause(themeNumber("--ms-drop-land"));
+      s.win([[1, 0], [2, 0], [3, 0], [4, 0]]);
+      confettiBurst(s.wrap);
+      s.hint("Four in a row. You win!");
+    },
+  },
+  {
+    title: "Ready to play",
+    caption: "You know the rules. Play the computer to try them out.",
+    async run(s) {
+      s.reset();
+      s.showShield(false);
+      s.hint("");
     },
   },
 ];
 
 let open = false;
-let index = 0;
-let running = 0; // makes a late scene from an earlier step harmless
 
 async function save(result: "finished" | "skipped" | "replay"): Promise<void> {
   try {
@@ -96,19 +162,186 @@ async function save(result: "finished" | "skipped" | "replay"): Promise<void> {
 export async function showTutorial(options: { onClose?: () => void } = {}): Promise<void> {
   if (open) return;
   open = true;
-  index = 0;
+  let index = 0;
+  let running = 0; // a step that was left (skipped, or finished) can no longer change the screen
   const root = $("tutorial");
-  const card = root.querySelector(".tutorial-card") as HTMLElement;
   const titleEl = $("tutorial-title");
   const caption = $("tutorial-caption");
   const host = $("tutorial-board");
-  const next = $("tutorial-next");
+  const next = $("tutorial-next") as HTMLButtonElement;
   const skip = $("tutorial-skip");
+
+  // ---- The practice board: the same hit areas as the game, with its own hooks ----
   const board = buildBoard();
   const wrap = document.createElement("div");
   wrap.className = "board-wrap";
-  wrap.append(board.root);
-  host.replaceChildren(wrap);
+  const glows = document.createElement("div");
+  glows.className = "columns-glow";
+  glows.setAttribute("aria-hidden", "true");
+  const hits = document.createElement("div");
+  hits.className = "columns-hit";
+  hits.setAttribute("role", "group");
+  hits.setAttribute("aria-label", "Practice board: choose a column");
+  const glowCells: HTMLElement[] = [];
+  const buttons: HTMLButtonElement[] = [];
+  for (let c = 0; c < 7; c++) {
+    const g = document.createElement("span");
+    g.className = "column-glow";
+    glows.append(g);
+    glowCells.push(g);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "column-hit";
+    b.dataset.testid = `tutorial-column-${c}`;
+    b.setAttribute("aria-label", `Column ${c + 1}`);
+    hits.append(b);
+    buttons.push(b);
+  }
+  board.root.setAttribute("aria-hidden", "true");
+  wrap.append(board.root, glows, hits);
+
+  const status = document.createElement("p");
+  status.className = "tutorial-status";
+  status.dataset.testid = "tutorial-status";
+  const shield = document.createElement("button");
+  shield.type = "button";
+  shield.className = "shield-badge tutorial-shield";
+  shield.dataset.testid = "tutorial-shield";
+  shield.hidden = true;
+  shield.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/></svg><span></span>`;
+  const shieldLabel = shield.querySelector("span")!;
+  const hint = document.createElement("p");
+  hint.className = "tutorial-hint";
+  hint.dataset.testid = "tutorial-hint";
+  hint.setAttribute("role", "status");
+  host.replaceChildren(status, wrap, shield, hint);
+
+  const heights = new Array<number>(7).fill(0);
+  const ghost = document.createElement("span");
+  ghost.className = "ghost";
+  ghost.dataset.testid = "tutorial-ghost";
+  ghost.dataset.chosen = "true";
+  ghost.hidden = true;
+  let tapWaiter: { refuse?: (c: number) => string | null; resolve: (c: number) => void } | null = null;
+  let shieldWaiter: (() => void) | null = null;
+  let armed = false;
+  let locked = false;
+
+  const stage: Stage = {
+    wrap,
+    place(column, piece, animation = false) {
+      const row = heights[column]++;
+      board.place(column, row, piece, animation ? (piece === "rubble" ? "thud" : "dropping") : undefined);
+      return row;
+    },
+    reset() {
+      board.clear();
+      heights.fill(0);
+      stage.clearGhost();
+      stage.glow(null);
+      stage.status("Choosing");
+      armed = false;
+      locked = false;
+      shield.dataset.state = "ready";
+      shield.disabled = false;
+      shield.setAttribute("aria-pressed", "false");
+      shieldLabel.textContent = "Tap to arm shield";
+      stage.showShield(false);
+    },
+    lock(column) {
+      locked = true;
+      glowCells[column].append(ghost);
+      ghost.hidden = false;
+      for (const b of buttons) b.setAttribute("aria-disabled", "true");
+    },
+    clearGhost() {
+      ghost.hidden = true;
+      locked = false;
+      for (const b of buttons) b.setAttribute("aria-disabled", "false");
+    },
+    glow(column) {
+      glowCells.forEach((g, c) => (g.dataset.on = String(c === column)));
+    },
+    waitTap(refuse) {
+      return new Promise((resolve) => {
+        tapWaiter = { refuse, resolve };
+      });
+    },
+    waitShield() {
+      return new Promise((resolve) => {
+        shieldWaiter = resolve;
+      });
+    },
+    armed: () => armed,
+    showShield(show) {
+      shield.hidden = !show;
+    },
+    shieldUsed() {
+      shield.dataset.state = "spent";
+      shield.disabled = true;
+      shield.setAttribute("aria-pressed", "false");
+      shieldLabel.textContent = "Shield used";
+    },
+    status(text) {
+      status.textContent = `Opponent: ${text}`;
+    },
+    hint(text) {
+      hint.textContent = text;
+    },
+    pause: (ms) => new Promise((r) => setTimeout(r, reducedMotion() ? Math.min(ms, 120) : ms)),
+    win(cells) {
+      for (const [c, r] of cells) board.cell(c, r).querySelector(".piece")?.classList.add("win");
+    },
+  };
+
+  buttons.forEach((b, c) => {
+    b.addEventListener("click", () => {
+      if (!tapWaiter && shieldWaiter && !locked) {
+        stage.hint("Tap your shield first.");
+        return;
+      }
+      if (!tapWaiter || locked) return;
+      const why = tapWaiter.refuse?.(c) ?? null;
+      if (why) {
+        stage.hint(why);
+        return;
+      }
+      const waiter = tapWaiter;
+      tapWaiter = null;
+      waiter.resolve(c);
+    });
+    b.addEventListener("mouseenter", () => {
+      if (!tapWaiter || locked) return;
+      glowCells[c].append(ghost);
+      ghost.dataset.chosen = "false";
+      ghost.hidden = false;
+    });
+    b.addEventListener("mouseleave", () => {
+      if (!locked) ghost.hidden = true;
+    });
+  });
+  // A locked ghost always shows as chosen.
+  const lock = stage.lock;
+  stage.lock = (c) => {
+    ghost.dataset.chosen = "true";
+    ghost.style.animation = "none";
+    void ghost.offsetWidth;
+    ghost.style.animation = "";
+    lock(c);
+  };
+
+  shield.addEventListener("click", () => {
+    if (locked || shield.dataset.state === "spent") return;
+    armed = !armed;
+    shield.setAttribute("aria-pressed", String(armed));
+    shieldLabel.textContent = armed ? "Shield armed" : "Tap to arm shield";
+    if (armed && shieldWaiter) {
+      const done = shieldWaiter;
+      shieldWaiter = null;
+      done();
+    }
+  });
+
   root.hidden = false;
   document.body.style.overflow = "hidden";
 
@@ -126,13 +359,20 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
 
   function render(): void {
     const step = STEPS[index];
+    const last = index === STEPS.length - 1;
     titleEl.textContent = step.title;
     caption.textContent = step.caption; // an aria-live region, so it is announced (U47)
-    const last = index === STEPS.length - 1;
     next.textContent = last ? "Play the computer" : "Next";
+    skip.textContent = last ? "Back home" : "Skip";
+    next.hidden = true; // Next only appears once the step's action is done (U41 to U46)
+    tapWaiter = null;
+    shieldWaiter = null;
     const mine = ++running;
-    void step.run(board, wrap).then(() => void mine);
-    ($("tutorial-next") as HTMLButtonElement).focus();
+    void step.run(stage).then(() => {
+      if (mine !== running) return;
+      next.hidden = false;
+      next.focus();
+    });
   }
 
   async function onNext(): Promise<void> {
@@ -145,24 +385,34 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     // U46: the last step offers the computer.
     try {
       const res = await fetch("/api/computer", { method: "POST" });
-      if (res.ok) location.href = `/g/${(await res.json()).code}`;
+      if (res.ok) {
+        const { code } = await res.json();
+        try {
+          sessionStorage.setItem(`rubble-computer-${code}`, "1");
+        } catch {
+          // Play again then starts a friend game, which is harmless
+        }
+        location.href = `/g/${code}`;
+      }
     } catch {
       // stay on the page; the Play the computer button is still there
     }
   }
   function onSkip(): void {
-    close("skipped");
+    close(index === STEPS.length - 1 ? "finished" : "skipped");
   }
   function onKey(event: KeyboardEvent): void {
     if (event.key === "Escape") close("skipped");
+    else if (event.key >= "1" && event.key <= "7") buttons[Number(event.key) - 1].click();
+    else if (event.key === "s" || event.key === "S") {
+      if (!shield.hidden) shield.click();
+    }
   }
 
   next.addEventListener("click", onNext);
   skip.addEventListener("click", onSkip);
   document.addEventListener("keydown", onKey);
   render();
-  void card;
-  void shieldIcon;
 }
 
 export async function replayTutorial(): Promise<void> {
