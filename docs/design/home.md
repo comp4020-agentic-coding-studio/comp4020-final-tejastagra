@@ -22,7 +22,10 @@ The home screen is a stacked button menu with a round icon row underneath, dress
 
 ## Responsive
 
-- **U37** On a phone, everything stacks in one column: title, player card, button stack, icon row, top players, then the demo board.
-- **U38** On a laptop, the demo board sits large on the left and the title, player card, button stack and icon row sit on the right, using the full width rather than a narrow column.
+- **U37** On a phone, everything stacks in one column: title, tagline, player card, button stack, icon row, top players, then the demo board.
+- **U38** On a laptop the screen is split into two halves that share the width evenly, with generous space between them, both vertically centred, and nothing stretches across the full width:
+  - **Left half:** the "RUBBLE" title, the tagline and, beneath them, the looping demo board (U36).
+  - **Right half:** the player card (U32), the menu buttons (U33, at most `--stack-width`, 420px, wide) and then the round icon row (U34).
+  - The "Top players" strip (U35) sits under the right half, so the screen still fits without scrolling at 1366 x 768 where it can, and never makes a page wider than the screen.
 - **U39** The menu pieces pop in one after another when the screen opens (U26), and respect reduced motion.
 - **U40** Everything meets the standards in `docs/design.md`, and every existing home test hook keeps working (`play-computer`, `play-friend`, `quick-match`, `code-input`, `nickname-input`, `leaderboard-wins`, `leaderboard-rounds` on `/leaderboard`, plus `how-to-play`).

@@ -65,6 +65,13 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 - **R35** **Quick match** pairs a waiting player with the next player to arrive. Two players are never paired into more than one game, even if they arrive at the same moment. If nobody arrives within 20 seconds, the player is offered the computer and may keep waiting.
 - **R36** A game has at most two players. A third visitor to a full game sees a message saying the game is full and a button to start their own.
 
+## Tutorial
+
+- **R47** A player who has never finished or skipped the tutorial is shown it automatically before their first game.
+- **R48** Finishing or skipping the tutorial is saved with the player, so it does not return after a refresh, a new session, a restart or a redeploy.
+- **R49** The tutorial can be skipped at any step and replayed at any time from "How to play".
+- **R50** Tutorial games never change the leaderboard.
+
 ## Leaderboard
 
 - **R37** Games against the computer never change the leaderboard.

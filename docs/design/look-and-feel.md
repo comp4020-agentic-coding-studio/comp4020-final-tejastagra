@@ -26,6 +26,7 @@ Tejas chose this style on 27 October 2026 (ADR 0006). He kept the navy backgroun
 | `--hole` | `#0A1030` | Board holes |
 | `--rubble` | `#8A94A8` with `--rubble-hatch` `#4B5568` | Rubble blocks |
 | `--disabled` | `#3A4580` | A disabled button's fill (opaque, so nothing shows through it) |
+| `--stack-width` | `420px` | The widest a stack of menu buttons gets |
 | `--error` | `#FFB4A8` | Error messages |
 | `--ok` | `#7CE3A1` | Confirmations |
 | `--outline` | `3px solid var(--ink)` | Every button, panel, tile and disc |
@@ -73,19 +74,26 @@ Known limits, recorded so nobody has to rediscover them:
 
 - **U3** The page background is a vertical gradient from `--ground-top` to `--ground-bottom`. There is no starfield. Instead, slowly rising translucent bubbles shaped like game discs drift up the screen behind everything: faint red, yellow and blue, with some showing the ring marker and some the cross marker.
   - There are about 12 on a laptop and 7 on a phone. They rise at different speeds (18 to 34 seconds a crossing), sizes (24 to 72px) and starts, and they never block taps (`pointer-events: none`) or sit in front of text.
+  - **U3a** They always sit behind all content and never overlap a button, text or the board. The bubble layer is a fixed layer under the page, the page is a layer above it, and the page's panels, buttons and board are fully opaque, so a bubble can pass behind them but never show through or in front. A disabled button is opaque too (`--disabled`), not see-through.
   - They animate only `transform` and `opacity`, are not blurred, and are one fixed layer, so they stay smooth on a phone.
   - Under `prefers-reduced-motion` they stay still, scattered across the screen.
   - They are decoration: hidden from screen readers (`aria-hidden`), and no text sits on one at a brightness that could lower its contrast, because their colours are very faint (the ratios above are measured against the plain ground, and the bubbles' opacity never exceeds 0.22).
 - **U4** Headings, numbers, buttons and the title use a heavy rounded display font, self-hosted (Fredoka at weight 700, `public/fredoka-700.woff2`). Body text uses the system font stack. Every font has a fallback.
-- **U5** The "RUBBLE" title is huge, in `--yellow` with a `--red` hard offset shadow and a thick `--ink` outline. The letters are cracked: a few jagged `--ink` crack lines run across them. A handful of small yellow chips fall away from the cracks, slowly and in a loop. Under reduced motion the chips rest where they landed. The title is an image of the word, so it carries `aria-label="Rubble"`.
+- **U5** The "RUBBLE" title is huge, in `--yellow` with a `--red` hard offset shadow and a thick `--ink` outline. The letters are cracked: a few jagged `--ink` crack lines run across them. A handful of small yellow chips fall away from the cracks, slowly and in a loop. **U5a** The chips only fall within the title's own box, so they never overlap the tagline or any other text, and the cracks are drawn inside the letters, never past their edges. Under reduced motion the chips rest where they landed, still inside the title. The title is an image of the word, so it carries `aria-label="Rubble"`.
 
 ## Surfaces
 
 - **U6** Panels, cards and tiles are `--panel` with the `--outline`, `20px` corners and the `--shadow`, like toy pieces. No gradients and no glossy highlights on panels or buttons.
 - **U7** The board is the blue toy board: a `--blue` face with a `--board-shine` strip along the top edge, a thick `--board-edge` frame, short feet at the bottom corners, and round holes in `--hole`. Discs are flat: `--red` with a white ring marker (yours) or `--yellow` with an `--ink` cross marker (the opponent's), each with the `--outline` and a small hard shadow. Rubble is `--rubble` with a `--rubble-hatch` pattern. The most recent discs glow.
 
+## Words on screen
+
+- **U49** Every visible word is real product copy for players. A page never shows developer or preview text, such as "style preview" or a note about `theme.css`; explanations of that kind live in `docs/`.
+- **U50** The style preview page (`/style-preview`) exists only when the server runs in development (`DEV=1`). In production it does not exist (a 404), and no page links to it.
+
 ## Buttons (menus and popups; the board itself has none)
 
+- **U8a** Buttons never stretch across a wide screen. A stack of menu buttons is at most `--stack-width` (420px) wide and centred; on a phone that is the full width of the screen, because the screen is narrower.
 - **U8** Buttons are flat and chunky: `14px` corners, the `--outline`, the `--shadow`, an icon on the left and a heavy display-font label, with no glossy gradient. Main actions are `--red` with white text, secondary actions are `--blue` with white text and highlight actions are `--yellow` with `--ink` text. White text never sits on yellow.
 - **U9** Buttons react without gradients: on hover (where there is a hover) they rise 2px and the shadow grows to match; when pressed they sink 5px so the shadow disappears; on release they spring back. Small round icon buttons use the same outline, shadow and press behaviour. Nothing depends on hover.
 

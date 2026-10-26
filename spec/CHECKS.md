@@ -61,6 +61,19 @@ C1 to C7, S1 to S3, G1 to G3. See the files.
 | E5 | Every tap target is at least 44 x 44 px at the phone viewport | passing (`e2e/e5-tap-targets.spec.ts`) |
 | E6 | Every feature (computer, friend link, code entry, quick match, sign up, leaderboard, /readme/) completes at the phone viewport | passing (`e2e/e6-features.spec.ts`) |
 
+## Design and tutorial (docs/design/)
+
+| IDs | Claim | Where | Status |
+| --- | --- | --- | --- |
+| U1 to U9, U30, U49, U50 | One theme file; no colour, font, outline, radius or duration outside it; contrast; reduced motion; no preview or developer text; `/style-preview` only in development | `spec/unit-theme.test.ts`, `spec/app-screens.test.ts` | passing |
+| R47 to R50 | The tutorial is shown once, saved with the player, replayable, and never touches the leaderboard | `spec/app-tutorial.test.ts` | passing |
+| U10 to U18 | Play on the board by tap, hover and keyboard; the shield badge | `e2e/design.spec.ts` | passing |
+| U19 to U30 | Reveal within one second, end popups, reduced motion | `e2e/design.spec.ts` | passing |
+| U31 to U40 | Home menu content and the phone and laptop layouts | `e2e/design.spec.ts` | passing |
+| U41 to U48 | Tutorial steps, skip and replay | `e2e/design.spec.ts` | passing |
+| Screenshots | Approved look at both viewports | `e2e/design.spec.ts` | passing |
+| Judged | It feels like a cheerful navy toy game and is clearly its own; a newcomer understands crashes and the shield after the tutorial; the reveal is exciting | `/style-preview` approval by Tejas (given 27 October 2026), then playtests in `docs/playtests.md` | judged |
+
 ## Manual (multi-user test session)
 
 | ID | Claim | Rule | Scenario |

@@ -8,6 +8,7 @@ Read these before working on the matching area:
 | --- | --- |
 | Game rules and engine contract | `docs/rules.md` |
 | Interface and phone standards | `docs/design.md` |
+| How it looks, moves and teaches itself | `docs/design/` (start at `README.md`) |
 | Words to use | `docs/glossary.md` |
 | Logging | `docs/logging.md` |
 | Decisions already made | `docs/decisions/` |
@@ -53,7 +54,9 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 - Have tap targets of at least 44 by 44 CSS pixels.
 - Tell players apart by shape as well as colour.
 - Use the words in `docs/glossary.md`, in UK English.
-- Follow everything else in `docs/design.md`.
+- Take every colour, font, radius, shadow and duration from `public/theme.css`.
+- Follow `docs/design/` and everything else in `docs/design.md`.
+- Show only real product copy to players: no preview or developer text.
 
 ## Every change must
 

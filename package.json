@@ -13,7 +13,8 @@
     "test:mutation": "stryker run",
     "log:process": "node scripts/process-log.mjs",
     "dev": "DEV=1 node --watch --watch-path=src --watch-path=README.md src/server/index.ts",
-    "start": "node src/server/index.ts"
+    "start": "node src/server/index.ts",
+    "check:isolated": "bash scripts/check-isolated.sh"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
