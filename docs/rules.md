@@ -131,4 +131,4 @@ export function resolveRound(
 - **D2** Accepted (default, pending Tejas's review): 15 seconds is the round timer (R18). Playtests should settle this.
 - **D3** Accepted (default, pending Tejas's review): no spectating. A third visitor sees "game full" (R36). Watching is not in scope unless Tejas adds it here.
 - **D4** Accepted (default, pending Tejas's review): yes, forfeits count towards most wins (R38).
-- **D5** Should guests appear on the leaderboard, or only accounts?
+- **D5** Accepted (default, pending Tejas's review): guests appear on the leaderboard with their short tag, the same as accounts.
