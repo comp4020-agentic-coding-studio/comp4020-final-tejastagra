@@ -285,6 +285,73 @@ describe("R13 to R7 player B is treated the same as player A", () => {
   });
 });
 
+describe("cases found by comparing with the reference tests", () => {
+  const a = (column: number, shield = false) => ({ A: { column, shield }, B: null });
+  const b = (column: number) => ({ A: null, B: { column, shield: false } });
+  const threeInARow = () => {
+    let state = newGame();
+    for (const column of [0, 1, 2]) state = resolveRound(state, a(column)).state;
+    return state;
+  };
+
+  it("R6 rubble lands on top of what is already in the column", () => {
+    let state = resolveRound(newGame(), a(3)).state;
+    state = resolveRound(state, {
+      A: { column: 3, shield: false },
+      B: { column: 3, shield: false },
+    }).state;
+    expect(state.board[3]).toEqual(["A", "R"]);
+  });
+
+  it("R12 the same input always gives the same result", () => {
+    const state = threeInARow();
+    const choices = { A: { column: 3, shield: true }, B: { column: 3, shield: false } };
+    expect(resolveRound(state, choices)).toEqual(resolveRound(state, choices));
+  });
+
+  it("R13 a crash in the winning column blocks the win", () => {
+    const result = resolveRound(threeInARow(), {
+      A: { column: 3, shield: false },
+      B: { column: 3, shield: false },
+    });
+    expect(result.outcome).toBe("crash");
+    expect(result.state.status).toBe("playing");
+    expect(result.state.board[3]).toEqual(["R"]);
+  });
+
+  it("R7 and R13 a shield pushes a winning disc through a crash", () => {
+    const result = resolveRound(threeInARow(), {
+      A: { column: 3, shield: true },
+      B: { column: 3, shield: false },
+    });
+    expect(result.outcome).toBe("shield_win");
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("A");
+  });
+
+  it("R13 an opponent's disc breaks a line", () => {
+    let state = resolveRound(newGame(), a(0)).state;
+    state = resolveRound(state, a(1)).state;
+    state = resolveRound(state, b(2)).state;
+    const result = resolveRound(state, a(3));
+    expect(result.state.status).toBe("playing");
+    expect(result.state.winner).toBeNull();
+  });
+
+  it("R15 a crash can fill the last space in a column", () => {
+    let state = newGame();
+    for (let i = 0; i < ROWS - 1; i++) {
+      state = resolveRound(state, i % 2 === 0 ? a(3) : b(3)).state;
+    }
+    const result = resolveRound(state, {
+      A: { column: 3, shield: false },
+      B: { column: 3, shield: false },
+    });
+    expect(result.state.board[3].length).toBe(ROWS);
+    expect(result.state.board[3][ROWS - 1]).toBe("R");
+  });
+});
+
 describe("R14 both players completing a line in the same round is a draw", () => {
   it("R14 draws when both complete a line in the same round", () => {
     // A builds a horizontal three at columns 0,1,2 row 0; B builds a
