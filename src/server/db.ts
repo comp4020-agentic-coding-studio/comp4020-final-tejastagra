@@ -17,7 +17,26 @@ export interface SavedGame {
   vsComputer: boolean; // R33, R37: the opponent is the computer
 }
 
+export interface PlayerRow {
+  id: string;
+  nickname: string;
+  username: string | null;
+  passwordHash: string | null;
+}
+
 export interface Db {
+  // Identity (R28 to R31). Sessions are stored by the hash of their token.
+  createPlayer(id: string, nickname: string): void;
+  setNickname(id: string, nickname: string): void;
+  // Turns a guest into an account in place, keeping the same id (R29).
+  // Returns false when the username is already taken (case-insensitive).
+  upgradeToAccount(id: string, username: string, passwordHash: string): boolean;
+  playerByUsername(username: string): PlayerRow | undefined;
+  createSession(tokenHash: string, playerId: string): void;
+  // Sessions older than maxAgeMs are not honoured, whatever the cookie says.
+  playerBySession(tokenHash: string, maxAgeMs: number): PlayerRow | undefined;
+  deleteExpiredSessions(maxAgeMs: number): void;
+  deleteSession(tokenHash: string): void;
   saveGame(code: string, state: GameState): void;
   // How the game ended, outside the engine's own Status (docs/rules.md R19,
   // R27): a forfeit is server-side state, so it is stored alongside the
@@ -44,6 +63,18 @@ const MIGRATIONS: string[] = [
    )`,
   `ALTER TABLE games ADD COLUMN ended TEXT`,
   `ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`,
+  `CREATE TABLE players (
+     id TEXT PRIMARY KEY,
+     nickname TEXT NOT NULL,
+     username TEXT COLLATE NOCASE UNIQUE,
+     password_hash TEXT,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE TABLE sessions (
+     token_hash TEXT PRIMARY KEY,
+     player_id TEXT NOT NULL,
+     created_at INTEGER NOT NULL
+   )`,
 ];
 
 function migrate(db: DatabaseSync): void {
@@ -70,7 +101,57 @@ export function openDb(path: string): Db {
   `);
   const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer FROM games");
 
+  const insertPlayer = db.prepare(`INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)`);
+  const updateNickname = db.prepare(`UPDATE players SET nickname = ? WHERE id = ?`);
+  const upgrade = db.prepare(`UPDATE players SET username = ?, password_hash = ? WHERE id = ? AND username IS NULL`);
+  const selectByUsername = db.prepare(`SELECT id, nickname, username, password_hash FROM players WHERE username = ?`);
+  const insertSession = db.prepare(`INSERT INTO sessions (token_hash, player_id, created_at) VALUES (?, ?, ?)`);
+  const selectBySession = db.prepare(`
+    SELECT p.id, p.nickname, p.username, p.password_hash FROM sessions s
+    JOIN players p ON p.id = s.player_id WHERE s.token_hash = ? AND s.created_at > ?
+  `);
+  const purgeSessions = db.prepare(`DELETE FROM sessions WHERE created_at <= ?`);
+  const removeSession = db.prepare(`DELETE FROM sessions WHERE token_hash = ?`);
+  const toRow = (row: Record<string, unknown> | undefined): PlayerRow | undefined =>
+    row
+      ? {
+          id: row.id as string,
+          nickname: row.nickname as string,
+          username: (row.username as string | null) ?? null,
+          passwordHash: (row.password_hash as string | null) ?? null,
+        }
+      : undefined;
+
   return {
+    createPlayer(id: string, nickname: string): void {
+      insertPlayer.run(id, nickname, Date.now());
+    },
+    setNickname(id: string, nickname: string): void {
+      updateNickname.run(nickname, id);
+    },
+    upgradeToAccount(id: string, username: string, passwordHash: string): boolean {
+      try {
+        return Number(upgrade.run(username, passwordHash, id).changes) === 1;
+      } catch (error) {
+        if (error instanceof Error && /UNIQUE/i.test(error.message)) return false;
+        throw error;
+      }
+    },
+    playerByUsername(username: string): PlayerRow | undefined {
+      return toRow(selectByUsername.get(username));
+    },
+    createSession(tokenHash: string, playerId: string): void {
+      insertSession.run(tokenHash, playerId, Date.now());
+    },
+    playerBySession(tokenHash: string, maxAgeMs: number): PlayerRow | undefined {
+      return toRow(selectBySession.get(tokenHash, Date.now() - maxAgeMs));
+    },
+    deleteExpiredSessions(maxAgeMs: number): void {
+      purgeSessions.run(Date.now() - maxAgeMs);
+    },
+    deleteSession(tokenHash: string): void {
+      removeSession.run(tokenHash);
+    },
     saveGame(code: string, state: GameState): void {
       upsert.run(code, JSON.stringify(state), Date.now());
     },

@@ -8,6 +8,23 @@ import { bundleClient } from "./client-bundle.ts";
 import { generateCode } from "./codes.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import { createMatchmaker } from "./matchmaker.ts";
+import {
+  SESSION_COOKIE,
+  SESSION_MAX_AGE_S,
+  checkPassword,
+  clearedCookie,
+  hashPassword,
+  hashToken,
+  newPlayerId,
+  newSessionToken,
+  passwordProblem,
+  publicPlayer,
+  readCookie,
+  sessionCookie,
+  validNickname,
+  validUsername,
+} from "./identity.ts";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DEV = process.env.DEV === "1";
@@ -22,6 +39,14 @@ function clientAddress(req: import("node:http").IncomingMessage): string {
 }
 const allowCreate = createRateLimiter(30, 60_000);
 // Generous: joining plus a few retries per player; 20 test clients share one address.
+// Sign-in and sign-up cost real CPU (bcrypt) and invite password guessing.
+// 60 a minute per address: a shared network (a class, a household) must not lock itself out.
+// Creating a guest writes a player and a session row, so it is limited too.
+const allowGuest = createRateLimiter(30, 60_000);
+// Sessions expire on the server as well as in the cookie (R28).
+db.deleteExpiredSessions(SESSION_MAX_AGE_S * 1000);
+setInterval(() => db.deleteExpiredSessions(SESSION_MAX_AGE_S * 1000), 6 * 60 * 60 * 1000).unref();
+const allowAuth = createRateLimiter(60, 60_000);
 const allowQuick = createRateLimiter(120, 60_000);
 
 // Bundled once at start; pnpm dev's --watch restarts the whole process on
@@ -195,7 +220,158 @@ function homeScreen(): string {
   `;
 }
 
+const isSecure = (req: IncomingMessage) => req.headers["x-forwarded-proto"] === "https";
+
+function json(res: ServerResponse, status: number, body: unknown, extraHeaders: Record<string, string> = {}): void {
+  res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", ...extraHeaders });
+  res.end(JSON.stringify(body));
+}
+
+function readBody(req: IncomingMessage): Promise<Record<string, unknown> | null> {
+  return new Promise((resolve) => {
+    // A cross-site HTML form cannot send application/json, so requiring it
+    // closes login and sign-out CSRF on top of SameSite=Lax.
+    if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
+      req.resume();
+      resolve(null);
+      return;
+    }
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > 4096) {
+        resolve(null);
+        req.destroy();
+      } else chunks.push(chunk);
+    });
+    req.on("end", () => {
+      try {
+        const parsed = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+        resolve(typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : null);
+      } catch {
+        resolve(null);
+      }
+    });
+    req.on("error", () => resolve(null));
+  });
+}
+
+function currentPlayer(req: IncomingMessage) {
+  const token = readCookie(req.headers.cookie, SESSION_COOKIE);
+  return token ? db.playerBySession(hashToken(token), SESSION_MAX_AGE_S * 1000) : undefined;
+}
+
+// Identity endpoints (R28 to R31). Nothing here ever returns a password or its hash (R30).
+async function handleIdentity(path: string, req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+  if (path === "/api/me" && req.method === "GET") {
+    const player = currentPlayer(req);
+    json(res, 200, { player: player ? publicPlayer(player) : null });
+    return true;
+  }
+  if (path === "/api/guest" && req.method === "POST") {
+    if (!currentPlayer(req) && !allowGuest(clientAddress(req))) {
+      json(res, 429, { error: "Too many new players from here. Try again in a minute." }, { "retry-after": "60" });
+      return true;
+    }
+    const body = await readBody(req);
+    if (!body || !validNickname(body.nickname)) {
+      json(res, 400, { error: "A nickname is 2 to 16 letters, numbers, spaces, hyphens or underscores." });
+      return true;
+    }
+    const nickname = body.nickname.trim();
+    const existing = currentPlayer(req);
+    if (existing) {
+      if (existing.username === null) db.setNickname(existing.id, nickname);
+      json(res, 200, { player: publicPlayer({ ...existing, nickname: existing.username === null ? nickname : existing.nickname }) });
+      return true;
+    }
+    const id = newPlayerId();
+    db.createPlayer(id, nickname);
+    const token = newSessionToken();
+    db.createSession(hashToken(token), id);
+    json(res, 200, { player: publicPlayer({ id, nickname, username: null }) }, { "set-cookie": sessionCookie(token, isSecure(req)) });
+    return true;
+  }
+  if (path === "/api/account/signup" && req.method === "POST") {
+    if (!allowAuth(clientAddress(req))) {
+      json(res, 429, { error: "Too many attempts. Try again in a minute." }, { "retry-after": "60" });
+      return true;
+    }
+    const player = currentPlayer(req);
+    if (!player) {
+      json(res, 401, { error: "Choose a nickname first." });
+      return true;
+    }
+    if (player.username !== null) {
+      json(res, 409, { error: "You already have an account." });
+      return true;
+    }
+    const body = await readBody(req);
+    if (!body || !validUsername(body.username)) {
+      json(res, 400, { error: "A username is 3 to 20 letters, numbers, hyphens or underscores." });
+      return true;
+    }
+    const problem = passwordProblem(body.password);
+    if (problem) {
+      json(res, 400, { error: problem });
+      return true;
+    }
+    // Same id, so past games and wins carry over (R29).
+    if (!db.upgradeToAccount(player.id, body.username, await hashPassword(body.password as string))) {
+      json(res, 409, { error: "That username is taken. Try another." });
+      return true;
+    }
+    json(res, 200, { player: publicPlayer({ ...player, username: body.username }) });
+    return true;
+  }
+  if (path === "/api/account/signin" && req.method === "POST") {
+    if (!allowAuth(clientAddress(req))) {
+      json(res, 429, { error: "Too many attempts. Try again in a minute." }, { "retry-after": "60" });
+      return true;
+    }
+    const body = await readBody(req);
+    if (!body || typeof body.username !== "string" || typeof body.password !== "string") {
+      json(res, 400, { error: "Enter a username and password." });
+      return true;
+    }
+    const account = db.playerByUsername(body.username);
+    if (!(await checkPassword(body.password, account?.passwordHash ?? null)) || !account) {
+      json(res, 401, { error: "That username and password do not match." }); // the same message for both, so usernames cannot be probed
+      return true;
+    }
+    const token = newSessionToken();
+    db.createSession(hashToken(token), account.id);
+    json(res, 200, { player: publicPlayer(account) }, { "set-cookie": sessionCookie(token, isSecure(req)) });
+    return true;
+  }
+  if (path === "/api/signout" && req.method === "POST") {
+    if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
+      json(res, 415, { error: "Send application/json." });
+      return true;
+    }
+    const token = readCookie(req.headers.cookie, SESSION_COOKIE);
+    if (token) db.deleteSession(hashToken(token));
+    json(res, 200, { player: null }, { "set-cookie": clearedCookie(isSecure(req)) });
+    return true;
+  }
+  return false;
+}
+
 const server = createServer((req, res) => {
+  const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
+  if (requestPath.startsWith("/api/") && (requestPath === "/api/me" || requestPath === "/api/guest" || requestPath.startsWith("/api/account/") || requestPath === "/api/signout")) {
+    handleIdentity(requestPath, req, res).then((handled) => {
+      if (!handled) {
+        res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+        res.end("Not found");
+      }
+    }).catch((error) => {
+      logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+      if (!res.headersSent) json(res, 500, { error: "Something went wrong. Try again." });
+    });
+    return;
+  }
   const path = new URL(req.url ?? "/", "http://localhost").pathname;
   if (DEV && path === "/__dev/version") {
     res.writeHead(200, { "content-type": "text/plain", "cache-control": "no-store" });

@@ -21,6 +21,13 @@ Option 3 (rules R28 to R31). A marker in two incognito windows is two different 
 
 Two identity paths to build and test, password storage to get right (R30) and an upgrade path from guest to account (R29).
 
+## Implementation notes
+
+- A taken username is reported as taken at sign-up (R29 requires uniqueness, so this is visible by design). Sign-in gives one message for a wrong username or a wrong password and does the same work for both.
+- Signing up upgrades the guest in place, keeping the player id. Another browser holding the same guest cookie keeps that player, now an account, with no password of its own, so it is signed in as that account until its session expires or the owner signs out there. Accepted for now: a guest cookie is the guest's identity (R28), and an account created from it is the same person.
+- Sessions expire after one year on the server as well as in the cookie, and are purged every six hours. Sign-in and sign-up are limited to 60 a minute per address, guest creation to 30.
+- Identity requests must send `application/json`, which a cross-site form cannot, on top of `SameSite=Lax`.
+
 ## Evidence
 
 To be added.

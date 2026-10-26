@@ -212,4 +212,36 @@ describe("S: what happens is kept (promise 5)", () => {
       rmSync(`${path}-shm`, { force: true });
     }
   });
+
+  it("R28 opening a database created before the players and sessions tables existed upgrades it in place", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration4.db`);
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`PRAGMA user_version = 3`);
+      old.close();
+
+      const upgraded = openDb(path);
+      upgraded.createPlayer("p1", "Tejas");
+      upgraded.createSession("hash1", "p1");
+      expect(upgraded.playerBySession("hash1", 60_000)?.nickname).toBe("Tejas");
+      // An expired session is not honoured, and is purged.
+      expect(upgraded.playerBySession("hash1", -1)).toBeUndefined();
+      upgraded.deleteExpiredSessions(-1);
+      expect(upgraded.playerBySession("hash1", 60_000)).toBeUndefined();
+      upgraded.createSession("hash1", "p1");
+      // R29: usernames are unique, ignoring case; the guest keeps their id.
+      expect(upgraded.upgradeToAccount("p1", "TJ", "hashA")).toBe(true);
+      upgraded.createPlayer("p2", "Other");
+      expect(upgraded.upgradeToAccount("p2", "tj", "hashB")).toBe(false);
+      expect(upgraded.playerByUsername("tj")?.id).toBe("p1");
+      upgraded.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
 });
