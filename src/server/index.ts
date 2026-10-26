@@ -112,7 +112,6 @@ function stylePreview(): string {
           <div data-testid="preview-opponent"></div>
         </div>
         <div class="board-wrap" data-testid="preview-board">
-          <div class="countdown" data-testid="preview-countdown" aria-hidden="true"></div>
         </div>
       </div>
       <p class="result" data-testid="preview-result" role="status"></p>
@@ -458,6 +457,10 @@ const realtime = attachRealtime(server, db, {
   identify: (request) => {
     const token = readCookie(request.headers.cookie, SESSION_COOKIE);
     return (token ? db.playerBySession(hashToken(token), SESSION_MAX_AGE_S * 1000) : undefined)?.id ?? null;
+  },
+  nameFor: (personId) => {
+    const person = db.playerById(personId);
+    return person ? publicPlayer(person).displayName : null;
   },
 });
 

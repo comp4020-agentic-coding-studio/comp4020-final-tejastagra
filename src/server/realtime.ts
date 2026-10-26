@@ -25,10 +25,16 @@ export interface Snapshot {
   // (docs/design.md "Waiting"). Presence is not a choice: nothing here reveals a column,
   // a shield or whether the opponent has chosen (R21, R22).
   opponentPresent: boolean;
+  // Display names for the two panels (docs/design/game-screen.md U57). A name is public
+  // identity, never a choice, so it is safe to send before a round resolves (R22). Null when
+  // the seat's person is not known; the computer is named "Computer".
+  yourName: string | null;
+  opponentName: string | null;
 }
 
 export interface OpponentJoined {
   type: "opponent_joined";
+  name?: string; // the arrival's display name, when known
 }
 
 export interface OpponentReady {
@@ -86,6 +92,8 @@ export interface RealtimeOptions {
   // Who is connecting, from the upgrade request's cookie (R28). Optional: a
   // seat with no known person is just not counted for the leaderboard.
   identify?: (request: import("node:http").IncomingMessage) => string | null;
+  // The public display name for a person id (nickname and tag, or username), for the panels (U57).
+  nameFor?: (personId: string) => string | null;
 }
 
 export const DISCONNECT_GRACE_MS = 30_000;
@@ -113,6 +121,10 @@ export function attachRealtime(
   // Which player letters have ever been assigned in a game, so a game has at
   // most two players (R36).
   const roster = new Map<string, { A: boolean; B: boolean }>();
+  // Display names by seat, for the panels (U57).
+  const seatNames = new Map<string, string>();
+  const nameOfSeat = (code: string, player: Player): string | null =>
+    computerGames.has(code) && player === "B" ? "Computer" : (seatNames.get(key(code, player)) ?? null);
   // Current live connection per player per game (R32).
   const connections = new Map<string, WebSocket>();
   // Opaque token proving a client previously held this seat. Until proper
@@ -192,6 +204,8 @@ export function attachRealtime(
           state,
           opponentReady: false,
           opponentPresent: presentFor(code, player),
+          yourName: nameOfSeat(code, player),
+          opponentName: nameOfSeat(code, opponentOf(player)),
         });
         recipients++;
       }
@@ -400,6 +414,8 @@ export function attachRealtime(
       state: record.state,
       opponentReady: choices[opponentOf(player)] !== null,
       opponentPresent: presentFor(code, player),
+      yourName: nameOfSeat(code, player),
+      opponentName: nameOfSeat(code, opponentOf(player)),
     });
     logEvent("snapshot_sent", { game: code, round: record.state.round, reason: "join" });
   }
@@ -537,6 +553,8 @@ export function attachRealtime(
       seats[player] = true;
       if (!seatTokens.has(key(code, player))) seatTokens.set(key(code, player), randomUUID());
       const personId = options.identify?.(request) ?? null;
+      const name = personId ? (options.nameFor?.(personId) ?? null) : null;
+      if (name) seatNames.set(key(code, player), name);
       if (personId && !computerGames.has(code)) {
         if (!game.getGame(code)) game.createGame(code); // the row must exist before it can record a seat
         db.seatPlayer(code, player, personId);
@@ -554,7 +572,7 @@ export function attachRealtime(
       sendSnapshot(code, player);
       // The player already waiting learns that someone has arrived. This carries no choice (R21, R22).
       const waiting = connections.get(key(code, opponentOf(player)));
-      if (waiting && waiting !== socket) send(waiting, { type: "opponent_joined" });
+      if (waiting && waiting !== socket) send(waiting, name ? { type: "opponent_joined", name } : { type: "opponent_joined" });
     });
 
     socket.on("close", () => {
