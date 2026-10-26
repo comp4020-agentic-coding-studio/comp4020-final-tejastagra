@@ -107,7 +107,7 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
       ["--link", "--ground-bottom"], ["--link", "--panel"],
       ["--text", "--red"], ["--text", "--blue"], ["--ink", "--yellow"],
       ["--yellow", "--ground-bottom"], ["--yellow", "--panel"],
-      ["--error", "--panel"], ["--ok", "--panel"],
+      ["--error", "--panel"], ["--ok", "--panel"], ["--disabled-text", "--disabled"],
     ];
     for (const [fg, bg] of text) expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
     expect(ratio("--text", "--yellow")).toBeLessThan(3); // which is why no button puts white on yellow
@@ -129,6 +129,7 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
       ["--text", "--red", "white on `--red` (button labels)", 5.3],
       ["--text", "--blue", "white on `--blue` (button labels)", 5.93],
       ["--ink", "--yellow", "`--ink` on `--yellow` (button labels)", 12.55],
+      ["--disabled-text", "--disabled", "`--disabled-text` on `--disabled` (a disabled button)", 5.94],
       ["--text", "--yellow", "white on `--yellow`", 1.56],
     ];
     for (const [fg, bg, label, value] of printed) {

@@ -203,7 +203,7 @@ h3 {
 /* Chips: small yellow bits that fall away from the cracks, in a loop. */
 .chip {
   position: absolute;
-  top: 78%;
+  top: 62%;
   left: var(--x);
   width: 0.13em;
   height: 0.13em;
@@ -228,7 +228,7 @@ h3 {
     opacity: 1;
   }
   100% {
-    transform: translateY(1.4em) rotate(200deg);
+    transform: translateY(var(--chip-fall)) rotate(200deg);
     opacity: 0;
   }
 }
@@ -288,8 +288,12 @@ h3 {
   box-shadow: var(--shadow-pressed);
 }
 
+/* Disabled looks "off" without being see-through, so a bubble never shows through it
+   and its label keeps its contrast (disabled text on the disabled fill is 5.94:1). */
 .btn:disabled {
-  opacity: 0.55;
+  background: var(--disabled);
+  color: var(--disabled-text);
+  box-shadow: var(--shadow-small);
   cursor: not-allowed;
 }
 
@@ -307,7 +311,8 @@ h3 {
 .stack {
   display: grid;
   gap: 16px;
-  margin: 12px 0 20px;
+  margin: 12px auto 20px;
+  max-width: var(--stack-width);
 }
 
 /* Small round icon buttons use the same outline, shadow and press behaviour. */

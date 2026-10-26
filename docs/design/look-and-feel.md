@@ -25,6 +25,7 @@ Tejas chose this style on 27 October 2026 (ADR 0006). He kept the navy backgroun
 | `--board-shine` | `#4D82EA` | Highlight along the top of the board |
 | `--hole` | `#0A1030` | Board holes |
 | `--rubble` | `#8A94A8` with `--rubble-hatch` `#4B5568` | Rubble blocks |
+| `--disabled` | `#3A4580` | A disabled button's fill (opaque, so nothing shows through it) |
 | `--error` | `#FFB4A8` | Error messages |
 | `--ok` | `#7CE3A1` | Confirmations |
 | `--outline` | `3px solid var(--ink)` | Every button, panel, tile and disc |
@@ -51,6 +52,7 @@ Ratios are WCAG contrast ratios computed from the token values (the unit test re
 | `--yellow` on `--panel` | 8.25 |
 | `--error` on `--panel` | 7.57 |
 | `--ok` on `--panel` | 8.19 |
+| `--disabled-text` on `--disabled` (a disabled button) | 5.94 |
 | white on `--yellow` | 1.56: **never used** |
 
 | Graphics | Ratio |

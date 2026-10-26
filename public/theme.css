@@ -58,6 +58,8 @@
   --avatar-6: #ff9f5a;
 
   /* Shield states and the win glow */
+  --disabled: #3a4580;
+  --disabled-text: #c9d1f5;
   --shield-on: #7ce3a1;
   --shield-off: #8a94a8;
   --win-glow: rgba(255, 199, 44, 0.9);
@@ -110,6 +112,7 @@
   --dur-win-pulse: 0.7s;
   --dur-confetti: 1.6s;
   --dur-chip: 5s;
+  --chip-fall: 0.9em;
   --dur-confetti-clear: 2.4s;
   --dur-bubble-min: 18s;
   --dur-bubble-step: 5s;
@@ -130,6 +133,7 @@
   --ms-drop-land: 420;
 
   /* Bubble sizes in pixels: the smallest, and the spread above it (U3). */
+  --stack-width: 420px;
   --bubble-size-min: 24;
   --bubble-size-spread: 49;
 }
