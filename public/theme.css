@@ -44,6 +44,8 @@
   /* Rubble */
   --rubble: #8a94a8;
   --rubble-hatch: #4b5568;
+  --rock: #8c735c; /* a closed row or column (U71): solid, not hatched, so it is never mistaken for rubble */
+  --rock-dark: #4a3a2c;
 
   /* Markers: a ring on your discs, a cross on the opponent's. */
   --marker-you: #ffffff;
@@ -123,6 +125,9 @@
   --dur-quake-shake: 0.15s;
   --dur-quake-crumble: 0.15s;
   --dur-quake-slide: 0.15s;
+  /* The shrinking board (U69, U70): the warning flash, and the crack, crumble and turn to rock. */
+  --dur-doomed: 1.2s;
+  --dur-collapse: 0.2s;
   --dur-win-pulse: 0.7s;
   --dur-confetti: 1.6s;
   --dur-chip: 5s;
@@ -149,7 +154,9 @@
   --ms-win-hold: 3200;
   --ms-shake: 450;
   --ms-drop-land: 420;
-  --ms-quake-step: 150; /* the same 150ms as the --dur-quake-* steps, read by the scripts (U65) */
+  --ms-quake-step: 150;
+  --ms-collapse-start: 250; /* a collapse starts this long after the discs begin to drop (U70) */
+  --ms-collapse: 200; /* the same 200ms as --dur-collapse, read by the scripts */ /* the same 150ms as the --dur-quake-* steps, read by the scripts (U65) */
 
   /* Bubble sizes in pixels: the smallest, and the spread above it (U3). */
   --stack-width: 420px;
