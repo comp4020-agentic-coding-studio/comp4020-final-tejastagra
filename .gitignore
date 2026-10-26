@@ -35,3 +35,7 @@ reports/
 
 # local dev database (production uses the Fly volume at /data)
 data-dev/
+
+# Playwright output
+test-results/
+playwright-report/

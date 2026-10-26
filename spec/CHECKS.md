@@ -56,10 +56,10 @@ C1 to C7, S1 to S3, G1 to G3. See the files.
 
 | ID | Claim | Status |
 | --- | --- | --- |
-| E1 | Two browser contexts with no shared cookies play a full game through a friend link, one at each marking viewport | todo |
-| E4 | Every screen in `docs/design.md` has no sideways scroll at 320 px, 390 px and laptop width | todo |
-| E5 | Every tap target is at least 44 x 44 px at the phone viewport | todo |
-| E6 | Every feature (computer, friend link, code entry, quick match, sign up, leaderboard, /readme/) completes at the phone viewport | todo |
+| E1 | Two browser contexts with no shared cookies play a full game through a friend link, one at each marking viewport | passing (`e2e/e1-full-game.spec.ts`) |
+| E4 | Every screen in `docs/design.md` has no sideways scroll at 320 px, 390 px and laptop width | passing (`e2e/e4-no-sideways-scroll.spec.ts`) |
+| E5 | Every tap target is at least 44 x 44 px at the phone viewport | passing (`e2e/e5-tap-targets.spec.ts`) |
+| E6 | Every feature (computer, friend link, code entry, quick match, sign up, leaderboard, /readme/) completes at the phone viewport | passing (`e2e/e6-features.spec.ts`) |
 
 ## Manual (multi-user test session)
 
