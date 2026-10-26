@@ -49,11 +49,11 @@ const STYLES = `
   button{min-height:44px;min-width:44px;font:inherit;border:2px solid #1a1a1a;border-radius:8px;background:#fff;color:#1a1a1a;padding:0 12px}
   button[aria-pressed="true"]{background:#1a1a1a;color:#fff}
   button:disabled{opacity:.5}
-  .board{border-collapse:separate;border-spacing:3px;width:100%;table-layout:fixed;background:#1d4ed8;border-radius:8px}
-  .board td{aspect-ratio:1;background:#fff;border-radius:50%;text-align:center;font-weight:700;font-size:1.3rem;line-height:1;padding:0}
-  .board td[data-mark="you"]{background:#fde047;color:#1a1a1a}
-  .board td[data-mark="them"]{background:#f87171;color:#1a1a1a}
-  .board td[data-mark="R"]{background:repeating-linear-gradient(45deg,#6b7280 0 4px,#d1d5db 4px 8px)}
+  .board{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:3px;background:#1d4ed8;border-radius:8px}
+  .cell{aspect-ratio:1;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.3rem;line-height:1}
+  .cell[data-mark="you"]{background:#fde047;color:#1a1a1a}
+  .cell[data-mark="them"]{background:#f87171;color:#1a1a1a}
+  .cell[data-mark="R"]{background:repeating-linear-gradient(45deg,#6b7280 0 4px,#d1d5db 4px 8px)}
   .columns{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:6px 0}
   .columns button{padding:0}
   .stack{display:grid;gap:8px;margin:12px 0}
@@ -63,12 +63,24 @@ const STYLES = `
   a.button{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border:2px solid #1a1a1a;border-radius:8px;background:#fff;color:#1a1a1a;text-decoration:none}
   [hidden]{display:none!important}
   a{display:inline-block;padding:12px 0;color:#1d4ed8}
+  .share{border:2px dashed #1a1a1a;border-radius:8px;padding:8px;margin:6px 0}
+  .row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:0 12px}
+  .share .actions{margin:4px 0 0}
+  .code{font-size:1.6rem;font-weight:700;letter-spacing:.2em;text-align:center;margin:4px 0}
   .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}
+  @media (max-height:640px){
+    body{line-height:1.2}
+    main{padding:0}
+    p{margin:2px 0}
+    .share{padding:4px;margin:3px 0}
+    .code{font-size:1.3rem;margin:0}
+    .columns,.actions{margin:3px 0}
+  }
   @media (max-width:360px){
     body{padding-left:max(4px,env(safe-area-inset-left));padding-right:max(4px,env(safe-area-inset-right))}
     .columns{gap:0}
   }
-  @media (prefers-reduced-motion:no-preference){.board td{transition:background .2s}}
+  @media (prefers-reduced-motion:no-preference){.cell{transition:background .2s}}
 `;
 
 function page(title: string, body: string, script?: string): string {
@@ -99,13 +111,14 @@ function board(): string {
   let cells = "";
   // Row 5 (top) down to row 0 (bottom), so the board reads top-to-bottom on
   // screen the way a Connect 4 board does, while column 0 stays column 0.
+  // A grid of divs, not a table: browsers ignore aspect-ratio on table cells,
+  // which collapsed empty cells to nothing.
   for (let row = 5; row >= 0; row--) {
     for (let column = 0; column < 7; column++) {
-      cells += `<td data-testid="cell-${column}-${row}" data-piece=""></td>`;
+      cells += `<div class="cell" data-testid="cell-${column}-${row}" data-piece=""></div>`;
     }
-    cells += "</tr><tr>";
   }
-  return `<table class="board"><tbody><tr>${cells.slice(0, -"</tr><tr>".length)}</tr></tbody></table>`;
+  return `<div class="board" role="img" aria-label="Board, 7 columns by 6 rows">${cells}</div>`;
 }
 
 function columnButtons(): string {
@@ -119,15 +132,21 @@ function columnButtons(): string {
 function gameScreen(code: string): string {
   const body = `
     <main data-testid="game-screen">
-      <p>
-        Game <span data-testid="game-code">${code}</span>
-        <button type="button" data-testid="copy-link">Copy link</button>
+      <section data-testid="waiting-panel" class="share">
+        <p class="code" data-testid="game-code">${code}</p>
+        <div class="actions">
+          <button type="button" data-testid="copy-link">Copy link</button>
+          <button type="button" data-testid="share" hidden>Share</button>
+        </div>
+      </section>
+      <p class="row">
+        <span>Round <span data-testid="round-number">0</span></span>
+        <span><span data-testid="timer">15</span>s left</span>
+        <span>Opponent: <span data-testid="opponent-status">Choosing</span></span>
       </p>
-      <p>Round <span data-testid="round-number">0</span>, <span data-testid="timer">15</span>s left</p>
-      <p>Opponent: <span data-testid="opponent-status">Choosing</span></p>
-      <p>
-        Your shield: <span data-testid="my-shield">available</span>
-        Opponent's shield: <span data-testid="opponent-shield">available</span>
+      <p class="row">
+        <span>Your shield: <span data-testid="my-shield">available</span></span>
+        <span>Their shield: <span data-testid="opponent-shield">available</span></span>
       </p>
       ${board()}
       <div class="columns">${columnButtons()}</div>

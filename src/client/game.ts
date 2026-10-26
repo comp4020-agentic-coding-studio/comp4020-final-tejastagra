@@ -89,6 +89,9 @@ function renderState(state: State, opponentReady: boolean): void {
   } else {
     setText("result-line", "");
   }
+  // The share panel stays until the first round resolves (the opponent has
+  // then clearly arrived or the timer has run); it is hidden after that.
+  $("waiting-panel").hidden = state.round > 0 || state.status !== "playing";
   deadline = Date.now() + ROUND_SECONDS * 1000;
   selectedColumn = null;
   renderChoice();
@@ -152,6 +155,13 @@ $("copy-link").addEventListener("click", () => {
   if (navigator.clipboard) navigator.clipboard.writeText(location.href).then(done, () => ($("copy-link").textContent = "Copy failed"));
   else $("copy-link").textContent = "Copy failed";
 });
+
+if (typeof navigator.share === "function") {
+  $("share").hidden = false;
+  $("share").addEventListener("click", () => {
+    navigator.share({ title: "Rubble", text: `Play me at Rubble. Game code ${code}`, url: location.href }).catch(() => {});
+  });
+}
 
 document.addEventListener("keydown", (event) => {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
