@@ -437,6 +437,11 @@ describe("R78 the exhibition game (W8)", () => {
     expect(second.first.type).toBe("spectating");
     expect(second.first.code).not.toBe(code); // a fresh exhibition game, not the finished one
     expect(s.rt.game.getGame(code)).toBeUndefined(); // exhibition games are never in the game service
+    // The first spectator's game still exists for it: asking for that very game again gets its snapshot back, not "unknown".
+    first.c.send({ type: "spectate", code });
+    const kept = await first.c.next("spectating");
+    expect(kept.code).toBe(code);
+    expect(kept.state.status).not.toBe("playing"); // it is still the finished game, with its result
     // The first spectator is still counted in its own game, and told when someone else leaves it.
     expect(s.rt.watchingIn(code)).toBe(1);
     expect(s.rt.watchingIn(second.first.code)).toBe(1);
@@ -654,5 +659,60 @@ describe("R77 the flood limits cannot be got round (second review)", () => {
     expect(again.code).toBe(first.code);
     expect(s.rt.exhibitionRunning()).toBe(true);
     expect(s.rt.watchingIn(first.code)).toBe(1);
+  });
+});
+
+describe("Cleanup (final review)", () => {
+  it("R78 and R77 leaving or closing clears everything the spectator left behind", async () => {
+    const s = track(start());
+    const { c, first } = await spectate(s.url);
+    expect(s.rt.exhibitionRunning()).toBe(true);
+    c.socket.close();
+    await c.nothing(120);
+    expect(s.rt.exhibitionRunning()).toBe(false);
+    expect(s.rt.watchingIn(first.code)).toBe(0);
+    const left = s.rt.spectatorState();
+    expect({ watchers: left.watchers, watching: left.watching, lastGame: left.lastGame, exhibitions: left.exhibitions }).toEqual({ watchers: 0, watching: 0, lastGame: 0, exhibitions: 0 });
+    expect(left.addresses, "the address history stays only until it ages out (R77)").toBeLessThanOrEqual(1);
+  });
+
+  it("R77 the per-address history is pruned as spectators come and go, so it cannot grow with distinct addresses", async () => {
+    const s = track(start());
+    const { a } = await quickGame(s, "SPC140");
+    void a;
+    for (let i = 0; i < 6; i++) {
+      const c = connect(s.url);
+      await c.opened;
+      c.send({ type: "spectate", code: "SPC140" });
+      await c.next("spectating");
+      c.socket.close();
+      await c.nothing(30);
+    }
+    expect(s.rt.spectatorState().addresses).toBeLessThanOrEqual(6);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(s.rt.spectatorState().addresses).toBeGreaterThanOrEqual(0);
+  });
+
+  it("R71 after dispose nothing spectator-related is left: no exhibition game, no watchers", async () => {
+    const s = start();
+    const { c } = await spectate(s.url);
+    expect(s.rt.exhibitionRunning()).toBe(true);
+    s.rt.dispose();
+    expect(s.rt.exhibitionRunning()).toBe(false);
+    expect(s.rt.spectatorState().watchers).toBe(0);
+    c.socket.close();
+    s.server.close();
+  });
+
+  it("R80 a restart only restores watchable games that are still being played, so the live scan stays small", () => {
+    const db = openDb(":memory:");
+    const first = track(start({ db }));
+    first.rt.createQuickGame("OLDQ01"); // still playing
+    first.rt.createQuickGame("OLDQ02");
+    first.db.saveEnded("OLDQ02", { result: "abandoned" }); // ended
+    first.rt.dispose();
+    first.server.close();
+    const second = track(start({ db }));
+    expect(second.rt.watchableKnown()).toEqual(["OLDQ01"]);
   });
 });

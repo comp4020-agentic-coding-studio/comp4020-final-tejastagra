@@ -128,6 +128,8 @@ export function attachRealtime(
   liveCount: () => number;
   exhibitionRunning: () => boolean;
   watchingIn: (code: string) => number;
+  spectatorState: () => { watchers: number; watching: number; lastGame: number; addresses: number; exhibitions: number };
+  watchableKnown: () => string[];
   spectatorMoveMs: number;
 } {
   const roundTimerMs = options.roundTimerMs ?? ROUND_TIMER_MS;
@@ -263,42 +265,42 @@ export function attachRealtime(
   const watchable = new Set<string>();
   // The exhibition game (R78): two computers, in memory only. It is never saved (so the leaderboard cannot
   // see it, R37), is never in `watchable` and is forgotten when nobody is watching.
-  const exhibition = { code: null as string | null, state: null as GameState | null, timer: null as NodeJS.Timeout | null, rng: seededRandom(options.computerSeed ?? Math.floor(Math.random() * 2 ** 32)) };
+  // Exhibition games, each with its own state and timer. A game stops only when its last spectator leaves, so a
+  // finished one stays for the people still looking at its result (R78); a new spectator is given a game that is
+  // still being played, or a fresh one.
+  const exhibitions = new Map<string, { state: GameState; timer: NodeJS.Timeout | null }>();
+  const exhibitionRng = seededRandom(options.computerSeed ?? Math.floor(Math.random() * 2 ** 32));
   const spectatorMoveMs = options.spectatorMoveMs ?? SPECTATOR_MOVE_MS;
 
   function stopExhibition(code: string): void {
-    if (exhibition.code !== code) return;
-    if (exhibition.timer) clearTimeout(exhibition.timer);
-    exhibition.code = null;
-    exhibition.state = null;
-    exhibition.timer = null;
+    const game = exhibitions.get(code);
+    if (!game) return;
+    if (game.timer) clearTimeout(game.timer);
+    exhibitions.delete(code);
   }
 
-  // One round of the exhibition game: both computers choose from the public board only (R40), the engine
-  // resolves it and every spectator is sent the result. When the game ends it is left for the spectators'
-  // browsers to move on (R76), and a new exhibition game starts for whoever asks next.
-  function exhibitionRound(): void {
-    const code = exhibition.code;
-    const state = exhibition.state;
-    if (!code || !state) return;
-    if (state.status !== "playing" || spectators.watchingCount(code) === 0) return;
-    const view = (me: Player) => ({ board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: state.earthquakesLeft, rows: state.rows, opponentReady: false });
-    const result = resolveRound(state, { A: chooseMove(view("A"), "A", exhibition.rng), B: chooseMove(view("B"), "B", exhibition.rng) });
-    exhibition.state = result.state;
+  // One round of an exhibition game: both computers choose from the public board only (R40), the engine resolves
+  // it and every spectator is sent the result. It is never saved (R78), which is the one exception to R25: there is
+  // nothing to lose and nothing for the leaderboard to see. When the game ends it is left for the spectators'
+  // browsers to move on (R76).
+  function exhibitionRound(code: string): void {
+    const game = exhibitions.get(code);
+    if (!game || game.state.status !== "playing" || spectators.watchingCount(code) === 0) return;
+    const state = game.state;
+    const view = { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: state.earthquakesLeft, rows: state.rows, opponentReady: false };
+    const result = resolveRound(state, { A: chooseMove(view, "A", exhibitionRng), B: chooseMove(view, "B", exhibitionRng) });
+    game.state = result.state;
     spectators.round(code, result.state);
     closeSlowSpectators();
-    if (result.state.status === "playing") exhibition.timer = setTimeout(exhibitionRound, exhibitionPaceMs());
+    game.timer = result.state.status === "playing" ? setTimeout(() => exhibitionRound(code), exhibitionPaceMs()) : null;
   }
   // The exhibition computers play at a watchable pace (1.5 seconds a round), or twice the injected computer delay in tests.
   const exhibitionPaceMs = (): number => (options.computerDelayMs !== undefined ? options.computerDelayMs * 2 : 1_500);
 
   function startExhibition(): string {
-    if (exhibition.code && exhibition.state?.status === "playing") return exhibition.code;
-    if (exhibition.code) stopExhibition(exhibition.code);
+    for (const [code, game] of exhibitions) if (game.state.status === "playing") return code; // one still being played
     const code = `EXH${randomUUID().slice(0, 3).toUpperCase()}`;
-    exhibition.code = code;
-    exhibition.state = newGame();
-    exhibition.timer = setTimeout(exhibitionRound, exhibitionPaceMs());
+    exhibitions.set(code, { state: newGame(), timer: setTimeout(() => exhibitionRound(code), exhibitionPaceMs()) });
     return code;
   }
 
@@ -306,6 +308,21 @@ export function attachRealtime(
   function isLive(code: string): boolean {
     const record = game.getGame(code);
     return !!record && watchable.has(code) && record.state.status === "playing" && !forfeited.has(code) && bothPresentFor(code);
+  }
+
+  // The live watchable games, forgetting the ones that are over: a finished game can never be live again, so the set
+  // (and every scan of it) stays proportional to the games still being played.
+  function liveWatchable(): string[] {
+    const live: string[] = [];
+    for (const code of [...watchable]) {
+      const record = game.getGame(code);
+      if (!record || record.state.status !== "playing" || forfeited.has(code)) {
+        watchable.delete(code);
+        continue;
+      }
+      if (isLive(code)) live.push(code);
+    }
+    return live;
   }
 
   // Both seats are taken by someone connected, the computer counting as always connected (R51).
@@ -317,14 +334,13 @@ export function attachRealtime(
     {
       send: (socket, message) => send(socket, message as never),
       viewOf(code) {
-        if (exhibition.code === code && exhibition.state) {
-          return { state: exhibition.state, kind: "exhibition", names: { A: "Computer 1", B: "Computer 2" } };
-        }
+        const exhibit = exhibitions.get(code);
+        if (exhibit) return { state: exhibit.state, kind: "exhibition", names: { A: "Computer 1", B: "Computer 2" } };
         if (!isLive(code)) return undefined; // friend, over, waiting or unknown: all the same answer (R71)
         const record = game.getGame(code)!;
         return { state: record.state, kind: computerGames.has(code) ? "computer" : "quick", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") } } satisfies WatchableView;
       },
-      liveCodes: () => [...watchable].filter(isLive),
+      liveCodes: () => liveWatchable(),
       watchingChanged(code, watching) {
         for (const player of ["A", "B"] as const) {
           const socket = connections.get(key(code, player));
@@ -333,7 +349,7 @@ export function attachRealtime(
       },
       startExhibition,
       stopExhibition,
-      isExhibition: (code) => exhibition.code === code,
+      isExhibition: (code) => exhibitions.has(code),
       log: (event, fields) => logEvent(event, fields),
     },
     { perGame: options.spectatorsPerGame, total: options.spectatorsTotal, bufferLimit: options.spectatorBufferLimit },
@@ -342,7 +358,7 @@ export function attachRealtime(
   const game = createGameService({ db, broadcast, roundTimerMs });
   const restoredCodes = game.restore();
   // Games marked watchable in the database stay watchable across a restart (R71).
-  for (const saved of db.loadGames()) if (saved.watchable) watchable.add(saved.code);
+  for (const saved of db.loadGames()) if (saved.watchable && saved.state.status === "playing" && !saved.ended) watchable.add(saved.code);
 
   const wss = new WebSocketServer({ server, path: "/ws" });
 
@@ -773,7 +789,8 @@ export function attachRealtime(
     graceTimers.clear();
     for (const timer of computerTimers.values()) clearTimeout(timer);
     computerTimers.clear();
-    if (exhibition.timer) clearTimeout(exhibition.timer);
+    for (const code of [...exhibitions.keys()]) stopExhibition(code);
+    spectators.clear();
   }
 
   return {
@@ -782,8 +799,10 @@ export function attachRealtime(
     dispose,
     createComputerGame,
     createQuickGame,
-    liveCount: () => [...watchable].filter(isLive).length, // R80: live watchable games, never the exhibition game
-    exhibitionRunning: () => exhibition.code !== null,
+    liveCount: () => liveWatchable().length, // R80: live watchable games, never the exhibition game
+    exhibitionRunning: () => exhibitions.size > 0,
+    spectatorState: () => ({ ...spectators.sizes(), exhibitions: exhibitions.size }),
+    watchableKnown: () => [...watchable].sort(),
     watchingIn: (code: string) => spectators.watchingCount(code),
     spectatorMoveMs,
   };

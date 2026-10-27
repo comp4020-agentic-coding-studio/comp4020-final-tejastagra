@@ -30,7 +30,7 @@ async function playRound(player: Page, spectator: Page, round: number, column: n
 
 test.describe("The home screen (U76, U77)", () => {
   for (const viewport of [NARROW, PHONE, LAPTOP]) {
-    test(`U76 and U77 the Watch live button is first in the icon row, 44px or more, with its count, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+    test(`E9 and U76 and U77 the Watch live button is first in the icon row, 44px or more, with its count, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport);
       await page.goto("/");
       const buttons = page.locator(`${testid("icon-row")} .round-item`);
@@ -52,7 +52,7 @@ test.describe("The home screen (U76, U77)", () => {
     });
   }
 
-  test("U76 the count goes up by one while a computer game is live, and says so in words", async ({ browser }) => {
+  test("E9 and U76 the count goes up by one while a computer game is live, and says so in words", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE);
     await page.goto("/");
     const read = async () => {
@@ -71,7 +71,7 @@ test.describe("The home screen (U76, U77)", () => {
     await other.context.close();
   });
 
-  test("U77 tapping Watch live opens the watching screen", async ({ browser }) => {
+  test("E9 and U77 tapping Watch live opens the watching screen", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE);
     await page.goto("/");
     await page.locator(testid("watch-live")).click();
@@ -83,7 +83,7 @@ test.describe("The home screen (U76, U77)", () => {
 
 test.describe("The watching screen (U78 to U83)", () => {
   for (const size of [PHONE, LAPTOP]) {
-    test(`U78 and U80 the banner, both names, the board and the count show at ${size.width} x ${size.height}`, async ({ browser }) => {
+    test(`E9 and U78 and U80 the banner, both names, the board and the count show at ${size.width} x ${size.height}`, async ({ browser }) => {
       const { player, spectator } = await watching(browser, size, { reducedMotion: true });
       await expect(spectator.page.locator(testid("watching-banner"))).toHaveText("Watching live");
       await expect(spectator.page.locator(testid("watching-count"))).toHaveText("1 watching");
@@ -103,7 +103,7 @@ test.describe("The watching screen (U78 to U83)", () => {
     });
   }
 
-  test("U79 nothing on the watching screen is interactive: no columns, badges, ghost or timer, and only two buttons", async ({ browser }) => {
+  test("E9 and U79 nothing on the watching screen is interactive: no columns, badges, ghost or timer, and only two buttons", async ({ browser }) => {
     const { player, spectator } = await watching(browser, PHONE, { reducedMotion: true });
     const page = spectator.page;
     for (const id of ["column-0", "column-3", "column-6", "shield-badge", "earthquake-badge", "shield-info", "earthquake-info", "ghost-disc", "timer"]) {
@@ -128,7 +128,7 @@ test.describe("The watching screen (U78 to U83)", () => {
     await spectator.context.close();
   });
 
-  test("U79 the player panels never say Choosing or Ready, and show the shield and Earthquake as icons (R72)", async ({ browser }) => {
+  test("E9 and U79 the player panels never say Choosing or Ready, and show the shield and Earthquake as icons (R72)", async ({ browser }) => {
     const { player, spectator } = await watching(browser, PHONE, { reducedMotion: true });
     const text = await spectator.page.locator(testid("players")).innerText();
     expect(text).not.toMatch(/choosing|ready|chosen/i);
@@ -143,7 +143,7 @@ test.describe("The watching screen (U78 to U83)", () => {
     await spectator.context.close();
   });
 
-  test("U79 and R72 nothing the spectator sees changes until the round resolves", async ({ browser }) => {
+  test("E9 and U79 and R72 nothing the spectator sees changes until the round resolves", async ({ browser }) => {
     const { player, spectator } = await watching(browser, PHONE, { reducedMotion: true });
     const before = await spectator.page.locator(testid("board-wrap")).innerHTML();
     await player.page.locator(testid("column-4")).click(); // chosen; the computer thinks for 1 to 3 seconds (R52)
@@ -156,7 +156,7 @@ test.describe("The watching screen (U78 to U83)", () => {
     await spectator.context.close();
   });
 
-  test("U79 the buttons are 44px or more and Home goes home", async ({ browser }) => {
+  test("E9 and U79 the buttons are 44px or more and Home goes home", async ({ browser }) => {
     const { player, spectator } = await watching(browser, PHONE, { reducedMotion: true });
     for (const id of ["watch-another", "go-home"]) {
       const box = (await spectator.page.locator(testid(id)).boundingBox())!;
@@ -169,27 +169,48 @@ test.describe("The watching screen (U78 to U83)", () => {
     await spectator.context.close();
   });
 
-  test("U81 an exhibition game is labelled, between two computers, and plays by itself", async ({ browser }) => {
-    // Other checks may have games live, and a random request would then be placed in one of them. The exhibition game
-    // is shown when nothing is live, so ask until one is offered; if the app is busy for the whole wait, say so rather
-    // than pass without checking (the unit check W8 covers the rule itself).
+  test("E9 and U81 an exhibition game is labelled, between two computers, and the label comes from the game's kind", async ({ browser }) => {
+    // Whether the server offers an exhibition game depends on what else is live in a shared app, so this check does not
+    // wait for one (and never skips). It plays the server's own `spectating` message for an exhibition game into the real
+    // watching page, as the server would send it, and checks what the page shows. The server side (an exhibition game
+    // starts when nothing is live, is never saved and stops with no audience) is W8 in spec/unit-spectating.test.ts.
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    let seen = false;
-    for (let attempt = 0; attempt < 20 && !seen; attempt++) {
-      await page.goto("/watch");
-      await expect(page.locator(testid("name-a"))).not.toHaveText("Player");
-      seen = (await page.locator(testid("watching-banner")).innerText()).startsWith("Exhibition");
-      if (!seen) await page.waitForTimeout(1_500);
-    }
-    test.skip(!seen, "other games were live for the whole wait, so no exhibition game was offered (rule checked by W8)");
+    await page.routeWebSocket(/\/ws$/, (ws) => {
+      ws.onMessage(() => {
+        ws.send(JSON.stringify({
+          type: "spectating",
+          code: "EXHABC",
+          kind: "exhibition",
+          watching: 1,
+          names: { A: "Computer 1", B: "Computer 2" },
+          state: { board: [[], [], [], [], [], [], []], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null },
+        }));
+      });
+    });
+    await page.goto("/watch");
     await expect(page.locator(testid("watching-banner"))).toHaveText("Exhibition: Computer vs Computer");
     await expect(page.locator(testid("name-a"))).toHaveText("Computer 1");
     await expect(page.locator(testid("name-b"))).toHaveText("Computer 2");
-    await expect(page.locator(testid("round-number"))).not.toHaveText("1", { timeout: 8_000 }); // they play by themselves
+    await expect(page.locator(testid("watching-count"))).toHaveText("1 watching");
     await context.close();
   });
 
-  test("U84 a second spectator makes it 2 for the player and for the first spectator, and 1 again when they leave", async ({ browser }) => {
+  test("E9 and U81 against the real server, whatever it offers is labelled for what it is", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await page.goto("/watch");
+    await expect(page.locator(testid("name-a"))).not.toHaveText("Player");
+    const banner = await page.locator(testid("watching-banner")).innerText();
+    expect(["Watching live", "Exhibition: Computer vs Computer"]).toContain(banner);
+    if (banner.startsWith("Exhibition")) {
+      await expect(page.locator(testid("name-a"))).toHaveText("Computer 1");
+      await expect(page.locator(testid("round-number"))).not.toHaveText("1", { timeout: 8_000 }); // they play by themselves
+    } else {
+      await expect(page.locator(testid("name-b"))).not.toHaveText("Computer 2"); // a real game, not an exhibition one
+    }
+    await context.close();
+  });
+
+  test("E9 and U84 a second spectator makes it 2 for the player and for the first spectator, and 1 again when they leave", async ({ browser }) => {
     const { player, spectator, code } = await watching(browser, PHONE, { reducedMotion: true });
     await expect(player.page.locator(testid("watcher-count-text"))).toHaveText("1");
     expect(await player.page.locator(testid("watcher-count")).evaluate((e) => (e as HTMLElement).textContent!.trim())).toBe("1 watching"); // the accessible name
@@ -208,7 +229,7 @@ test.describe("The watching screen (U78 to U83)", () => {
     await player.context.close();
   });
 
-  test("U84 and R71 a friend game never shows a count, and asking for it by its code is answered like a game that does not exist", async ({ browser }) => {
+  test("E9 and U84 and R71 a friend game never shows a count, and asking for it by its code is answered like a game that does not exist", async ({ browser }) => {
     const one = await newPlayer(browser, PHONE, { reducedMotion: true });
     const code = (await (await one.page.request.post("/api/games")).json()).code as string;
     await one.page.goto(`/g/${code}`);
@@ -252,7 +273,7 @@ async function quickPair(browser: Browser) {
 }
 
 test.describe("Watching to the end of a game (U82)", () => {
-  test("U82 a game won by four in a row shows its result and a count down, and then the spectator moves on by itself", async ({ browser }) => {
+  test("E9 and U82 a game won by four in a row shows its result and a count down, and then the spectator moves on by itself", async ({ browser }) => {
     const { one, two, code } = await quickPair(browser);
     const spectator = await newPlayer(browser, PHONE, { reducedMotion: true });
     await spectator.page.goto(`/watch?game=${code}`); // this very game, so the check below always runs
@@ -278,7 +299,7 @@ test.describe("Watching to the end of a game (U82)", () => {
     for (const c of [one, two, spectator]) await c.context.close();
   });
 
-  test("U82 Watch another game moves on at once from a finished game, asks for a new game and the result card goes", async ({ browser }) => {
+  test("E9 and U82 Watch another game moves on at once from a finished game, asks for a new game and the result card goes", async ({ browser }) => {
     const { one, two, code } = await quickPair(browser);
     const spectator = await newPlayer(browser, PHONE, { reducedMotion: true });
     // Watch the socket's frames from before the page opens, so nothing is missed.
@@ -316,7 +337,7 @@ test.describe("Watching to the end of a game (U82)", () => {
 });
 
 test.describe("A game that stops while watched (U83)", () => {
-  test("U83 when a player leaves and does not return, the spectator is told the game has ended", async ({ browser }) => {
+  test("E9 and U83 when a player leaves and does not return, the spectator is told the game has ended", async ({ browser }) => {
     const { one, two, code } = await quickPair(browser);
     const spectator = await newPlayer(browser, PHONE, { reducedMotion: true });
     await spectator.page.goto(`/watch?game=${code}`);
@@ -331,7 +352,7 @@ test.describe("A game that stops while watched (U83)", () => {
 });
 
 test.describe("Watching fits the phone (promise 4)", () => {
-  test("U68, U78, U84 and C20 the tightest case at 320 x 568: the widest nicknames, a spectator and the ceiling warning all showing, and everything still fits", async ({ browser }) => {
+  test("E9, U68, U78, U84 and C20 the tightest case at 320 x 568: the widest nicknames, a spectator and the ceiling warning all showing, and everything still fits", async ({ browser }) => {
     // Round 12 on the watching screen has a round number, the banner, the count and the ceiling warning: the worst case for the
     // status row. A quick match pair resolves each round the moment both choose, so reaching it is quick (correction C20).
     const drain = await newPlayer(browser, PHONE);
@@ -386,7 +407,7 @@ test.describe("Watching fits the phone (promise 4)", () => {
     for (const c of [one, two, spectator]) await c.context.close();
   });
 
-  test("U78 and U79 with the widest nicknames at 320 x 568 nothing scrolls sideways, the board and both buttons are on screen and nothing overlaps", async ({ browser }) => {
+  test("E9 and U78 and U79 with the widest nicknames at 320 x 568 nothing scrolls sideways, the board and both buttons are on screen and nothing overlaps", async ({ browser }) => {
     const { player, spectator } = await watching(browser, NARROW, { reducedMotion: true, names: true });
     const page = spectator.page;
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
@@ -411,7 +432,7 @@ test.describe("Watching fits the phone (promise 4)", () => {
     await spectator.context.close();
   });
 
-  test("U84 the players' screen at 320 x 568 keeps the watcher count on the round line and the board and timer on the first screen", async ({ browser }) => {
+  test("E9 and U84 the players' screen at 320 x 568 keeps the watcher count on the round line and the board and timer on the first screen", async ({ browser }) => {
     const player = await newPlayer(browser, NARROW, { reducedMotion: true });
     await player.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } });
     const code = (await (await player.page.request.post("/api/computer")).json()).code as string;

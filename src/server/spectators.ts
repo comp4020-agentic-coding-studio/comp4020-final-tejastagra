@@ -114,6 +114,14 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
     else hooks.log("spectate_join", { game: code, spectators: n, kind });
   }
 
+  // The per-address history is also pruned on a timer, not only when someone asks, so a burst from many addresses
+  // cannot leave entries behind for ever (R77). unref'd, so it never keeps the process alive.
+  const sweep = setInterval(() => {
+    const t = now();
+    for (const [who, times] of asked) if (times.every((at) => t - at >= SPECTATE_WINDOW_MS)) asked.delete(who);
+  }, SPECTATE_WINDOW_MS);
+  sweep.unref();
+
   return {
     // R70: join the game in `code`, or a random live one. Answers with the game's public snapshot (R73), or why not.
     join(socket: WebSocket, address: string, code?: string): void {
@@ -185,6 +193,16 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
       return [...watching.keys()].filter((socket) => socket.bufferedAmount > bufferLimit);
     },
 
+    // How much state is held, for tests: every map empties as spectators leave (R77).
+    sizes: () => ({ watchers: watchers.size, watching: watching.size, lastGame: lastGame.size, addresses: asked.size }),
+    // Forget everything: the server is shutting down.
+    clear(): void {
+      watchers.clear();
+      watching.clear();
+      lastGame.clear();
+      asked.clear();
+      clearInterval(sweep);
+    },
     isSpectator: (socket: WebSocket): boolean => watching.has(socket),
     watchingCount: count,
     totalWatching: (): number => watching.size,
