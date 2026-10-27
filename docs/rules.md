@@ -68,10 +68,10 @@ The schedule depends on the round count alone (R11), so the engine needs no cloc
 ## Server, real time and persistence
 
 - **R20** The server holds the only true copy of every game. The browser only sends choices and displays what the server sends.
-- **R21** While a round is open, each player is told only whether the opponent has chosen yet, never what they chose.
-- **R22** No message to a player may contain the opponent's column or shield flag for the current round until it resolves. This includes error messages, logs sent to the browser and timing differences in message size.
-- **R23** A round's result is sent to both players at the same time and should appear on both screens within 1 second.
-- **R24** When a player connects or reconnects to a game, they receive a full snapshot of the game, without the opponent's pending choice.
+- **R21** While a round is open, each player is told only whether the opponent has chosen yet, never what they chose. A spectator is told neither (R72).
+- **R22** No message to a player may contain the opponent's column or shield flag for the current round until it resolves, and no message to a spectator (R72) may contain either player's column, shield flag or Earthquake choice for the current round until it resolves. This includes error messages, logs sent to the browser and timing differences in message size.
+- **R23** A round's result is sent to both players at the same time and should appear on both screens within 1 second. Spectators get the same result and it should appear on their screens within 1 second as well (R79).
+- **R24** When a player connects or reconnects to a game, they receive a full snapshot of the game, without the opponent's pending choice. A spectator's snapshot is described in R73.
 - **R25** Every change to a game is saved to the database before it is broadcast.
 - **R26** After a restart or redeploy, every game in progress continues from its last saved round. The timer for the open round restarts at 10 seconds, once both players are back (R51).
 - **R27** If a player disconnects, the game waits 30 seconds for them. If they return, play continues. If not, the game ends as a **forfeit** and the other player wins. As with R19's abandonment, "forfeit" is not a value the engine's `Status` ever takes: the engine only knows `'playing' | 'won' | 'draw'`. A forfeit is server-side state (who forfeited, who wins) recorded next to the engine's `GameState`, not a new engine outcome, so a forfeited game's `GameState.status` stays `'playing'` even though the server has ended the game and the leaderboard now has a result to show.
@@ -89,7 +89,32 @@ The schedule depends on the round count alone (R11), so the engine needs no cloc
 - **R33** **Play the computer** starts a game immediately. It never waits for anyone.
 - **R34** **Play a friend** creates a game with a 6-character game code from the letters `ABCDEFGHJKMNPQRSTUVWXYZ23456789` and a link `/g/<code>`. The game starts when a second player opens the link or enters the code. Implementation note: the server limits how many games one address may create (30 per minute), so the endpoint cannot be used to fill memory and disk; the first round's timer starts when the first player joins.
 - **R35** **Quick match** pairs a waiting player with the next player to arrive. Two players are never paired into more than one game, even if they arrive at the same moment. If nobody arrives within 20 seconds, the player is offered the computer and may keep waiting.
-- **R36** A game has at most two players. A third visitor to a full game sees a message saying the game is full and a button to start their own.
+- **R36** A game has at most two players (spectators are not players, R70). A third visitor to a full game sees a message saying the game is full and a button to start their own.
+
+## Spectating
+
+A **spectator** is a person watching a live game without playing in it (ADR 0012, which supersedes D3). A spectator is not a seat: it has no seat token, and it never counts as a player.
+
+- **R70** Anyone can choose "Watch a live game" and is placed in a random live game. A game is **live** when it is watchable, still being played and both seats are present (for a computer game, when the human is present). A game that is waiting for its second player, or that has ended, is not live and is not offered.
+- **R71** Only quick match games and games against the computer can be watched. A friend game, made with a game code (R34), is never watchable and is never listed or counted. Whether a game is watchable is decided when it is made and is saved with it, so a restart does not change it.
+- **R72** A spectator receives exactly what the players see after each round resolves, and nothing before. No message to a spectator ever contains a pending column, shield, Earthquake or other choice, nor whether either player has chosen yet (this extends R21 and R22). A spectator is never sent `opponent_ready`.
+- **R73** A spectator who joins mid-game receives a full snapshot of the game, without any pending choice, and the board in it is the board the players have (this extends R24).
+- **R74** A spectator cannot act. The server rejects any choice or other game action from a spectator with the reason `spectator`, and tells nobody else.
+- **R75** Players and spectators both see how many people are watching. The count is a number only, never who is watching. It changes as spectators join and leave.
+- **R76** When a watched game ends, the spectator sees the result, then after 5 seconds is moved to another random live game (R70). The browser does the waiting and then asks the server for a game, so the server never pushes a spectator out of a game. The game the spectator just watched is not chosen again while another live game exists.
+- **R77** At most 50 spectators can watch one game, and at most 300 can watch on the whole machine (one 256 MB machine, ADR 0012). A game that is full is skipped when choosing a random game. A spectator who would exceed the machine limit is told the room is full. Watching and the live count are rate limited per client address (`Fly-Client-IP`).
+- **R78** If no watchable game is live, the spectator watches an **exhibition game** between two computer players, started on demand and labelled "Exhibition: Computer vs Computer". It is a computer game with a computer in both seats, is never saved as watchable, never affects the leaderboard (R37) and is stopped and forgotten when nobody is watching it. A new one starts the next time one is needed.
+- **R79** Spectators never affect the leaderboard, round timers, abandonment (R19), presence (R51) or forfeits (R27). A game with spectators and a game without them behave identically for its players, and the players' result is sent first.
+- **R80** The home screen shows how many games are live. It is a number only and counts only live watchable games, never friend games and never an exhibition game.
+
+**Spectator messages** (the WebSocket at `/ws`, as for players):
+
+- A spectator joins with `{ type: "spectate", code? }`. With no `code` the server picks a random live game (R70, R76) or starts an exhibition game (R78); with a `code` it joins that game only if it is watchable and live. It is answered with `{ type: "spectating", code, kind: "quick" | "computer" | "exhibition", state, watching, names }`, where `state` is the public game state (R73), `watching` is the number of spectators (R75) and `names` is both players' public display names. It never contains `you`, a seat token, `opponentReady` or anything about a pending choice.
+- Each resolved round is sent to every spectator as `{ type: "round", state, watching }` after it is saved (R25), and the players' result is sent first (R79). A change in the number watching is sent to players and spectators as `{ type: "watching", watching }`.
+- When the game ends the spectator is sent the final `round` message, and the browser then moves on after 5 seconds (R76) by sending `{ type: "spectate" }` again.
+- Anything a spectator sends other than `spectate` and `leave` is answered with `{ type: "rejected", reason: "spectator" }` to that spectator only (R74).
+- If the game cannot be watched, is full (R77) or does not exist, the answer is `{ type: "not_watchable", reason: "full" | "room_full" | "unknown" }`, and a friend game's code is answered as `unknown` so its existence is not revealed (R71).
+- `GET /api/live` answers `{ live: number }` (R80), rate limited per client address.
 
 ## Tutorial
 
@@ -182,6 +207,6 @@ export function resolveRound(
 
 - **D1** Accepted (default, pending Tejas's review): yes, a draw is the right result when both players complete a line in the same round (R14).
 - **D2** Accepted: 10 seconds is the round timer (R18), set by Tejas on 27 October 2026 (it was 15). Playtests should settle this.
-- **D3** Accepted (default, pending Tejas's review): no spectating. A third visitor sees "game full" (R36). Watching is not in scope unless Tejas adds it here.
+- **D3** Superseded by ADR 0012 (27 October 2026): spectating is now in scope (R70 to R80). A third visitor to a friend game still sees "game full" (R36), because a friend game is never watchable (R71).
 - **D4** Accepted (default, pending Tejas's review): yes, forfeits count towards most wins (R38).
 - **D5** Accepted (default, pending Tejas's review): guests appear on the leaderboard with their short tag, the same as accounts.
