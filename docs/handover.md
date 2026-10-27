@@ -2,6 +2,49 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## Shrinking board of 27 October 2026 (done, ready to deploy)
+
+Tejas's request, built in the order the harness asks: ADR and rules, then design docs, then tests, then code. Never pushed or deployed. Tejas's message was cut off in the middle of step 7 ("Update docs/handover.md with the commits, rule"), so I took the rest to mean the commits, the rule changes and the decisions, as for the Earthquake.
+
+| Commit | What it did |
+| --- | --- |
+| `f2f1038` | ADR 0011 (why the schedule is in rounds, not seconds, and that the numbers are tunable constants) and rules R61 to R68, with R1, R2, R3, R12, R15 and R41 changed and the glossary words Ceiling, Walls, Rock and Open area |
+| `3d0912b` | Design: new `docs/design/shrinking-board.md` (U68 to U74), U23b, U44b, the rock tokens and checks registered as todo |
+| `e3ad172` | Rules: R69 (a game's shape moves to the schedule at each resolved round, never backwards) and `collapseDue` in the contract |
+| `9f611ad` | Theme: `--rock`, `--rock-dark` and the collapse durations |
+| `5b89286` | Engine: `shapeAt`, `collapseDue`, `rows`, `firstColumn`, `lastColumn`, `column_closed`, the collapse after the result is decided, draw on a full open area; the computer plays the open area and avoids squares about to close; migration 12; unit and property tests |
+| `48b8fcd` | Screen: warning banner, flashing cells, rock, the collapse animation, closed columns, result line, the tutorial step, `e2e/shrinking-board.spec.ts` |
+| `561c2d1` | Correction C19 |
+| `6315d4a` | Two tests for gaps mutation testing found; mutation score recorded (97.61%) |
+
+**Rule changes:** new R61 to R69; R1, R2, R3, R12, R15 and R41 changed. **Design IDs:** U68 to U75, U23b, U44b. **ADR:** 0011. **Correction:** C19. **Migration:** 12 (a game saved before the change gets the full 7 by 6 shape and takes the shape for its round count at its next resolved round, R69).
+
+**The schedule** (named constants in `src/engine/index.ts`, first guesses for playtests to tune; change `docs/rules.md` first): ceiling after rounds 6, 12 and 18 down to 3 rows; walls after rounds 12 and 18 down to 3 columns.
+
+**What the numbers you asked for mean, which you should look at:** with 3 rows no vertical four fits and with 3 columns no horizontal four fits, so **from round 18 on nobody can win**: the only way out is a draw by filling the 3 by 3 open area (at most 9 pieces), or a forfeit or abandonment. It does stop long games. If playtests dislike it, set `MIN_ROWS` or `MIN_COLUMNS` to 4, which keeps wins possible. It is in ADR 0011 under "What it costs".
+
+**Decisions I made while Tejas was away** (also in ADR 0011 or `docs/design/shrinking-board.md`):
+- `GameState` gains `rows`, `firstColumn` and `lastColumn`, derived only from the round count by `shapeAt`, so the engine stays pure. The browser imports `shapeAt` and `collapseDue` from the engine, only to show the warning (R20).
+- A game that ends in a round does not collapse in that round, so the winning line stays on the board for the highlight.
+- The board on screen is always 7 by 6. Closed cells turn into rock, so the phone layout cannot change.
+- In a round with a collapse the result line lists only what is still on the board (U73): a disc that landed in a square that then closed is not in the state the server sends, and a new "last round" message was not worth adding.
+- The banner for a ceiling drop and a wall collapse in the same round reads "Ceiling and walls close after this round" (you gave the wording for the two single cases only). The longer sentence wrapped at 320px and pushed the timer off the screen.
+- At 320px the banner shares the round line's row in smaller type, so it costs no height.
+- The opponent's panel now shows its shield and Earthquake as two small icons with the words ("available", "used") as visually hidden text, because the words cost a line the banner needed (U75).
+- The banner keeps the shared `--outline`; the design doc had said `--timer-warn`, so I changed the doc.
+- The computer, when it has no winning or blocking move and no Earthquake to play, avoids dropping into a square that is about to close.
+- The new round is opened before the collapse animation runs, so a tap during the animation is a real choice (found by a check, correction C19).
+
+**Checks at the end:** `pnpm check` 306 passed and 3 todo, twice in a row and once against the Docker image; `pnpm check:fast` 251; `pnpm test:e2e` 98 browser checks; mutation score 97.61%. The Docker image built and ran with an empty `/data`: `/`, `/readme/` and `/theme.css` answered 200 and `/style-preview` 404.
+
+**Known gaps:**
+- **360 x 640 is not on one screen.** The board and timer end about 46px below the fold with no banner at all (the timer bar ends at y=686), and more with it. That is not caused by this work, 360 x 640 is not a marking viewport and `docs/design.md` only asks for the first-screen fit at the marking viewports and 320 x 568, but a real 360 x 640 phone would scroll. It would need the player panels to shrink at that size.
+- **The Earthquake animation unlocks the next round after it plays** (about 450ms), where the collapse now unlocks first. A tap in that half second after an earthquake round is swallowed ("Your choice is locked in"). Not tested or fixed.
+- **First-screen fit at 320 x 568 with the banner has about 15px to spare** with the widest allowed nicknames, and no more to give.
+- **No screenshot baselines** were regenerated; the shrinking board does not appear in them.
+- **No playtest of the schedule** has happened (promise 1 is judged in `docs/playtests.md`), and the numbers are guesses.
+- Games saved before this change only catch up at their next resolved round, so a game that is mid-round at deploy shows the full board until then.
+
 ## Earthquake power-up of 27 October 2026 (done, ready to deploy)
 
 Tejas's request, built in the order the harness asks: ADR and rules, then design docs, then tests, then code. Never pushed or deployed.
@@ -65,13 +108,13 @@ Earlier stage (restyle): `999273d`, `120f355`, `47dbc61`.
 ## State of the app
 
 What exists:
-- **Engine** (`src/engine/`), pure, 97.13% mutation score. Earthquake (R53 to R60) is in it.
-- **Server** (`src/server/`): HTTP and WebSocket (`index.ts`, `realtime.ts`), save-before-broadcast persistence in SQLite with 11 numbered migrations (`db.ts`), the computer player, game codes, Quick match, identity, leaderboard rules, rate limiting. `screens.ts` renders every screen; `arcade-html.ts` holds the shared pieces (title with cracks and chips, buttons, icons).
+- **Engine** (`src/engine/`), pure, 97.61% mutation score. Earthquake (R53 to R60) and the shrinking board (R61 to R69) are in it.
+- **Server** (`src/server/`): HTTP and WebSocket (`index.ts`, `realtime.ts`), save-before-broadcast persistence in SQLite with 12 numbered migrations (`db.ts`), the computer player, game codes, Quick match, identity, leaderboard rules, rate limiting. `screens.ts` renders every screen; `arcade-html.ts` holds the shared pieces (title with cracks and chips, buttons, icons).
 - **Look:** `public/theme.css` holds every colour, font, radius, shadow and duration; `public/components.css` uses only those variables. `spec/unit-theme.test.ts` enforces this and recomputes contrast. The design pack is in `docs/design/`; ADR 0006 has the history.
 - **Screens** (`src/client/`, esbuild, target es2020, so no top-level await): Home (laptop: two halves, phone: one column), Game (tap a column to choose, shield badge, countdown only after the server's result, end popup), Tutorial (runs in the browser on a practice board, R47 to R50), Quick match, Leaderboard, Account, `/readme/`.
 - **Protocol additions:** snapshot `opponentPresent` and the `opponent_joined` message (no choice information, R21, R22); `/api/visitor`, `/api/tutorial`, `tutorialDue` on `/api/me`.
 - **`/style-preview`** answers only when `DEV=1` (U50) and no page links to it.
-- **Checks:** `pnpm check` (262 passed, 3 todo), `pnpm check:fast` (207), `pnpm test:e2e` (79 browser checks incl. axe-core on every screen and screenshots), `pnpm check:isolated` (temporary server and data folder). Run `pnpm check` twice in a row; it must stay repeatable.
+- **Checks:** `pnpm check` (306 passed, 3 todo), `pnpm check:fast` (251), `pnpm test:e2e` (98 browser checks incl. axe-core on every screen and screenshots), `pnpm check:isolated` (temporary server and data folder). Run `pnpm check` twice in a row; it must stay repeatable.
 - **Docker:** built and run with an empty `/data`; `/`, `/readme/`, `/leaderboard` and `/theme.css` answered 200 and `/style-preview` 404.
 
 ## Next step: Phase 8, then polish
@@ -108,7 +151,7 @@ Phase 8: run the multi-user test session from `docs/testing/multi-user-test-plan
 - **Stryker needs `"plugins": ["@stryker-mutator/vitest-runner"]`** in `stryker.config.json` (already done).
 - **Two `pnpm dev` processes** crash-loop on "database is locked". Check `ps aux | grep "server/index"`.
 - **Test the real Dockerfile locally** before trusting an edit: `docker build -t rubble-test .`, run with `-v /tmp/some-dir:/data -p 18080:8080 -e PORT=8080`, point `APP_URL` at it, then `docker stop` and `docker rmi`. Dependencies are `ws`, `marked`, `esbuild` and `bcryptjs`.
-- **Corrections so far** are C1 to C18 in `docs/corrections.md`.
+- **Corrections so far** are C1 to C19 in `docs/corrections.md`.
 
 ## Run the dev server
 
