@@ -942,6 +942,16 @@ describe("R65 a collapse never creates a win and never undoes one", () => {
   });
 });
 
+describe("R61 and R62 a collapse never changes the number of columns", () => {
+  it("R62 the board still has exactly 7 columns after every collapse, however many rounds are played", () => {
+    let state = newGame();
+    for (let round = 0; round < 40; round++) {
+      state = resolveRound(state, { A: null, B: null }).state;
+      expect(state.board.length, `after round ${round + 1}`).toBe(COLUMNS);
+    }
+  });
+});
+
 describe("R66 a full open area with no winner is a draw", () => {
   it("R66 the draw is judged on the open area, so a shrunken board can be full with columns still holding room above", () => {
     const state = { ...newGame(), rows: 3, firstColumn: 2, lastColumn: 4 };
@@ -994,6 +1004,13 @@ describe("R67 an Earthquake on a shrunken board", () => {
     // column 1: ABA -> BA after the shift, B lands on top: BAB, then the ceiling (5 rows) leaves it as it is.
     expect(result.state.board[1]).toEqual(["B", "A", "B"]);
     expect(result.state.board[3]).toEqual(["B"]);
+  });
+
+  it("R67 and R55 Earthquake is allowed when the only piece in the open area is in its first or its last open column", () => {
+    for (const column of [1, 5]) {
+      const state = { ...withBoard({ [column]: "A" }), round: 12, rows: 4, firstColumn: 1, lastColumn: 5 };
+      expect(validateChoice(state, "A", { earthquake: true }), `column ${column}`).toEqual({ ok: true });
+    }
   });
 
   it("R67 and R55 Earthquake is still rejected with nothing_to_shake when the open area is empty", () => {

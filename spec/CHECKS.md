@@ -39,7 +39,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | P10 | Existing pieces only ever move down by exactly one row, and only in an earthquake round | R12, R56 | passing |
 | P11 | No piece ever sits outside the open area (below the current rows, between the first and last open column) | R61 to R64 | passing |
 | P12 | The open area never grows and never shrinks below 3 rows or 3 columns, and it equals the schedule for the round count | R61, R62 | passing |
-| M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.13% after Earthquake) |
+| M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.61% after the shrinking board) |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
 
