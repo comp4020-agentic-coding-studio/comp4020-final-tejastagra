@@ -10,9 +10,9 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 
 ## Board and choices
 
-- **R1** The board has 7 columns and 6 rows at the start, and it shrinks as rounds pass (R61, R62, ADR 0011). Discs and rubble blocks stack from the bottom of a column.
+- **R1** The board has 7 columns and 6 rows at the start, and it loses rows as rounds pass (R61, ADR 0011). It never loses columns. Discs and rubble blocks stack from the bottom of a column.
 - **R2** A new game has an empty board with all 7 columns and 6 rows open (the open area, R64), round 0, both shields and both Earthquakes available, status `playing` and no winner.
-- **R3** A choice is either a column (0 to 6) with a shield flag, or an Earthquake (R54). A column choice is rejected if the game is over, the column is not a whole number from 0 to 6, the column is closed (R64), the column is full or the shield flag is set when that player's shield is already used. Rejections are checked in that order and give the reasons `game_over`, `bad_column`, `column_closed`, `column_full` and `no_shield`. An Earthquake choice is checked as in R53 and R55. A column's fullness is checked on the board as it is before the round, even if an earthquake in the same round would free a space.
+- **R3** A choice is either a column (0 to 6) with a shield flag, or an Earthquake (R54). A column choice is rejected if the game is over, the column is not a whole number from 0 to 6, the column is full or the shield flag is set when that player's shield is already used. Rejections are checked in that order and give the reasons `game_over`, `bad_column`, `column_full` and `no_shield`. An Earthquake choice is checked as in R53 and R55. A column's fullness is checked on the board as it is before the round, even if an earthquake in the same round would free a space.
 - **R4** A choice is final for its round. Once a player has chosen a column, with or without the shield, the server accepts no second choice from that player for the same round and answers it with the rejection reason `already_chosen`. This replaces the earlier rule that let a choice change until the round resolved (ADR 0009). `already_chosen` is a server-side rejection, not one of the engine's R3 reasons, and it says nothing about the opponent (R22).
 
 ## Resolving a round
@@ -24,7 +24,7 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 - **R9** If they chose the same column and both used shields, both shields are spent and the discs crash as in R6.
 - **R10** If only one player made a choice, only that disc lands (or only that earthquake happens). If neither did, the board does not change.
 - **R11** Every resolved round adds 1 to the round count, including rounds where nothing lands.
-- **R12** Pieces already on the board never move or change, except that an earthquake (R56) removes the bottom row and shifts every piece above down one row in its own column, and a collapse (R61, R62) removes every piece in the area it closes.
+- **R12** Pieces already on the board never move or change, except that an earthquake (R56) removes the bottom row and shifts every piece above down one row in its own column, and a ceiling drop (R61) removes every piece in the row it closes.
 
 ## Winning
 
@@ -53,17 +53,17 @@ Rubble is Connect 4 played at the same time. In each round both players secretly
 
 ## The shrinking board
 
-The schedule depends on the round count alone (R11), so the engine needs no clock. "After round n" means once the n-th round has resolved. The numbers are named constants in the engine, first guesses that playtests may tune (ADR 0011); to change one, change this file first.
+The schedule depends on the round count alone (R11), so the engine needs no clock. "After round n" means once the n-th round has resolved. The numbers are named constants in the engine, first guesses that playtests may tune (ADR 0011); to change one, change this file first. The first version also closed the outer columns (the walls); playtesting found that too complicated and it was removed (ADR 0011, "Playtest finding"). R62 and R63 are retired and their numbers are not reused.
 
-- **R61** The ceiling drops after round 6 and every 6 rounds after that (rounds 6, 12, 18 and so on), until the board has 3 rows. When it drops, the top row of the open area closes and any piece in it crumbles away. Constants: `CEILING_FIRST_ROUND = 6`, `CEILING_EVERY = 6`, `MIN_ROWS = 3`.
-- **R62** The walls collapse after round 12 and every 6 rounds after that (rounds 12, 18 and so on), until 3 columns remain. When they collapse, the leftmost and rightmost open columns close and every piece in them crumbles away. Constants: `WALLS_FIRST_ROUND = 12`, `WALLS_EVERY = 6`, `MIN_COLUMNS = 3`.
-- **R63** When both happen after the same round, the ceiling drops first, then the walls collapse.
-- **R64** The **open area** is the rows below the current number of rows, in the columns from the first open column to the last. A closed column cannot be chosen: `validateChoice` rejects it with the reason `column_closed` (R3). A column is full when its pieces reach the current number of rows. Closure and fullness are checked on the board as it is before the round, so a collapse after a round never changes what that round accepted.
-- **R69** A game's shape is moved to `shapeAt(round)` each time a round resolves, never backwards: a game saved before the shrinking board started has the full shape (R2) whatever its round count, so it takes the shape for its round count at its next resolved round, closing everything that is due at once, ceiling first (R63). `collapseDue` is true for exactly what that next round will close.
-- **R65** A collapse happens after the round's discs have dropped and the round's result has been decided (R13 to R15). A collapse can never create a win: under R13 a win needs a disc dropped this round, and lines broken by a collapse are simply broken. A game that ended in this round does not collapse, so the winning line stays on the board. A collapse never affects the leaderboard rules (R37 to R39), and rounds to win still counts rounds (R17).
-- **R66** If the open area is full (every open column holds as many pieces as there are rows) and nobody has won, the game is a draw (R15). This is checked after the round's discs have dropped and again after a collapse, because a collapse can leave the remaining area full.
-- **R67** An Earthquake on a shrunken board removes the bottom row of the open area and shifts every open column down one (R56). Closed columns hold nothing, so nothing is removed from them. The earthquake happens first, then the discs drop, then any collapse applies to the board as it then stands.
-- **R68** The computer chooses only open columns that are not full, and it knows the schedule, like a human who can see the warning (docs/design/shrinking-board.md U68): when it has no winning or blocking move it avoids dropping a disc into a square that is about to close. It still never sees the human's choice (R40).
+- **R61** The ceiling drops after round 12 and every 8 rounds after that (rounds 12, 20, 28 and so on), and never goes below 4 rows. When it drops, the top row of the open area closes and any piece in it crumbles away. Starting from 6 rows, it therefore drops after round 12 (to 5 rows) and after round 20 (to 4 rows), and round 28 changes nothing. Constants: `CEILING_FIRST_ROUND = 12`, `CEILING_EVERY = 8`, `MIN_ROWS = 4`.
+- **R62** *Retired.* The walls no longer collapse: all 7 columns stay open for the whole game.
+- **R63** *Retired.* There is only a ceiling, so nothing happens in a set order.
+- **R64** The **open area** is the rows below the current number of rows, in all 7 columns. A column is full when its pieces reach the current number of rows. Fullness is checked on the board as it is before the round, so a ceiling drop after a round never changes what that round accepted.
+- **R69** A game's rows are set to the schedule's number for its round count each time a round resolves. A game saved before the shrinking board has the full 6 rows whatever its round count, so it takes the rows for its round count at its next resolved round, and every piece above the new ceiling crumbles away at once. `ceilingDue` is true for exactly what the next round will close.
+- **R65** A ceiling drop happens after the round's discs have dropped and the round's result has been decided (R13 to R15). A ceiling drop can never create a win: under R13 a win needs a disc dropped this round, and lines broken by a drop are simply broken. A game that ended in this round does not drop, so the winning line stays on the board. A drop never affects the leaderboard rules (R37 to R39), and rounds to win still counts rounds (R17).
+- **R66** If the open area is full (every column holds as many pieces as there are rows) and nobody has won, the game is a draw (R15). This is checked after the round's discs have dropped and again after a ceiling drop, because a drop can leave the remaining area full.
+- **R67** An Earthquake on a shrunken board removes the bottom row and shifts every column down one (R56). The earthquake happens first, then the discs drop, then any ceiling drop applies to the board as it then stands.
+- **R68** The computer chooses only columns that are not full, and it knows the schedule, like a human who can see the warning (docs/design/shrinking-board.md U68): when it has no winning or blocking move it avoids dropping a disc into a square that is about to close. It still never sees the human's choice (R40).
 
 ## Server, real time and persistence
 
@@ -107,7 +107,7 @@ The schedule depends on the round count alone (R11), so the engine needs no cloc
 ## Computer player
 
 - **R40** The computer chooses using only what a human opponent could see: the board, the round, both shields' status and whether the human has chosen yet. It never sees the human's choice.
-- **R41** The computer never chooses a full or closed column.
+- **R41** The computer never chooses a full column.
 - **R42** If the computer has a column that wins immediately, it chooses it.
 - **R43** If the human has a column that wins immediately, the computer chooses it to force a crash at least 70% of the time.
 - **R44** Otherwise it prefers central columns, with some randomness so it cannot be predicted perfectly.
@@ -123,13 +123,10 @@ The engine lives in `src/engine/index.ts`. It is pure: no input or output, no cl
 export const COLUMNS = 7;
 export const ROWS = 6;                     // the starting number of rows
 
-// The shrinking schedule (R61, R62). Tunable by playtests; change docs/rules.md first.
-export const CEILING_FIRST_ROUND = 6;
-export const CEILING_EVERY = 6;
-export const MIN_ROWS = 3;
-export const WALLS_FIRST_ROUND = 12;
-export const WALLS_EVERY = 6;
-export const MIN_COLUMNS = 3;
+// The shrinking schedule (R61). Tunable by playtests; change docs/rules.md first.
+export const CEILING_FIRST_ROUND = 12;
+export const CEILING_EVERY = 8;
+export const MIN_ROWS = 4;
 
 export type Player = 'A' | 'B';
 export type Cell = Player | 'R';           // 'R' is a rubble block
@@ -144,9 +141,7 @@ export interface GameState {
   round: number;                           // rounds resolved so far
   shieldsLeft: Record<Player, boolean>;
   earthquakesLeft: Record<Player, boolean>; // R53
-  rows: number;                            // R61: the current number of rows
-  firstColumn: number;                     // R62: the open columns run from firstColumn to lastColumn, inclusive
-  lastColumn: number;
+  rows: number;                            // R61: the current number of rows (all 7 columns are always open)
   status: Status;
   winner: Player | null;
 }
@@ -164,21 +159,20 @@ export interface RoundResult {
   outcome: RoundOutcome;
   shieldWinner: Player | null;
   shaken: boolean;                         // R56: the bottom row was removed this round
-  collapsed: { ceiling: boolean; walls: boolean }; // R61, R62: what closed after this round
+  ceilingDropped: boolean;                 // R61: the ceiling dropped after this round
 }
 
-// The shape of the open area after a number of resolved rounds. Pure: a function of the round count.
-export interface Shape { rows: number; firstColumn: number; lastColumn: number }
-export function shapeAt(round: number): Shape;
-// What will close after the next round resolves, given the shape the game is in now. The browser
-// uses it only to show the warning (U68) and the computer to avoid squares about to close (R68).
-export function collapseDue(state: GameState): { ceiling: boolean; walls: boolean };
+// The number of rows after a number of resolved rounds. Pure: a function of the round count.
+export function rowsAt(round: number): number;
+// Whether the ceiling will drop after the next round resolves, given the state the game is in now. The
+// browser uses it only to show the warning (U68) and the computer to avoid squares about to close (R68).
+export function ceilingDue(state: GameState): boolean;
 
 export function newGame(): GameState;
 export function validateChoice(
   state: GameState, player: Player, choice: Choice,
 ): { ok: true } | { ok: false; reason: 'game_over' | 'bad_column' | 'column_full' | 'no_shield'
-             | 'column_closed' | 'one_power_up' | 'no_earthquake' | 'nothing_to_shake' };
+             | 'one_power_up' | 'no_earthquake' | 'nothing_to_shake' };
 export function resolveRound(
   state: GameState, choices: { A: Choice | null; B: Choice | null },
 ): RoundResult;  // throws if either choice fails validateChoice

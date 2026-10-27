@@ -1,7 +1,20 @@
 # 0011. Shrinking board: the playable area closes in over rounds
 
-- **Status:** Accepted
-- **Decided by:** Tejas (request of 27 October 2026 for the shrinking board); the details below were chosen from docs/rules.md and docs/design/
+- **Status:** Accepted, amended on 27 October 2026 after playtesting (see "Playtest finding": the walls were removed and the ceiling slowed down)
+- **Decided by:** Tejas (request of 27 October 2026 for the shrinking board, and his amendment the same day); the details below were chosen from docs/rules.md and docs/design/
+
+## Playtest finding and the amended decision
+
+**This section replaces the schedule and the walls described below, which are kept as history.** Tejas playtested the first version and found two things: the rows closed too quickly, and the collapsing walls made the game too complicated to follow. He decided:
+
+- **The collapsing walls are removed completely.** All 7 columns stay open for the whole game. That removes the `column_closed` rejection, the open-columns range in `GameState` (`firstColumn` and `lastColumn`), the wall warning and animation, and the wall step of the tutorial. The tests that belonged only to the walls were removed with them (this is the removal of a rule, not a weakened test).
+- **The ceiling is slower.** It first drops after round 12 and then every 8 rounds after that (rounds 12, 20, 28 and so on), and it never goes below 4 rows. The constants are now `CEILING_FIRST_ROUND = 12`, `CEILING_EVERY = 8` and `MIN_ROWS = 4`.
+- **Starting from 6 rows with a floor of 4, the ceiling drops exactly twice:** after round 12 (to 5 rows) and after round 20 (to 4 rows). Round 28 is on the schedule but changes nothing, because the board has already reached its floor. The tests say so.
+- **A win stays possible for the whole game.** With 4 rows a vertical four still fits, which the old floor of 3 rows did not allow. The cost recorded below ("After round 18 no win is possible") no longer applies.
+- The warning banner now has one message, "The ceiling drops after this round", and there is only one tutorial step about shrinking.
+- **Migration.** Migration 12 had added the shape to saved games and had never been deployed, but a database that already ran it carries `firstColumn` and `lastColumn`. Rather than rewrite a migration, migration 13 removes those two keys from every saved game. The engine would drop them at the next round anyway; this keeps the stored state tidy and tested.
+
+The decision that the schedule counts rounds and not seconds stands, and so do the other choices below, except where the walls are mentioned.
 
 ## Context
 
