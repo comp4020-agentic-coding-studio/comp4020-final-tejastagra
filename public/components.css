@@ -1735,8 +1735,32 @@ input {
 }
 
 .live-count {
-  font: 700 0.72rem/1.1 var(--font-display);
-  color: var(--yellow);
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  z-index: 1;
+  min-width: 20px;
+  padding: 1px 6px;
+  font: 700 0.7rem/1.2 var(--font-display);
+  color: var(--ink);
+  background: var(--yellow);
+  border: var(--outline-thin);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  transform: translateX(8px); /* over the circle's top right corner */
+}
+
+/* Nothing is live: the badge is not drawn, and its words stay for screen readers (U76). */
+.live-count[data-live="0"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
 }
 
 /* The end popup is centred over the board, compact, and its title fits (U27a). */
@@ -1842,6 +1866,17 @@ input {
   .watching .watching-banner,
   .watching .watcher-count {
     font-size: 0.78rem;
+  }
+
+  /* "Watch another game" is the longest label (U79). At 320px the arrow icon goes, so the words fit on two lines. */
+  .watch-actions .btn svg {
+    display: none;
+  }
+
+  .watch-actions .btn {
+    font-size: 0.95rem;
+    line-height: 1.1;
+    text-align: center;
   }
 
   /* On the players' screen the count and the warning share the round line, so they must fit the 308px of the board. */

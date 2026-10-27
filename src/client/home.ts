@@ -196,7 +196,9 @@ async function showLive(): Promise<void> {
     if (!res.ok) return;
     const { live } = await res.json();
     if (typeof live !== "number") return;
-    $("live-count").textContent = live === 0 ? "No games live" : `${live} live`;
+    const badge = $("live-count");
+    badge.textContent = live === 0 ? "No games live" : `${live} live`;
+    badge.dataset.live = String(live);
   } catch {
     // keep the last words
   }

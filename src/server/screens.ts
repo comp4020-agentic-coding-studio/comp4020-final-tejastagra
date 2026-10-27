@@ -57,7 +57,7 @@ export function homeScreen(ctx: ScreenContext): string {
           <button type="submit" class="btn btn-yellow">Join</button>
         </form>
         <div class="round-row" data-testid="icon-row">
-          <a class="round-item watch-live" href="/watch" data-testid="watch-live"><span class="round">${icon("eye")}</span><span>Watch live</span><span class="live-count" data-testid="live-count" role="status" aria-live="polite">No games live</span></a>
+          <a class="round-item watch-live" href="/watch" data-testid="watch-live"><span class="round">${icon("eye")}</span><span>Watch live</span><span class="live-count" data-testid="live-count" data-live="0" role="status" aria-live="polite">No games live</span></a>
           ${roundButton({ label: "Leaderboard", iconName: "podium", href: "/leaderboard", testid: "open-leaderboard" })}
           ${roundButton({ label: "How to play", iconName: "question", testid: "how-to-play" })}
           ${roundButton({ label: "Account", iconName: "user", href: "/account", testid: "open-account" })}
