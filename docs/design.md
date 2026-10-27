@@ -31,7 +31,7 @@ The aim is a lively, original navy toy game site that works fully on a phone (AD
 
 ## What the game screen always shows
 
-- Round number and the round timer bar, and a warning on the round before the ceiling drops or the walls collapse (docs/design/shrinking-board.md).
+- Round number and the round timer bar, and a warning on the round before the ceiling drops (docs/design/shrinking-board.md).
 - Whether the opponent has chosen yet (R21), shown as "Ready" or "Choosing".
 - Whether each player still has their shield and their Earthquake.
 - Your current choice, until the round resolves.
