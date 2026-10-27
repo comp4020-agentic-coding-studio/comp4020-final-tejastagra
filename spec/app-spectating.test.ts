@@ -6,9 +6,12 @@ import { describe, expect, inject, it } from "vitest";
 const base = () => inject("baseUrl");
 const wsUrl = () => base().replace(/^http/, "ws") + "/ws";
 const address = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+const fresh = address;
 
-function open(): { socket: WebSocket; next: (type: string) => Promise<any>; raw: string[]; ready: Promise<void> } {
-  const socket = new WebSocket(wsUrl());
+// Each connection sends its own client address, as every check that creates anything must (CLAUDE.md), so no check shares
+// the per-address limit on watching (R77) with another, or with the rest of the suite running at the same time.
+function open(address: string = fresh()): { socket: WebSocket; next: (type: string) => Promise<any>; raw: string[]; ready: Promise<void> } {
+  const socket = new WebSocket(wsUrl(), { headers: { "fly-client-ip": address } } as never);
   const raw: string[] = [];
   const queued: any[] = [];
   const waiting: Array<{ type: string; resolve: (m: any) => void }> = [];
@@ -42,8 +45,9 @@ async function live(): Promise<number> {
 const quiet = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 describe("W: spectating against the running app (R70 to R80)", () => {
-  it("W3 (R80, R71) a friend game never changes the live count, and a computer game does", async () => {
-    const before = await live();
+  it("W3 (R80, R71) a live friend game is never offered to a spectator, and a live computer game makes the live count at least one", async () => {
+    // Other checks run live games in the same app while this one does, so the shared live count is never compared with an
+    // earlier reading. This checks its own games, by code.
     const friend = (await post("/api/games")).code as string;
     const a = open();
     await a.ready;
@@ -54,13 +58,23 @@ describe("W: spectating against the running app (R70 to R80)", () => {
     b.socket.send(JSON.stringify({ type: "join", code: friend, player: "B" }));
     await b.next("snapshot");
     await quiet(100);
-    expect(await live(), "a live friend game is not counted").toBe(before);
+    // Ask for "a random live game" several times: our friend game must never be the answer. (Each ask comes from its own address,
+    // so the limit of 10 asks in 10 seconds for one address, R77, does not apply here.)
+    for (let i = 0; i < 12; i++) {
+      const watcher = open(); // each from its own address, like a crowd
+      await watcher.ready;
+      watcher.socket.send(JSON.stringify({ type: "spectate" }));
+      const placed = await watcher.next("spectating");
+      expect(placed.code, "a friend game is never picked").not.toBe(friend);
+      watcher.socket.send(JSON.stringify({ type: "leave" }));
+      watcher.socket.close();
+    }
     const computer = (await post("/api/computer")).code as string;
     const human = open();
     await human.ready;
     human.socket.send(JSON.stringify({ type: "join", code: computer }));
     await human.next("snapshot");
-    expect(await live(), "a live computer game is").toBe(before + 1);
+    expect(await live(), "a live computer game is counted").toBeGreaterThanOrEqual(1);
     for (const s of [a, b, human]) s.socket.close();
   });
 
