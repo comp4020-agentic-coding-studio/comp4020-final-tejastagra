@@ -63,6 +63,7 @@ const clientBundles: Record<string, string> = {
   "game.js": bundleClient("src/client/game.ts"),
   "home.js": bundleClient("src/client/home.ts"),
   "quick.js": bundleClient("src/client/quick.ts"),
+  "watch.js": bundleClient("src/client/watch.ts"),
   "leaderboard.js": bundleClient("src/client/leaderboard.ts"),
   "account.js": bundleClient("src/client/account.ts"),
   "preview.js": bundleClient("src/client/preview.ts"),
@@ -370,6 +371,9 @@ const server = createServer((req, res) => {
   } else if (path === "/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(screens.homeScreen(screenContext()));
+  } else if (path === "/watch" || path === "/watch/") {
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end(screens.watchScreen(screenContext()));
   } else if (path === "/play/quick" || path === "/play/quick/") {
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(screens.quickScreen(screenContext()));

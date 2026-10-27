@@ -38,6 +38,14 @@ let opponentPresent = false;
 let opponentChosen = false; // only "chosen or not", never which column (R21)
 let locked = false; // the choice for this round is final (R4, U13)
 let gotReady = false; // "Get ready" shows once, when the game first starts (U55)
+// U84: how many people are watching, a number only (R75). Hidden while nobody is.
+function showWatching(n: number): void {
+  const el = $("watcher-count");
+  el.hidden = n <= 0;
+  // The number shows; the word "watching" is visually hidden text in the same paragraph, so a narrow screen has
+  // room and the accessible name still reads "2 watching" (U84).
+  setText("watcher-count-text", String(n));
+}
 let playedComputer = false; // Play again starts the same kind of game
 
 const board: BoardView = buildBoard();
@@ -482,6 +490,7 @@ socket.addEventListener("message", (event) => {
       you = message.you;
       seatToken = message.seatToken;
       opponentPresent = message.opponentPresent === true;
+      if (typeof message.watching === "number") showWatching(message.watching);
       if (typeof message.yourName === "string") setText("name-you", message.yourName);
       if (typeof message.opponentName === "string") setText("name-opponent", message.opponentName);
       saveSeat();
@@ -503,6 +512,9 @@ socket.addEventListener("message", (event) => {
         syncWaiting(drawn);
         startRound(drawn); // round 1 starts now that both are here (R51)
       }
+      break;
+    case "watching":
+      if (typeof message.watching === "number") showWatching(message.watching);
       break;
     case "opponent_ready":
       // The opponent has chosen, which is all this tells us: never their column (R21, R22).

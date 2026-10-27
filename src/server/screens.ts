@@ -3,7 +3,7 @@
 // and public/components.css, so nothing here defines a colour, font or duration
 // (CLAUDE.md). Every visible word is real product copy for players: notes about
 // how the page is built belong in docs/, not on screen (docs/design/look-and-feel.md U49).
-import { arcadePage, button, roundButton, title } from "./arcade-html.ts";
+import { arcadePage, button, icon, roundButton, title } from "./arcade-html.ts";
 
 export interface ScreenContext {
   version: string; // a hash of the stylesheets, so a deploy never mixes old and new styles
@@ -57,6 +57,7 @@ export function homeScreen(ctx: ScreenContext): string {
           <button type="submit" class="btn btn-yellow">Join</button>
         </form>
         <div class="round-row" data-testid="icon-row">
+          <a class="round-item watch-live" href="/watch" data-testid="watch-live"><span class="round">${icon("eye")}</span><span>Watch live</span><span class="live-count" data-testid="live-count" role="status" aria-live="polite">No games live</span></a>
           ${roundButton({ label: "Leaderboard", iconName: "podium", href: "/leaderboard", testid: "open-leaderboard" })}
           ${roundButton({ label: "How to play", iconName: "question", testid: "how-to-play" })}
           ${roundButton({ label: "Account", iconName: "user", href: "/account", testid: "open-account" })}
@@ -178,6 +179,60 @@ export function readmeScreen(ctx: ScreenContext, renderedReadme: string): string
 
 // ---- Game (docs/design/board-interaction.md U10 to U18, motion-and-endings.md U19 to U30) ----
 
+const EYE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>';
+const QUAKE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg>';
+
+// ---- The watching screen (/watch): the game screen with nothing to act on (docs/design/spectating.md U78 to U83) ----
+
+export function watchScreen(ctx: ScreenContext): string {
+  const body = `
+    <main class="arena game watching" data-testid="watch-screen">
+      <div class="stage" data-testid="game-group">
+        <div class="status-row">
+          <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>
+          <p class="watching-banner" data-testid="watching-banner" role="status">Watching live</p>
+          <p class="watcher-count" data-testid="watching-count" aria-live="off">${EYE_ICON}<span data-testid="watching-count-text">1 watching</span></p>
+          <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 1 5 13h5l-3 10 12-14h-6z"/></svg><span data-testid="shrink-warning-text"></span></p>
+        </div>
+
+        <div class="players" data-testid="players">
+          <div class="player player-you" data-testid="panel-a">
+            <span data-testid="avatar-a"></span>
+            <span class="player-text">
+              <span class="player-name" data-testid="name-a">Player</span>
+              <span class="player-meta"><span class="mini-disc" data-piece="you"></span><span class="shield-state" data-shield="ready" data-testid="shield-a"></span><span class="quake-state" data-quake="ready" data-testid="quake-a">${QUAKE_ICON}</span></span>
+            </span>
+          </div>
+          <span class="vs" aria-hidden="true">VS</span>
+          <div class="player player-opponent" data-testid="panel-b">
+            <span data-testid="avatar-b"></span>
+            <span class="player-text">
+              <span class="player-name" data-testid="name-b">Player</span>
+              <span class="player-meta"><span class="mini-disc" data-piece="opponent"></span><span class="shield-state" data-shield="ready" data-testid="shield-b"></span><span class="quake-state" data-quake="ready" data-testid="quake-b">${QUAKE_ICON}</span></span>
+            </span>
+          </div>
+        </div>
+
+        <div class="play-area">
+          <div class="board-wrap" data-testid="board-wrap">
+            <div class="watch-result panel" data-testid="watch-result" role="status" hidden>
+              <h2 data-testid="watch-result-title"></h2>
+              <p data-testid="watch-result-next"></p>
+            </div>
+          </div>
+          <p class="result" data-testid="result-line" role="status" aria-live="polite"></p>
+          <p class="message" data-testid="watch-message" role="status"></p>
+          <div class="watch-actions">
+            ${button({ label: "Watch another game", iconName: "join", kind: "red", testid: "watch-another" })}
+            ${button({ label: "Home", iconName: "join", kind: "blue", testid: "go-home", href: "/" })}
+          </div>
+        </div>
+      </div>
+    </main>
+  `;
+  return shell(ctx, "Rubble: Watch live", body, "/static/watch.js");
+}
+
 export function gameScreen(ctx: ScreenContext, code: string): string {
   let hits = "";
   let glows = "";
@@ -191,6 +246,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
         <div class="status-row">
         <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>
         <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 1 5 13h5l-3 10 12-14h-6z"/></svg><span data-testid="shrink-warning-text"></span></p>
+        <p class="watcher-count" data-testid="watcher-count" aria-live="off" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg><span data-testid="watcher-count-text"></span><span class="visually-hidden"> watching</span></p>
         </div>
 
         <div class="players" data-testid="players">

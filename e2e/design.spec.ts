@@ -603,7 +603,7 @@ test.describe("Screenshots", () => {
     test(`every screen matches its approved screenshot at ${name}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       // Top players and names change as people play, so hide the parts that depend on live data.
-      const mask = [page.locator(testid("top-players")), page.locator(testid("player-card")), page.locator(testid("leaderboard-wins")), page.locator(testid("leaderboard-rounds"))];
+      const mask = [page.locator(testid("top-players")), page.locator(testid("player-card")), page.locator(testid("leaderboard-wins")), page.locator(testid("leaderboard-rounds")), page.locator(testid("live-count"))]; // the live count is how many games happen to be live (U76)
       // /play/quick is left out: it joins the shared lobby, so a player left waiting by another run
       // pairs with this one and the page becomes a game. Its waiting state is checked in E6 and by axe.
       for (const path of SCREENS.filter((p) => p !== "/play/quick")) {

@@ -57,8 +57,8 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | W9 | A spectator gets each round's result within one second of the players, and the players' result is sent first | R79, R23 | passing |
 | W10 | Spectators never change round timers, abandonment, presence or forfeits | R79 | passing |
 | W11 | Watchable games stay watchable across a restart (migration 14) | R71 | passing |
-| E9 | Watching works at both viewports, nothing on the watching screen is interactive, the home count and the players' watcher count update | todo (`e2e/spectating.spec.ts`) |
-| U76 to U84 | Watch live button and count, the watching screen, the exhibition label, the result card and the watcher count | `e2e/spectating.spec.ts` | todo |
+| E9 | Watching works at both viewports, nothing on the watching screen is interactive, the home count and the players' watcher count update | passing (`e2e/spectating.spec.ts`) |
+| U76 to U84 | Watch live button and count, the watching screen, the exhibition label, the result card and the watcher count | `e2e/spectating.spec.ts` | passing |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
 

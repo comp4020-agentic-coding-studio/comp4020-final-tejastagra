@@ -185,3 +185,23 @@ async function maybeTutorial(): Promise<void> {
 void showPlayer().then(maybeTutorial);
 void showTop();
 void demo();
+
+// ---- The live count on "Watch live" (U76, R80) ----
+// A number only: how many watchable games are live. It is asked for when the screen opens and every 10 seconds
+// while it is open, and never more often (R77). If the server cannot say, the badge keeps its last words.
+const LIVE_EVERY_MS = 10_000;
+async function showLive(): Promise<void> {
+  try {
+    const res = await fetch("/api/live");
+    if (!res.ok) return;
+    const { live } = await res.json();
+    if (typeof live !== "number") return;
+    $("live-count").textContent = live === 0 ? "No games live" : `${live} live`;
+  } catch {
+    // keep the last words
+  }
+}
+void showLive();
+setInterval(() => {
+  if (!document.hidden) void showLive();
+}, LIVE_EVERY_MS);
