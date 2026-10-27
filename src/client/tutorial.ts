@@ -3,7 +3,7 @@
 // action is done. It runs on a practice board in the browser against a scripted computer. It never
 // opens a game on the server, so it can never change the leaderboard (R50): the only thing it
 // sends is "finished" or "skipped", which saves with the player (R48).
-import { buildBoard, confettiBurst, earthquakeIcon, quakeAnimation, reducedMotion, themeNumber } from "./arcade.ts";
+import { buildBoard, collapseAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, themeNumber } from "./arcade.ts";
 import { $ } from "./common.ts";
 
 type Piece = "you" | "opponent" | "rubble";
@@ -28,6 +28,9 @@ interface Stage {
   showQuake(show: boolean): void;
   quakeUsed(): void;
   shake(): Promise<void>;
+  // The shrinking board (U74): a warning banner and a flashing top row, then the top row turns to rock.
+  warn(text: string | null): void;
+  shrink(): Promise<void>;
   status(text: string): void;
   hideStatus(): void;
   hint(text: string): void;
@@ -44,6 +47,9 @@ interface Step {
 }
 
 const THINK = () => themeNumber("--ms-beat");
+// The practice board's open area before and after the ceiling drops (R61): the same shapes as round 6.
+const FULL = { rows: 6, firstColumn: 0, lastColumn: 6 };
+const SHRUNK = { rows: 5, firstColumn: 0, lastColumn: 6 };
 
 const STEPS: Step[] = [
   {
@@ -142,12 +148,38 @@ const STEPS: Step[] = [
     },
   },
   {
+    title: "The board shrinks",
+    caption: "The board shrinks as rounds pass: after round 6 the ceiling drops and after round 12 the walls collapse. Pieces in closed rows and columns crumble away.",
+    async run(s) {
+      s.reset();
+      s.place(2, "opponent");
+      s.place(4, "you");
+      s.place(4, "opponent");
+      s.warn("The ceiling drops after this round");
+      s.hint("Tap a column. Watch the top row.");
+      const column = await s.waitTap();
+      s.lock(column);
+      s.status("Choosing");
+      await s.pause(THINK());
+      s.status("Ready");
+      await s.pause(THINK() / 3);
+      s.clearGhost();
+      s.place(column, "you", true);
+      s.place(column === 6 ? 5 : column + 1, "opponent", true);
+      await s.pause(themeNumber("--ms-collapse-start"));
+      await s.shrink(); // the top row cracks, crumbles and turns to rock
+      s.warn(null);
+      s.hint("The top row is rock now. Nothing can land there.");
+    },
+  },
+  {
     title: "Four in a row wins",
     caption: "Get four of your discs in a row, across, down or diagonally. If you both do it in the same round, it is a draw.",
     async run(s) {
       s.reset();
       s.showShield(false);
       s.showQuake(false);
+      s.warn(null);
       s.place(0, "opponent");
       s.place(0, "opponent");
       s.place(5, "opponent");
@@ -177,6 +209,7 @@ const STEPS: Step[] = [
       s.reset();
       s.showShield(false);
       s.showQuake(false);
+      s.warn(null);
       s.hint("");
       s.hideStatus();
     },
@@ -252,11 +285,16 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
   quake.append(earthquakeIcon());
   const quakeLabel = document.createElement("span");
   quake.append(quakeLabel);
+  const warning = document.createElement("p");
+  warning.className = "shrink-warning tutorial-warning";
+  warning.dataset.testid = "tutorial-warning";
+  warning.setAttribute("role", "status");
+  warning.hidden = true;
   const hint = document.createElement("p");
   hint.className = "tutorial-hint";
   hint.dataset.testid = "tutorial-hint";
   hint.setAttribute("role", "status");
-  host.replaceChildren(status, wrap, shield, quake, hint);
+  host.replaceChildren(status, warning, wrap, shield, quake, hint);
 
   const heights = new Array<number>(7).fill(0);
   const ghost = document.createElement("span");
@@ -319,6 +357,16 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
       return new Promise((resolve) => {
         shieldWaiter = resolve;
       });
+    },
+    warn(text) {
+      warning.hidden = text === null;
+      warning.textContent = text ?? "";
+      // The top row of the practice board flashes while the warning shows (U69).
+      markDoomed(board, FULL, { ceiling: text !== null, walls: false }, text !== null ? SHRUNK : null);
+    },
+    async shrink() {
+      await collapseAnimation(board, FULL, SHRUNK);
+      for (let c = 0; c < 7; c++) heights[c] = Math.min(heights[c], SHRUNK.rows);
     },
     waitQuake() {
       return new Promise((resolve) => {

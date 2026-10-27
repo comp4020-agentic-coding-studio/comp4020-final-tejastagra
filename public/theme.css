@@ -113,6 +113,7 @@
   --outline-spinner-head: 5px solid var(--yellow);
   --radius-chip: 2px;
   --radius-foot: 0 0 10px 10px;
+  --radius-rock: 4px; /* rock has square corners: it is not a round piece (U71) */
 
   /* Durations (U19, U20 and the rest of motion-and-endings.md) */
   --dur-press: 0.08s;
@@ -156,7 +157,7 @@
   --ms-drop-land: 420;
   --ms-quake-step: 150;
   --ms-collapse-start: 250; /* a collapse starts this long after the discs begin to drop (U70) */
-  --ms-collapse: 200; /* the same 200ms as --dur-collapse, read by the scripts */ /* the same 150ms as the --dur-quake-* steps, read by the scripts (U65) */
+  --ms-collapse: 200; /* the same 200ms as --dur-collapse, read by the scripts */
 
   /* Bubble sizes in pixels: the smallest, and the spread above it (U3). */
   --stack-width: 420px;

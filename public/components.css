@@ -563,6 +563,41 @@ button.round-item {
   border: var(--outline-thin);
 }
 
+/* Rock (U71): a closed row or column. Solid and square-cornered, with crack lines and no hatch, so it
+   is never mistaken for rubble, which is a round hatched piece in a hole. It belongs to nobody. */
+.cell[data-closed="true"] {
+  background:
+    linear-gradient(135deg, transparent 0 46%, var(--ink) 46% 52%, transparent 52% 100%),
+    linear-gradient(45deg, transparent 0 62%, var(--ink) 62% 67%, transparent 67% 100%),
+    var(--rock);
+  border: var(--outline);
+  border-radius: var(--radius-rock);
+  box-shadow: inset 0 -6px 0 var(--rock-dark);
+}
+
+/* A cell about to close flashes a crack pattern (U69). Under reduced motion the pattern shows and does not pulse. */
+.cell[data-doomed="true"] {
+  background:
+    linear-gradient(135deg, transparent 0 46%, var(--timer-warn) 46% 54%, transparent 54% 100%),
+    linear-gradient(45deg, transparent 0 62%, var(--timer-warn) 62% 68%, transparent 68% 100%),
+    var(--hole);
+  animation: doomed var(--dur-doomed) ease-in-out infinite;
+}
+
+.cell.cracking {
+  animation: doomed calc(var(--dur-collapse) / 2) linear 2;
+}
+
+@keyframes doomed {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 /* A disc or a rubble block sits inside its hole. */
 .piece {
   position: absolute;
@@ -849,6 +884,8 @@ button.round-item {
 /* Under reduced motion nothing moves (U30): bubbles and chips stay where they
    are, discs appear in place, and there is no drop, shake, pulse or confetti. */
 @media (prefers-reduced-motion: reduce) {
+  .cell[data-doomed="true"],
+  .cell.cracking,
   .dropping,
   .thud,
   .shake,
@@ -1147,6 +1184,40 @@ input {
   display: grid;
   gap: 8px;
   justify-items: center;
+}
+
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+}
+
+.shrink-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 2px 10px;
+  font: 700 0.85rem/1.1 var(--font-display);
+  color: var(--ink);
+  background: var(--yellow);
+  border: var(--outline);
+  border-radius: var(--radius-pill);
+  text-align: center;
+}
+
+.shrink-warning svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: var(--ink);
+}
+
+.shrink-warning[hidden] {
+  display: none;
 }
 
 .round-line {
@@ -1497,7 +1568,7 @@ input {
 }
 
 .game[data-waiting="true"] .players,
-.game[data-waiting="true"] .round-line,
+.game[data-waiting="true"] .status-row,
 .game[data-waiting="true"] .keys-hint {
   visibility: hidden;
 }
@@ -1611,6 +1682,24 @@ input {
     font-size: 1rem;
   }
 
+  /* At 320px the round number and the banner share one line, so the banner costs no height (U68, U75). */
+  .status-row {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .shrink-warning {
+    min-width: 0;
+    padding: 1px 6px;
+    font-size: 0.72rem;
+    gap: 4px;
+  }
+
+  .shrink-warning svg {
+    width: 12px;
+    height: 12px;
+  }
+
   .game .player {
     padding: 4px 4px 6px;
     gap: 2px;
@@ -1696,7 +1785,7 @@ input {
     align-items: start;
   }
 
-  .round-line {
+  .status-row {
     grid-area: round;
   }
 

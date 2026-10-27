@@ -59,6 +59,9 @@ export interface BoardView {
   cell(column: number, row: number): HTMLElement;
   place(column: number, row: number, piece: Piece, animation?: "dropping" | "thud" | "sliding"): HTMLElement;
   remove(column: number, row: number): void;
+  // U69, U71: a cell can be doomed (about to close, flashing a crack pattern) or closed (rock).
+  setDoomed(column: number, row: number, doomed: boolean): void;
+  setClosed(column: number, row: number, closed: boolean): void;
   clear(): void;
 }
 
@@ -101,11 +104,23 @@ export function buildBoard(): BoardView {
       cells[column][row].querySelector(".piece")?.remove();
       cells[column][row].dataset.piece = "";
     },
+    setDoomed(column, row, doomed) {
+      const cell = cells[column][row];
+      if (doomed) cell.dataset.doomed = "true";
+      else delete cell.dataset.doomed;
+    },
+    setClosed(column, row, closed) {
+      const cell = cells[column][row];
+      if (closed) cell.dataset.closed = "true";
+      else delete cell.dataset.closed;
+    },
     clear() {
       for (const column of cells) {
         for (const cell of column) {
           cell.querySelector(".piece")?.remove();
           cell.dataset.piece = "";
+          delete cell.dataset.closed;
+          delete cell.dataset.doomed;
         }
       }
     },
@@ -174,4 +189,60 @@ export async function quakeAnimation(board: BoardView, before: Kinds, shifted: K
     }
   }
   if (!still) await wait();
+}
+
+// The open area as the server sent it (R61, R62, R64): the rows below `rows`, in the columns from
+// `firstColumn` to `lastColumn`. Everything else is closed.
+export interface Shape {
+  rows: number;
+  firstColumn: number;
+  lastColumn: number;
+}
+
+export const isOpen = (shape: Shape, column: number, row: number): boolean =>
+  column >= shape.firstColumn && column <= shape.lastColumn && row < shape.rows;
+
+// U69: marks the cells that will close after this round (the top open row for a ceiling drop, the
+// outer open columns for a wall collapse). Both players see the same, because the schedule is public (R22).
+export function markDoomed(board: BoardView, shape: Shape, due: { ceiling: boolean; walls: boolean }, next: Shape | null): void {
+  for (let c = 0; c < 7; c++) {
+    for (let r = 0; r < 6; r++) {
+      const open = isOpen(shape, c, r);
+      const willClose = open && next !== null && ((due.ceiling && r >= next.rows) || (due.walls && (c < next.firstColumn || c > next.lastColumn)));
+      board.setDoomed(c, r, willClose);
+    }
+  }
+}
+
+// U70, U71: cells outside the new open area crack, crumble and turn to rock. `before` is what was
+// drawn, so only cells that were open and now are not animate; under reduced motion they simply change.
+export async function collapseAnimation(board: BoardView, before: Shape, after: Shape): Promise<void> {
+  const still = reducedMotion();
+  const closing: Array<[number, number]> = [];
+  for (let c = 0; c < 7; c++) {
+    for (let r = 0; r < 6; r++) {
+      if (isOpen(before, c, r) && !isOpen(after, c, r)) closing.push([c, r]);
+    }
+  }
+  if (!still && closing.length) {
+    for (const [c, r] of closing) {
+      board.setDoomed(c, r, false);
+      board.cell(c, r).querySelector(".piece")?.classList.add("crumble");
+      board.cell(c, r).classList.add("cracking");
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, themeNumber("--ms-collapse")));
+  }
+  for (let c = 0; c < 7; c++) {
+    for (let r = 0; r < 6; r++) {
+      const closed = !isOpen(after, c, r);
+      board.setDoomed(c, r, false);
+      board.cell(c, r).classList.remove("cracking");
+      if (closed) {
+        board.remove(c, r);
+        board.setClosed(c, r, true);
+      } else {
+        board.setClosed(c, r, false);
+      }
+    }
+  }
 }

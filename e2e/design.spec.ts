@@ -281,8 +281,9 @@ async function doStep(page: Page, step: number): Promise<void> {
     await tap(3);
   }
   if (step === 5) await page.locator(testid("tutorial-earthquake")).click();
-  if (step === 6) await tap(4);
-  if (step <= 6) await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
+  if (step === 6) await tap(2); // the shrinking board step: any column
+  if (step === 7) await tap(4);
+  if (step <= 7) await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
 }
 
 test.describe("Tutorial", () => {
@@ -291,18 +292,18 @@ test.describe("Tutorial", () => {
     await page.goto("/");
     await expect(page.locator(testid("tutorial"))).toBeVisible();
     const titles: string[] = [];
-    for (let step = 1; step <= 7; step++) {
+    for (let step = 1; step <= 8; step++) {
       titles.push(await page.locator(testid("tutorial-title")).innerText());
       expect((await page.locator(testid("tutorial-caption")).innerText()).length).toBeGreaterThan(20);
       // Skip is always there; Next is not until the player has acted.
       await expect(page.locator(testid("tutorial-skip"))).toBeVisible();
-      if (step <= 6) {
+      if (step <= 7) {
         await expect(page.locator(testid("tutorial-next")), `step ${step}: no Next before acting`).toBeHidden();
         await doStep(page, step);
         await page.click(testid("tutorial-next"));
       }
     }
-    expect(titles).toEqual(["Pick a column", "You both move at once", "Crash!", "Power-ups: your shield", "Power-ups: Earthquake", "Four in a row wins", "Ready to play"]);
+    expect(titles).toEqual(["Pick a column", "You both move at once", "Crash!", "Power-ups: your shield", "Power-ups: Earthquake", "The board shrinks", "Four in a row wins", "Ready to play"]);
     await expect(page.locator(testid("tutorial-next"))).toHaveText("Play the computer");
     await expect(page.locator(testid("tutorial-skip"))).toHaveText("Back home");
     await context.close();
@@ -365,12 +366,12 @@ test.describe("Tutorial", () => {
     await context.close();
   });
 
-  test("U45 and U46 steps 6 and 7: four in a row wins, then Play the computer or Back home", async ({ browser }) => {
+  test("U45 and U46 steps 7 and 8: four in a row wins, then Play the computer or Back home", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
     await page.goto("/");
-    for (let step = 1; step <= 6; step++) {
+    for (let step = 1; step <= 7; step++) {
       await doStep(page, step);
-      if (step === 6) expect(await page.locator(`${testid("tutorial-board")} .piece.win`).count(), "step 6 ends on four glowing discs").toBe(4);
+      if (step === 7) expect(await page.locator(`${testid("tutorial-board")} .piece.win`).count(), "step 7 ends on four glowing discs").toBe(4);
       await page.click(testid("tutorial-next"));
     }
     await expect(page.locator(testid("tutorial-title"))).toHaveText("Ready to play");
@@ -383,7 +384,7 @@ test.describe("Tutorial", () => {
   test("U41 no disc sits stuck in the top hole of the practice board at any step", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
     await page.goto("/");
-    for (let step = 1; step <= 6; step++) {
+    for (let step = 1; step <= 7; step++) {
       expect(await page.locator(`${testid("tutorial-board")} [data-testid$="-5"] .piece`).count(), `step ${step} before acting: nothing in the top row`).toBe(0);
       await doStep(page, step);
       await page.click(testid("tutorial-next"));
@@ -428,7 +429,7 @@ test.describe("Tutorial", () => {
     page.on("websocket", (ws) => calls.push(`websocket ${ws.url()}`));
     await page.goto("/");
     await expect(page.locator(testid("tutorial"))).toBeVisible();
-    for (let step = 1; step <= 6; step++) {
+    for (let step = 1; step <= 7; step++) {
       await doStep(page, step);
       await page.click(testid("tutorial-next"));
     }
@@ -861,14 +862,14 @@ test.describe("Small screens and the Share fallback", () => {
       const { context, page } = await newPlayer(browser, viewport, { tutorial: "new", reducedMotion: true });
       await page.goto("/");
       await expect(page.locator(testid("tutorial"))).toBeVisible();
-      for (let step = 1; step <= 7; step++) {
-        if (step <= 6) await doStep(page, step);
+      for (let step = 1; step <= 8; step++) {
+        if (step <= 7) await doStep(page, step);
         const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
         const title = await box("tutorial-title");
         const skip = await box("tutorial-skip");
         expect(title.y, `step ${step}: title on screen`).toBeGreaterThanOrEqual(0);
         expect(skip.y + skip.height, `step ${step}: Skip on screen`).toBeLessThanOrEqual(viewport.height);
-        if (step <= 6) {
+        if (step <= 7) {
           const next = await box("tutorial-next");
           expect(next.y + next.height, `step ${step}: Next on screen`).toBeLessThanOrEqual(viewport.height);
           await page.click(testid("tutorial-next"));

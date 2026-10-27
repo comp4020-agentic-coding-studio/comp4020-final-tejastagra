@@ -118,7 +118,7 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
   });
 
   it("U7 graphics that carry meaning meet 3:1 against what they sit on", () => {
-    for (const [fg, bg] of [["--yellow", "--hole"], ["--red", "--hole"], ["--marker-you", "--red"], ["--marker-opponent", "--yellow"], ["--rubble", "--ink"], ["--timer-ok", "--field"], ["--timer-warn", "--field"], ["--timer-urgent", "--field"]] as Array<[string, string]>) {
+    for (const [fg, bg] of [["--yellow", "--hole"], ["--red", "--hole"], ["--marker-you", "--red"], ["--marker-opponent", "--yellow"], ["--rubble", "--ink"], ["--rock", "--ink"], ["--timer-ok", "--field"], ["--timer-warn", "--field"], ["--timer-urgent", "--field"]] as Array<[string, string]>) {
       expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(3);
     }
   });
@@ -133,6 +133,7 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
       ["--text", "--field", "`--text` on `--field` (an input)", 16.5],
       ["--error", "--ground-bottom", "`--error` on `--ground-bottom`", 8.58],
       ["--ok", "--ground-bottom", "`--ok` on `--ground-bottom`", 9.28],
+      ["--rock", "--ink", "`--rock` on `--ink`", 4.4],
       ["--text", "--yellow", "white on `--yellow`", 1.56],
     ];
     for (const [fg, bg, label, value] of printed) {

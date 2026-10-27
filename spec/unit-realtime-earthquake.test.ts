@@ -174,3 +174,55 @@ describe("R53 to R58 Earthquake through the server", () => {
     expect(b.raw.length).toBe(before); // nothing was accepted, so the opponent heard nothing
   });
 });
+
+// ---- The shrinking board over the wire (R61 to R65, R21, R22) ----
+
+// Plays crashes in column `column` (both choose it), so each round resolves at once and adds rubble.
+async function crash(a: Seat, b: Seat, column: number): Promise<any> {
+  send(a, { column, shield: false });
+  await b.next(); // opponent_ready
+  send(b, { column, shield: false });
+  const result = await a.next();
+  await b.next();
+  return result;
+}
+
+describe("R61 to R65 the shrinking board through the server", () => {
+  it("R61 after round 6 the snapshot has 5 rows, the same on both screens, with the top piece gone", async () => {
+    const { server, rt, url } = startServer();
+    cleanup = () => {
+      rt.dispose();
+      server.close();
+    };
+    const a = await seat(url, "SHR001", "A");
+    const b = await seat(url, "SHR001", "B");
+    expect(await a.next()).toEqual({ type: "opponent_joined" });
+    let last: any;
+    for (let round = 1; round <= 6; round++) last = await crash(a, b, (round - 1) % 5);
+    expect(last.state.round).toBe(6);
+    expect([last.state.rows, last.state.firstColumn, last.state.lastColumn]).toEqual([5, 0, 6]);
+    expect(last.state.board.every((column: string[]) => column.length <= 5)).toBe(true);
+  });
+
+  it("R64 a closed column is rejected as column_closed, and nobody else hears of it (R22)", async () => {
+    const { server, rt, url } = startServer();
+    cleanup = () => {
+      rt.dispose();
+      server.close();
+    };
+    const a = await seat(url, "SHR002", "A");
+    const b = await seat(url, "SHR002", "B");
+    expect(await a.next()).toEqual({ type: "opponent_joined" });
+    let last: any;
+    for (let round = 1; round <= 12; round++) last = await crash(a, b, 1 + ((round - 1) % 5)); // columns 1 to 5 only
+    expect(last.state.round).toBe(12);
+    expect([last.state.rows, last.state.firstColumn, last.state.lastColumn]).toEqual([4, 1, 5]);
+    const before = b.raw.length;
+    send(a, { column: 0, shield: false });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "column_closed" });
+    send(a, { column: 6, shield: false });
+    expect(await a.next()).toEqual({ type: "rejected", reason: "column_closed" });
+    await quiet(100);
+    expect(b.raw.length).toBe(before);
+  });
+});

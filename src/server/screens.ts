@@ -188,7 +188,10 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
   const body = `
     <main class="arena game" data-testid="game-screen" data-waiting="true">
       <div class="stage" data-testid="game-group">
+        <div class="status-row">
         <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>
+        <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg><span data-testid="shrink-warning-text"></span></p>
+        </div>
 
         <div class="players" data-testid="players">
           <div class="player player-you" data-testid="panel-you">
@@ -205,7 +208,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <span class="player-text">
               <span class="player-name" data-testid="name-opponent">Opponent</span>
               <span class="player-meta" data-testid="opponent-status-row"><span class="mini-disc" data-piece="opponent"></span><span data-testid="opponent-status">Choosing</span></span>
-              <span class="player-meta"><span class="shield-state" data-shield="ready" data-testid="opponent-shield-state"></span><span data-testid="opponent-shield">available</span><span class="quake-state" data-quake="ready" data-testid="opponent-earthquake-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span><span class="visually-hidden" data-testid="opponent-earthquake">Earthquake available</span></span>
+              <span class="player-meta"><span class="shield-state" data-shield="ready" data-testid="opponent-shield-state"></span><span class="visually-hidden" data-testid="opponent-shield">available</span><span class="quake-state" data-quake="ready" data-testid="opponent-earthquake-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span><span class="visually-hidden" data-testid="opponent-earthquake">Earthquake available</span></span>
             </span>
           </div>
           <div class="shield-row" data-testid="shield-row">

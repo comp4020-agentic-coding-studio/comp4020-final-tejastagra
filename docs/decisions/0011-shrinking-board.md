@@ -32,6 +32,7 @@ Option 2, under these rules (R61 to R69 in `docs/rules.md`, U68 to U74 in `docs/
 - The board on screen is always drawn as 7 by 6 cells. Closed cells turn into solid rock, so the board never changes size and the phone layout cannot change (promise 4).
 - The warning sits on the round line above the board, not in a new row, because the 320 x 568 screen has about 19px to spare.
 - The browser imports `shapeAt` from the engine, so the warning banner uses the one schedule and never a copy of the numbers. It uses it only to show the warning, never to decide a result (R20); every board and shape it draws is the one the server sent.
+- On a round with a collapse the result line lists only what is still on the board (U73). A disc that landed in a square that then closed is not in the state the server sends, and adding a "last round" message to the protocol only to describe a disc that no longer exists was not worth the new surface.
 - The computer knows the schedule: besides playing only open columns, when it has no winning or blocking move it avoids a disc that would land in a row or column that is about to close.
 
 ## What it costs

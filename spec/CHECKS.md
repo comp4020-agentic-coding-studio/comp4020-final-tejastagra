@@ -43,7 +43,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 
 ## No peeking (`spec/app-no-peek.test.ts`)
 
-N1 to N4. See the file. N6 adds: the collapse warning and the closed columns carry only public information, the same on both screens (R21, R22), todo. N5 adds: an Earthquake choice is never revealed to the opponent before the round resolves (R21, R22, R54), passing (also `spec/unit-realtime-earthquake.test.ts`).
+N1 to N4. See the file. N6 adds: the collapse warning and the closed columns carry only public information, the same on both screens (R21, R22), passing (`spec/unit-realtime-earthquake.test.ts` and the warning check in `e2e/shrinking-board.spec.ts`). N5 adds: an Earthquake choice is never revealed to the opponent before the round resolves (R21, R22, R54), passing (also `spec/unit-realtime-earthquake.test.ts`).
 
 ## Real time (`spec/app-realtime.test.ts`)
 
@@ -65,7 +65,7 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only op
 | E4 | Every screen in `docs/design.md` has no sideways scroll at 320 px, 390 px and laptop width | passing (`e2e/e4-no-sideways-scroll.spec.ts`) |
 | E5 | Every tap target is at least 44 x 44 px at the phone viewport | passing (`e2e/e5-tap-targets.spec.ts`) |
 | E7 | The Earthquake badge, its states, help, the animation, its reduced-motion version and the tutorial step work at the phone viewport | passing (`e2e/earthquake.spec.ts`) |
-| E8 | The collapse warning, the flashing cells, the collapse to rock, its reduced-motion version and the tutorial step work at the phone viewport | todo (`e2e/shrinking-board.spec.ts`) |
+| E8 | The collapse warning, the flashing cells, the collapse to rock, its reduced-motion version and the tutorial step work at the phone viewport | passing (`e2e/shrinking-board.spec.ts`) |
 | E6 | Every feature (computer, friend link, code entry, quick match, sign up, leaderboard, /readme/) completes at the phone viewport | passing (`e2e/e6-features.spec.ts`) |
 
 ## Design and tutorial (docs/design/)
@@ -78,10 +78,10 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only op
 | U19 to U30 | Reveal within one second, end popups, reduced motion | `e2e/design.spec.ts` | passing |
 | U31 to U40 | Home menu content and the phone and laptop layouts | `e2e/design.spec.ts` | passing |
 | U41 to U48 | Tutorial steps, skip and replay | `e2e/design.spec.ts` | passing |
-| U68, U69 | The warning one round before a collapse and the flashing cells | `e2e/shrinking-board.spec.ts` | todo |
-| U70, U71, U73 | The collapse to rock within one second, the rock look, its reduced-motion version and the result line | `e2e/shrinking-board.spec.ts` | todo |
-| U72 | A closed column cannot be chosen | `e2e/shrinking-board.spec.ts` | todo |
-| U74 | The tutorial's shrinking board step | `e2e/shrinking-board.spec.ts` | todo |
+| U68, U69 | The warning one round before a collapse and the flashing cells | `e2e/shrinking-board.spec.ts` | passing |
+| U70, U71, U73 | The collapse to rock within one second, the rock look, its reduced-motion version and the result line | `e2e/shrinking-board.spec.ts` | passing |
+| U72 | A closed column cannot be chosen | `e2e/shrinking-board.spec.ts` | passing |
+| U74 | The tutorial's shrinking board step | `e2e/shrinking-board.spec.ts` | passing |
 | U61 to U64 | The Earthquake badge: states, exclusive with the shield, help, opponent panel shows availability only | `e2e/earthquake.spec.ts` | passing |
 | U65, U66 | The earthquake animation within one second, its reduced-motion version and the result line | `e2e/earthquake.spec.ts` | passing |
 | U67 | The tutorial's Earthquake step | `e2e/earthquake.spec.ts` | passing |

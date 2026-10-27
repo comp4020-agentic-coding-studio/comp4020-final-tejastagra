@@ -4,7 +4,8 @@
 // sends (R20): it never works out a result itself. Discs drop the moment the result
 // arrives, with no countdown (U19), so nothing can show a choice early (R22) or hold a
 // result back past the one second promise (U23).
-import { avatar, buildBoard, confettiBurst, earthquakeIcon, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
+import { avatar, buildBoard, collapseAnimation, confettiBurst, earthquakeIcon, isOpen, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView, type Shape } from "./arcade.ts";
+import { collapseDue, shapeAt, type GameState } from "../engine/index.ts";
 
 type Player = "A" | "B";
 
@@ -13,6 +14,9 @@ interface State {
   round: number;
   shieldsLeft: Record<Player, boolean>;
   earthquakesLeft: Record<Player, boolean>;
+  rows: number; // the open area (R61, R62), as the server sent it
+  firstColumn: number;
+  lastColumn: number;
   status: "playing" | "won" | "draw";
   winner: Player | null;
 }
@@ -35,7 +39,52 @@ let drawn: State | null = null;
 let opponentPresent = false;
 let opponentChosen = false; // only "chosen or not", never which column (R21)
 let locked = false; // the choice for this round is final (R4, U13)
-let gotReady = false; // "Get ready" shows once, when the game first starts (U55)
+let gotReady = false; // U73: in a collapse round only what is still on the board is described, because a disc that landed in a
+// square that closed at once is not in the state the server sent.
+function survivors(state: State, fresh: Array<[number, number]>, quaked: boolean): string {
+  const parts: string[] = [];
+  if (quaked) parts.push("The bottom row crumbled.");
+  if (fresh.some(([c, r]) => state.board[c][r] === "R")) parts.push("Crash: rubble landed.");
+  const mine = fresh.find(([c, r]) => pieceFor(state.board[c][r], you) === "you");
+  const theirs = fresh.find(([c, r]) => pieceFor(state.board[c][r], you) === "opponent");
+  if (mine) parts.push(`Your disc landed in column ${mine[0] + 1}.`);
+  if (theirs) parts.push(`Your opponent's disc landed in column ${theirs[0] + 1}.`);
+  return parts.join(" ");
+}
+
+// U73: what closed this round, ceiling first (R63).
+function explainShrink(before: Shape, after: Shape): string {
+  const ceiling = after.rows < before.rows ? "The ceiling dropped. The top row turned to rock." : "";
+  const walls = after.firstColumn > before.firstColumn ? "The walls collapsed. The outer columns turned to rock." : "";
+  return [ceiling, walls].filter(Boolean).join(" ");
+}
+
+// Draws every closed cell as rock, with no animation: for a board that arrives already shrunk (a reload,
+// a late join), so the picture always matches the shape the server sent.
+function paintClosed(shape: Shape): void {
+  for (let c = 0; c < 7; c++) {
+    for (let r = 0; r < 6; r++) {
+      const closed = !isOpen(shape, c, r);
+      board.setClosed(c, r, closed);
+      if (closed) board.remove(c, r);
+    }
+  }
+}
+
+// U68, U69: the round before a collapse, a banner says what is about to close and the cells that will
+// close flash a crack pattern. It comes from the engine's public schedule only: it says nothing about a
+// choice, and both players see the same (R22). Hidden once the game is over.
+function showWarning(state: State): void {
+  const banner = $("shrink-warning");
+  const shape = shapeOf(state);
+  const due = state.status === "playing" ? collapseDue(state as unknown as GameState) : { ceiling: false, walls: false };
+  const text = due.ceiling && due.walls ? "Ceiling and walls close after this round" : due.ceiling ? "The ceiling drops after this round" : due.walls ? "The walls collapse after this round" : "";
+  banner.hidden = text === "";
+  setText("shrink-warning-text", text);
+  markDoomed(board, shape, due, text ? shapeAt(state.round + 1) : null);
+}
+
+// "Get ready" shows once, when the game first starts (U55)
 let playedComputer = false; // Play again starts the same kind of game
 
 const board: BoardView = buildBoard();
@@ -95,7 +144,9 @@ function say(text: string, kind: "error" | "ok" | "" = ""): void {
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const other = (p: Player): Player => (p === "A" ? "B" : "A");
-const columnFull = (column: number): boolean => (drawn?.board[column]?.length ?? 0) >= 6;
+const shapeOf = (state: State | null): Shape => ({ rows: state?.rows ?? 6, firstColumn: state?.firstColumn ?? 0, lastColumn: state?.lastColumn ?? 6 });
+const columnClosed = (column: number): boolean => !!drawn && (column < drawn.firstColumn || column > drawn.lastColumn); // R64
+const columnFull = (column: number): boolean => (drawn?.board[column]?.length ?? 0) >= (drawn?.rows ?? 6);
 
 // ---- The board's columns: hover, tap, keyboard (U10 to U18) ----
 function glow(column: number | null): void {
@@ -103,7 +154,7 @@ function glow(column: number | null): void {
 }
 
 function showGhost(column: number | null, chosen: boolean): void {
-  if (column === null || over || columnFull(column) || !you) {
+  if (column === null || over || columnFull(column) || columnClosed(column) || !you) {
     ghost.hidden = true;
     if (column === null) glow(null);
     return;
@@ -117,7 +168,7 @@ function showGhost(column: number | null, chosen: boolean): void {
 function renderChoice(): void {
   columns.forEach((hit, c) => {
     hit.setAttribute("aria-pressed", String(c === selectedColumn));
-    hit.setAttribute("aria-disabled", String(over || locked || columnFull(c)));
+    hit.setAttribute("aria-disabled", String(over || locked || columnFull(c) || columnClosed(c)));
   });
   const badge = $("shield-badge") as HTMLButtonElement;
   const spent = !!(you && drawn && !drawn.shieldsLeft[you]);
@@ -163,6 +214,14 @@ function choose(column: number): void {
   if (over || !you || !seatToken || !opponentPresent) return;
   if (locked) {
     say("Your choice is locked in.");
+    return;
+  }
+  if (columnClosed(column)) {
+    // U72: a closed column cannot be chosen; it says so and sends nothing.
+    columns[column].classList.remove("shake");
+    void columns[column].offsetWidth;
+    columns[column].classList.add("shake");
+    say("That column is closed. Pick another.", "error");
     return;
   }
   if (columnFull(column)) {
@@ -310,6 +369,11 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
     await quakeAnimation(board, asKinds(previous.board), asKinds(shifted));
     drawn = { ...previous, board: shifted }; // the board as it stands after the slide, so only new discs drop
   }
+  const before = shapeOf(previous);
+  const after = shapeOf(state);
+  const shrank = !!previous && (after.rows < before.rows || after.firstColumn > before.firstColumn);
+  // The collapse is drawn from the board the server sent, with the closed cells removed from the drawing
+  // first: pieces the collapse removed never appear (R65).
   const fresh = drawBoard(state, animate);
   drawn = state;
   first = false;
@@ -333,12 +397,16 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
   }
   syncWaiting(state);
 
+  if (!previous) paintClosed(after); // a board that arrives already shrunk (a reload or a late join) is drawn as it is
+  showWarning(state);
+
   if (animate) {
     if (fresh.some(([c, r]) => state.board[c][r] === "R") && !reducedMotion()) {
       for (const [c] of fresh) for (let r = 0; r < 6; r++) board.cell(c, r).classList.add("shake");
       setTimeout(() => board.root.querySelectorAll(".shake").forEach((n) => n.classList.remove("shake")), themeNumber("--ms-shake"));
     }
-    $("result-line").textContent = quaked && previous ? explainQuake(state, previous, fresh) : explain(state, fresh);
+    const base = quaked && previous ? explainQuake(state, previous, fresh) : explain(state, fresh);
+    $("result-line").textContent = shrank ? `${survivors(state, fresh, quaked)} ${explainShrink(before, after)}`.trim() : base;
   }
 
   // A new round opens: the choice is unlocked and the timer restarts (R18). With no opponent
@@ -352,6 +420,14 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
   say("");
   startRound(state);
   renderChoice();
+
+  // The collapse (U70) is only drawn: the round is already open for a choice, so a tap during the
+  // animation is a real choice against the new open area and is never swallowed (R4, U72). It starts as
+  // the discs land, takes --dur-collapse and always ends on exactly what the server sent.
+  if (shrank) {
+    if (animate && !reducedMotion()) await wait(themeNumber("--ms-collapse-start"));
+    await collapseAnimation(board, before, after);
+  }
 
   if (state.status !== "playing") await finish(state);
 }
