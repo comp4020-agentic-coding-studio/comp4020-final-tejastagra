@@ -3,18 +3,16 @@
 // chosen yet. Its input type has no field for the human's column or shield,
 // so it cannot be handed them. Randomness comes from a seeded generator so
 // tests repeat (R46).
-import { COLUMNS, collapseDue, resolveRound, shapeAt, type Board, type Choice, type GameState, type Player } from "../engine/index.ts";
+import { COLUMNS, ceilingDue, resolveRound, rowsAt, type Board, type Choice, type GameState, type Player } from "../engine/index.ts";
 
 export interface PublicView {
   board: Board;
   round: number;
   shieldsLeft: Record<Player, boolean>;
   earthquakesLeft: Record<Player, boolean>;
-  // The open area (R64): public, like the board. The computer plays only inside it and knows the
-  // schedule, like a human who can see the warning (R68).
+  // The current number of rows (R64): public, like the board. The computer knows the schedule, like a
+  // human who can see the warning (R68).
   rows: number;
-  firstColumn: number;
-  lastColumn: number;
   opponentReady: boolean;
 }
 
@@ -42,8 +40,6 @@ function stateOf(view: PublicView): GameState {
     shieldsLeft: view.shieldsLeft,
     earthquakesLeft: view.earthquakesLeft,
     rows: view.rows,
-    firstColumn: view.firstColumn,
-    lastColumn: view.lastColumn,
     status: "playing",
     winner: null,
   };
@@ -66,12 +62,12 @@ function winsAt(view: PublicView, player: Player, column: number): boolean {
 function potentialLines(view: PublicView, board: Board, player: Player): number {
   const directions: Array<[number, number]> = [[1, 0], [0, 1], [1, 1], [1, -1]];
   let count = 0;
-  for (let column = view.firstColumn; column <= view.lastColumn; column++) {
+  for (let column = 0; column < COLUMNS; column++) {
     for (let row = 0; row < view.rows; row++) {
       for (const [dc, dr] of directions) {
         const endColumn = column + dc * 3;
         const endRow = row + dr * 3;
-        if (endColumn < view.firstColumn || endColumn > view.lastColumn || endRow < 0 || endRow >= view.rows) continue;
+        if (endColumn < 0 || endColumn >= COLUMNS || endRow < 0 || endRow >= view.rows) continue;
         let mine = 0;
         let blocked = false;
         for (let step = 0; step < 4; step++) {
@@ -102,7 +98,7 @@ function pick<T>(items: T[], rng: () => number): T {
 export function chooseMove(view: PublicView, me: Player, rng: () => number): Choice {
   const them: Player = me === "A" ? "B" : "A";
   const open: number[] = [];
-  for (let c = view.firstColumn; c <= view.lastColumn; c++) if (view.board[c].length < view.rows) open.push(c); // R41: open and not full
+  for (let c = 0; c < COLUMNS; c++) if (view.board[c].length < view.rows) open.push(c); // R41: not full
   const myWins = open.filter((c) => winsAt(view, me, c));
   const theirWins = open.filter((c) => winsAt(view, them, c));
   const haveShield = view.shieldsLeft[me];
@@ -116,11 +112,9 @@ export function chooseMove(view: PublicView, me: Player, rng: () => number): Cho
   if (earthquakeHelps(view, me, them) && rng() < EARTHQUAKE_CHANCE) return { earthquake: true };
 
   // R68: it knows the schedule, so when nothing more urgent is on, it avoids dropping a disc into a
-  // square that is about to close, unless every open column is about to close.
-  const due = collapseDue(stateOf(view));
-  const next = shapeAt(view.round + 1);
-  const aboutToClose = (c: number): boolean =>
-    (due.ceiling && view.board[c].length >= next.rows) || (due.walls && (c < next.firstColumn || c > next.lastColumn));
+  // square the ceiling is about to close, unless every column is about to lose its next square.
+  const nextRows = rowsAt(view.round + 1);
+  const aboutToClose = (c: number): boolean => ceilingDue(stateOf(view)) && view.board[c].length >= nextRows;
   const safe = open.filter((c) => !aboutToClose(c));
   const choices = safe.length ? safe : open;
 

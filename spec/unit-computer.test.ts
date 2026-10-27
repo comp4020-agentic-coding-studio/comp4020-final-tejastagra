@@ -1,15 +1,15 @@
 // Unit check: needs no running app. Runs with pnpm check and with pnpm check:fast (vitest.unit.config.ts).
 import { describe, expect, it } from "vitest";
-import { COLUMNS, ROWS, newGame, resolveRound, shapeAt, validateChoice, type Choice, type GameState, type Player } from "../src/engine/index.ts";
+import { COLUMNS, ROWS, newGame, resolveRound, rowsAt, validateChoice, type Choice, type GameState, type Player } from "../src/engine/index.ts";
 import { chooseMove, seededRandom, type PublicView } from "../src/server/computer.ts";
 
 // The column and shield tests (C1 to C7) are about discs, so their view has both Earthquakes
 // spent. C8 below uses quakeView, where they are available (R60).
 function view(state: GameState, opponentReady = false): PublicView {
-  return { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: { A: false, B: false }, rows: state.rows, firstColumn: state.firstColumn, lastColumn: state.lastColumn, opponentReady };
+  return { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: { A: false, B: false }, rows: state.rows, opponentReady };
 }
 function quakeView(state: GameState, opponentReady = false): PublicView {
-  return { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: state.earthquakesLeft, rows: state.rows, firstColumn: state.firstColumn, lastColumn: state.lastColumn, opponentReady };
+  return { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: state.earthquakesLeft, rows: state.rows, opponentReady };
 }
 function boardOf(columns: Record<number, string>): GameState {
   const state = newGame();
@@ -30,7 +30,7 @@ function randomPosition(rng: () => number): GameState {
     const rounds = Math.floor(rng() * 20);
     for (let i = 0; i < rounds && state.status === "playing"; i++) {
       const pick = (): Choice | null => {
-        const open = [...Array(COLUMNS).keys()].filter((c) => c >= state.firstColumn && c <= state.lastColumn && state.board[c].length < state.rows);
+        const open = [...Array(COLUMNS).keys()].filter((c) => state.board[c].length < state.rows);
         return open.length ? { column: open[Math.floor(rng() * open.length)], shield: false } : null;
       };
       state = resolveRound(state, { A: pick(), B: pick() }).state;
@@ -44,7 +44,7 @@ function winningColumns(state: GameState, player: Player): number[] {
   const other: Player = player === "A" ? "B" : "A";
   const cols: number[] = [];
   for (let c = 0; c < COLUMNS; c++) {
-    if (!validateChoice(state, player, { column: c, shield: false }).ok) continue; // closed or full (R64)
+    if (!validateChoice(state, player, { column: c, shield: false }).ok) continue; // full (R64)
     const r = resolveRound(state, { [player]: { column: c, shield: false }, [other]: null } as never);
     if (r.state.status === "won" && r.state.winner === player) cols.push(c);
   }
@@ -226,29 +226,26 @@ describe("C8 (R60) the computer and Earthquake", () => {
       expect(smuggled).toEqual(plain);
     }
     // The type itself: this literal must be exactly what the computer is given.
-    const exact: PublicView = { board: [], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, firstColumn: 0, lastColumn: 6, opponentReady: false };
-    expect(Object.keys(exact).sort()).toEqual(["board", "earthquakesLeft", "firstColumn", "lastColumn", "opponentReady", "round", "rows", "shieldsLeft"]);
+    const exact: PublicView = { board: [], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, opponentReady: false };
+    expect(Object.keys(exact).sort()).toEqual(["board", "earthquakesLeft", "opponentReady", "round", "rows", "shieldsLeft"]);
   });
 });
 
-describe("C9 (R68) the computer plays the open area and knows the schedule", () => {
+describe("C9 (R68) the computer knows the schedule", () => {
   const shrunk = (round: number) => {
     const state = newGame();
-    const shape = shapeAt(round);
     state.round = round;
-    state.rows = shape.rows;
-    state.firstColumn = shape.firstColumn;
-    state.lastColumn = shape.lastColumn;
+    state.rows = rowsAt(round);
     return state;
   };
 
-  it("C9 (R41, R64) it never chooses a closed or full column, over many positions on every shape", () => {
-    for (const round of [0, 6, 12, 18, 30]) {
+  it("C9 (R41, R64) it never chooses a full column, over many positions on every number of rows", () => {
+    for (const round of [0, 12, 20, 40]) {
       const rng = seededRandom(round + 1);
       for (let i = 0; i < 400; i++) {
         const state = shrunk(round);
-        for (let c = state.firstColumn; c <= state.lastColumn; c++) {
-          const filled = Math.floor(rng() * state.rows);
+        for (let c = 0; c < COLUMNS; c++) {
+          const filled = Math.floor(rng() * (state.rows + 1));
           state.board[c] = Array.from({ length: filled }, (_, k) => (k % 2 ? "A" : "B")) as GameState["board"][number];
         }
         const choice = chooseMove(quakeView(state), "B", rng);
@@ -257,18 +254,8 @@ describe("C9 (R68) the computer plays the open area and knows the schedule", () 
     }
   });
 
-  it("C9 (R68) with nothing more urgent it avoids a column the walls are about to close", () => {
-    const state = shrunk(11); // after the next round the walls collapse: columns 0 and 6 close, and the ceiling drops
-    let closing = 0;
-    for (let seed = 1; seed <= 400; seed++) {
-      const choice = chooseMove(quakeView(state), "B", seededRandom(seed));
-      if ("column" in choice && (choice.column === 0 || choice.column === 6)) closing++;
-    }
-    expect(closing).toBe(0);
-  });
-
-  it("C9 (R68) it avoids a square the ceiling is about to close, when another column is safe", () => {
-    const state = shrunk(5); // the ceiling drops to 5 rows after the next round
+  it("C9 (R68) with nothing more urgent it avoids a square the ceiling is about to close, when another column is safe", () => {
+    const state = shrunk(11); // the ceiling drops to 5 rows after the next round
     state.board[3] = ["A", "B", "A", "B", "A"]; // the next disc here would land in row 6, which is about to close
     let into = 0;
     for (let seed = 1; seed <= 400; seed++) {
@@ -278,8 +265,19 @@ describe("C9 (R68) the computer plays the open area and knows the schedule", () 
     expect(into).toBe(0);
   });
 
-  it("C9 (R68) when every open column is about to close, it still chooses one, and a win still comes first (R42)", () => {
+  it("C9 (R68) it does not avoid anything on a round with no drop due", () => {
     const state = shrunk(5);
+    state.board[3] = ["A", "B", "A", "B", "A"]; // row 6 is not about to close
+    let into = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const choice = chooseMove(quakeView(state), "B", seededRandom(seed));
+      if ("column" in choice && choice.column === 3) into++;
+    }
+    expect(into).toBeGreaterThan(40); // the middle column is the one it prefers (R44)
+  });
+
+  it("C9 (R68) when every column is about to lose its next square, it still chooses one, and a win still comes first (R42)", () => {
+    const state = shrunk(11);
     for (let c = 0; c < COLUMNS; c++) state.board[c] = ["A", "B", "A", "B", "A"];
     for (let seed = 1; seed <= 50; seed++) {
       const choice = chooseMove(view(state), "B", seededRandom(seed)); // Earthquake spent, so it must choose a column

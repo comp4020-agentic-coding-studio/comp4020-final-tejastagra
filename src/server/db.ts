@@ -95,6 +95,10 @@ const MIGRATIONS: string[] = [
   // R69: games saved before the shrinking board have the full 7 by 6 shape, whatever their round count.
   // They take the shape for their round count at their next resolved round.
   `UPDATE games SET state = json_set(state, '$.rows', 6, '$.firstColumn', 0, '$.lastColumn', 6) WHERE json_extract(state, '$.rows') IS NULL`,
+  // ADR 0011 (amended): the walls were removed, so every saved game drops the open-columns range that
+  // migration 12 may have added. A game's rows are kept, and the engine sets them from the round count at
+  // its next resolved round (R69).
+  `UPDATE games SET state = json_remove(state, '$.firstColumn', '$.lastColumn')`,
 ];
 
 function migrate(db: DatabaseSync): void {

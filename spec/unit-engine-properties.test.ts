@@ -1,16 +1,15 @@
 // Unit check: needs no running app. Runs with pnpm check and with pnpm check:fast (vitest.unit.config.ts).
-// Property tests P1 to P12 from spec/CHECKS.md, using random games played through the engine.
+// Property tests P1 to P13 from spec/CHECKS.md, using random games played through the engine.
 import fc from "fast-check";
 import { describe, it } from "vitest";
 import {
   COLUMNS,
-  MIN_COLUMNS,
   MIN_ROWS,
   ROWS,
   isEarthquake,
   newGame,
   resolveRound,
-  shapeAt,
+  rowsAt,
   validateChoice,
   type Choice,
   type GameState,
@@ -28,10 +27,10 @@ const intent = fc.record({
 const intents = fc.array(intent, { minLength: 0, maxLength: 60 });
 
 // Most random games end in a win before the board starts to shrink (R61, R62), so these games
-// are mostly crashes in the same column: rubble breaks every line, and the game runs on to round 18
-// and beyond. They are what makes the collapse properties see collapses at all.
+// are mostly crashes in the same column: rubble breaks every line, and the game runs on past round 28
+// (the ceiling drops after rounds 12 and 20). They are what makes the ceiling properties see drops at all.
 const crashIntent = fc.record({ a: fc.nat({ max: COLUMNS - 1 }), b: fc.option(fc.nat({ max: COLUMNS - 1 }), { nil: null }) });
-const longIntents = fc.array(crashIntent, { minLength: 25, maxLength: 70 }).map((rounds) =>
+const longIntents = fc.array(crashIntent, { minLength: 35, maxLength: 80 }).map((rounds) =>
   rounds.map(({ a, b }) => ({ a: { column: a, shield: false }, b: { column: b ?? a, shield: false } })),
 );
 
@@ -61,8 +60,8 @@ function play(
   return state;
 }
 
-// What a round closed, worked out from the two states alone (so it also checks the engine's own flag).
-const collapsedIn = (before: GameState, after: GameState) => after.rows < before.rows || after.firstColumn > before.firstColumn;
+// Whether the ceiling dropped in a round, worked out from the two states alone (so it also checks the engine's own flag).
+const droppedIn = (before: GameState, after: GameState) => after.rows < before.rows;
 const quaked = (choices: { A: Choice | null; B: Choice | null }) =>
   (choices.A !== null && isEarthquake(choices.A)) || (choices.B !== null && isEarthquake(choices.B));
 const discsIn = (choices: { A: Choice | null; B: Choice | null }) =>
@@ -75,7 +74,7 @@ describe("engine properties", () => {
     fc.assert(
       fc.property(intents, (rounds) => {
         play(rounds, (before, choices, after) => {
-          if (quaked(choices) || collapsedIn(before, after)) return; // an earthquake or a collapse also removes pieces
+          if (quaked(choices) || droppedIn(before, after)) return; // an earthquake or a ceiling drop also removes pieces
           const discs = discsIn(choices);
           const expected = discs.length === 2 ? (discs[0].column === discs[1].column ? 1 : 2) : discs.length;
           if (pieces(after) - pieces(before) !== expected) throw new Error("wrong number of pieces added");
@@ -157,10 +156,10 @@ describe("engine properties", () => {
         play(rounds, (before, choices, after) => {
           if (quaked(choices)) return;
           before.board.forEach((column, c) => {
-            // Without a collapse nothing changes at all. A collapse removes pieces (R61, R62) but never
+            // Without a ceiling drop nothing changes at all. A drop removes pieces (R61) but never
             // moves one: what stays is where it was.
-            const kept = collapsedIn(before, after) ? Math.min(column.length, after.board[c].length) : column.length;
-            if (!collapsedIn(before, after) && after.board[c].length < column.length) throw new Error("a piece vanished without a collapse");
+            const kept = droppedIn(before, after) ? Math.min(column.length, after.board[c].length) : column.length;
+            if (!droppedIn(before, after) && after.board[c].length < column.length) throw new Error("a piece vanished without a ceiling drop");
             if (!column.slice(0, kept).every((cell, row) => after.board[c][row] === cell)) throw new Error("a piece moved");
           });
         });
@@ -172,9 +171,9 @@ describe("engine properties", () => {
     fc.assert(
       fc.property(intents, (rounds) => {
         play(rounds, (before, choices, after) => {
-          if (!quaked(choices) || collapsedIn(before, after)) return; // a collapse also removes pieces: P11 covers it
-          // R67: only the open area's bottom row is removed (closed columns hold nothing).
-          const bottom = before.board.filter((column, c) => c >= before.firstColumn && c <= before.lastColumn && column.length > 0).length;
+          if (!quaked(choices) || droppedIn(before, after)) return; // a ceiling drop also removes pieces: P11 covers it
+          // R67: the bottom row is removed, one piece from every column that has any.
+          const bottom = before.board.filter((column) => column.length > 0).length;
           if (pieces(after) !== pieces(before) - bottom + discsIn(choices).length) throw new Error("wrong piece count after an earthquake");
           if (after.board.some((column) => column.length > ROWS)) throw new Error("column overfull");
         });
@@ -212,11 +211,11 @@ describe("engine properties", () => {
         play(rounds, (before, choices, after) => {
           const shift = quaked(choices) ? 1 : 0;
           before.board.forEach((column, c) => {
-            // A collapse only ever removes a piece from the top of a column or a whole closed column,
-            // so what is left must still be where an earthquake alone would have put it.
+            // A ceiling drop only ever removes pieces from the top of a column, so what is left must still
+            // be where an earthquake alone would have put it.
             const left = after.board[c];
             const expected = column.slice(shift);
-            const kept = collapsedIn(before, after) ? Math.min(expected.length, left.length) : expected.length;
+            const kept = droppedIn(before, after) ? Math.min(expected.length, left.length) : expected.length;
             expected.slice(0, kept).forEach((cell, row) => {
               if (left[row] !== cell) throw new Error("a piece moved by the wrong amount");
             });
@@ -226,54 +225,58 @@ describe("engine properties", () => {
     );
   });
 
-  it("P11 (R61 to R64) no piece ever sits outside the open area, and a column never holds more than the current rows", () => {
+  it("P11 (R61, R64) no piece ever sits above the current rows, and a column never holds more than the current rows", () => {
     const check = (_before: GameState, _choices: unknown, after: GameState) => {
       after.board.forEach((column, c) => {
-        const open = c >= after.firstColumn && c <= after.lastColumn;
-        if (!open && column.length > 0) throw new Error(`a piece in closed column ${c}`);
         if (column.length > after.rows) throw new Error(`column ${c} holds more than ${after.rows}`);
       });
+      if (after.board.length !== COLUMNS) throw new Error("the number of columns changed");
     };
     fc.assert(fc.property(longIntents, (rounds) => void play(rounds, check)));
     fc.assert(fc.property(intents, (rounds) => void play(rounds, check)));
   });
 
-  it("P12 (R61, R62, R69) the open area never grows, never shrinks below 3 rows or 3 columns and always equals the schedule", () => {
-    let sawCeiling = false;
-    let sawWalls = false;
+  it("P12 (R61, R64, R69) the rows never grow, never go below 4 and always equal the schedule, and no column ever closes", () => {
+    let sawFirstDrop = false;
+    let sawSecondDrop = false;
     const check = (before: GameState, _choices: unknown, after: GameState) => {
-      if (after.rows > before.rows || after.firstColumn < before.firstColumn || after.lastColumn > before.lastColumn) throw new Error("the open area grew");
-      if (after.rows < MIN_ROWS) throw new Error("fewer than 3 rows");
-      if (after.lastColumn - after.firstColumn + 1 < MIN_COLUMNS) throw new Error("fewer than 3 columns");
-      const due = shapeAt(after.round);
-      if (after.status === "playing" && (after.rows !== due.rows || after.firstColumn !== due.firstColumn || after.lastColumn !== due.lastColumn)) {
-        throw new Error("the open area does not match the schedule");
-      }
-      if (after.rows < before.rows) sawCeiling = true;
-      if (after.firstColumn > before.firstColumn) sawWalls = true;
+      if (after.rows > before.rows) throw new Error("the rows grew");
+      if (after.rows < MIN_ROWS) throw new Error("fewer than 4 rows");
+      if (after.status === "playing" && after.rows !== rowsAt(after.round)) throw new Error("the rows do not match the schedule");
+      if ("firstColumn" in after || "lastColumn" in after) throw new Error("a column range exists: the walls are gone");
+      if (after.rows === 5 && before.rows === 6) sawFirstDrop = true;
+      if (after.rows === 4 && before.rows === 5) sawSecondDrop = true;
     };
     fc.assert(fc.property(longIntents, (rounds) => void play(rounds, check)));
     fc.assert(fc.property(intents, (rounds) => void play(rounds, check)));
-    // The generator must really reach collapses, or this property proves nothing.
-    if (!sawCeiling || !sawWalls) throw new Error("the generated games never reached a ceiling drop and a wall collapse");
+    // The generator must really reach both drops, or this property proves nothing.
+    if (!sawFirstDrop || !sawSecondDrop) throw new Error("the generated games never reached both ceiling drops");
   });
 
-  it("P12 (R65) the engine's collapsed flag agrees with what changed, and a collapse never ends a game by itself except as a draw", () => {
+  it("P12 (R61, R65) the engine's ceilingDropped flag agrees with what changed, and a drop never ends a game in a win", () => {
     fc.assert(
       fc.property(longIntents, (rounds) => {
         let state = newGame();
         for (const round of rounds) {
           if (state.status !== "playing") break;
           const result = resolveRound(state, { A: legal(state, "A", round.a), B: legal(state, "B", round.b) });
-          const closedCeiling = result.state.rows < state.rows;
-          const closedWalls = result.state.firstColumn > state.firstColumn;
-          if (result.collapsed.ceiling !== closedCeiling || result.collapsed.walls !== closedWalls) throw new Error("collapsed flag disagrees");
-          if ((closedCeiling || closedWalls) && result.state.status === "won") {
-            // R65: a win in a collapse round came from a dropped disc, so the shape did not change in that round.
-            throw new Error("a collapse round ended in a win");
-          }
+          const dropped = result.state.rows < state.rows;
+          if (result.ceilingDropped !== dropped) throw new Error("ceilingDropped disagrees");
+          if (dropped && result.state.status === "won") throw new Error("a drop round ended in a win"); // R65
           state = result.state;
         }
+      }),
+    );
+  });
+
+  it("P13 (R61) a win stays possible for the whole game: a vertical four fits at the floor", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 12, max: 120 }), fc.integer({ min: 0, max: COLUMNS - 1 }), (round, column) => {
+        const state = { ...newGame(), round, rows: rowsAt(round) };
+        state.board[column] = ["A", "A", "A"];
+        const other = (column + 1) % COLUMNS;
+        const result = resolveRound(state, { A: { column, shield: false }, B: { column: other, shield: false } });
+        if (result.state.winner !== "A") throw new Error("a vertical four did not win at the floor");
       }),
     );
   });

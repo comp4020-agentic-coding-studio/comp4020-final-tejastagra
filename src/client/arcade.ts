@@ -191,53 +191,38 @@ export async function quakeAnimation(board: BoardView, before: Kinds, shifted: K
   if (!still) await wait();
 }
 
-// The open area as the server sent it (R61, R62, R64): the rows below `rows`, in the columns from
-// `firstColumn` to `lastColumn`. Everything else is closed.
-export interface Shape {
-  rows: number;
-  firstColumn: number;
-  lastColumn: number;
-}
-
-export const isOpen = (shape: Shape, column: number, row: number): boolean =>
-  column >= shape.firstColumn && column <= shape.lastColumn && row < shape.rows;
-
-// U69: marks the cells that will close after this round (the top open row for a ceiling drop, the
-// outer open columns for a wall collapse). Both players see the same, because the schedule is public (R22).
-export function markDoomed(board: BoardView, shape: Shape, due: { ceiling: boolean; walls: boolean }, next: Shape | null): void {
+// The open area as the server sent it (R61, R64): the rows below `rows`, in all 7 columns. Every row
+// above is closed. There are no closed columns (ADR 0011).
+// U69: marks the cells that will close after this round (the top open row), when the ceiling is due.
+// Both players see the same, because the schedule is public (R22).
+export function markDoomed(board: BoardView, rows: number, due: boolean, nextRows: number): void {
   for (let c = 0; c < 7; c++) {
     for (let r = 0; r < 6; r++) {
-      const open = isOpen(shape, c, r);
-      const willClose = open && next !== null && ((due.ceiling && r >= next.rows) || (due.walls && (c < next.firstColumn || c > next.lastColumn)));
-      board.setDoomed(c, r, willClose);
+      board.setDoomed(c, r, due && r < rows && r >= nextRows);
     }
   }
 }
 
-// U70, U71: cells outside the new open area crack, crumble and turn to rock. `before` is what was
-// drawn, so only cells that were open and now are not animate; under reduced motion they simply change.
-export async function collapseAnimation(board: BoardView, before: Shape, after: Shape): Promise<void> {
+// U70, U71: the cells above the new ceiling crack, crumble and turn to rock. `before` is the number of
+// rows that was drawn, so only the rows that were open and now are not animate; under reduced motion
+// they simply change.
+export async function ceilingAnimation(board: BoardView, before: number, after: number): Promise<void> {
   const still = reducedMotion();
-  const closing: Array<[number, number]> = [];
-  for (let c = 0; c < 7; c++) {
-    for (let r = 0; r < 6; r++) {
-      if (isOpen(before, c, r) && !isOpen(after, c, r)) closing.push([c, r]);
-    }
-  }
-  if (!still && closing.length) {
-    for (const [c, r] of closing) {
-      board.setDoomed(c, r, false);
-      board.cell(c, r).querySelector(".piece")?.classList.add("crumble");
-      board.cell(c, r).classList.add("cracking");
+  if (!still && after < before) {
+    for (let c = 0; c < 7; c++) {
+      for (let r = after; r < before; r++) {
+        board.setDoomed(c, r, false);
+        board.cell(c, r).querySelector(".piece")?.classList.add("crumble");
+        board.cell(c, r).classList.add("cracking");
+      }
     }
     await new Promise<void>((resolve) => setTimeout(resolve, themeNumber("--ms-collapse")));
   }
   for (let c = 0; c < 7; c++) {
     for (let r = 0; r < 6; r++) {
-      const closed = !isOpen(after, c, r);
       board.setDoomed(c, r, false);
       board.cell(c, r).classList.remove("cracking");
-      if (closed) {
+      if (r >= after) {
         board.remove(c, r);
         board.setClosed(c, r, true);
       } else {

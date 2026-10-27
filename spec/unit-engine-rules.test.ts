@@ -5,14 +5,11 @@ import {
   CEILING_EVERY,
   CEILING_FIRST_ROUND,
   COLUMNS,
-  MIN_COLUMNS,
   MIN_ROWS,
   ROWS,
-  WALLS_EVERY,
-  WALLS_FIRST_ROUND,
-  collapseDue,
+  ceilingDue,
   newGame,
-  shapeAt,
+  rowsAt,
   validateChoice,
   resolveRound,
   type GameState,
@@ -388,18 +385,18 @@ describe("R14 both players completing a line in the same round is a draw", () =>
 
 describe("R15 a full open area with no line is a draw", () => {
   it("R15 draws when the open area is full and nobody has a line", () => {
-    // Crash in every open column, bottom to top, until the game ends. Rubble breaks every line, so
-    // nobody wins. The board shrinks as rounds pass (R61, R62), so the game ends when the open area
+    // Crash in the first column that has room, bottom to top, until the game ends. Rubble breaks every
+    // line, so nobody wins. The board shrinks as rounds pass (R61), so the game ends when the open area
     // as it then stands is full (R66), not at 7 by 6.
     let state = newGame();
     let guard = 0;
     while (state.status === "playing" && guard++ < 200) {
-      const column = [...Array(COLUMNS).keys()].find((c) => c >= state.firstColumn && c <= state.lastColumn && state.board[c].length < state.rows)!;
+      const column = [...Array(COLUMNS).keys()].find((c) => state.board[c].length < state.rows)!;
       state = resolveRound(state, { A: { column, shield: false }, B: { column, shield: false } }).state;
     }
     expect(state.status).toBe("draw");
     expect(state.winner).toBeNull();
-    for (let c = state.firstColumn; c <= state.lastColumn; c++) expect(state.board[c].length).toBe(state.rows);
+    for (let c = 0; c < COLUMNS; c++) expect(state.board[c].length).toBe(state.rows);
   });
 
   it("R15 draws on a full 7 by 6 board too, when the last space is filled before anything closes", () => {
@@ -733,7 +730,7 @@ describe("R59 Earthquake never affects the round count", () => {
   });
 });
 
-// ---- The shrinking board (ADR 0011, R61 to R69) ----
+// ---- The shrinking board (ADR 0011, R61 to R69): one ceiling, no walls ----
 
 // Plays `rounds` rounds in which nobody chooses (R10), so only the schedule changes the board.
 function quietRounds(state: GameState, rounds: number): GameState {
@@ -741,42 +738,52 @@ function quietRounds(state: GameState, rounds: number): GameState {
   return state;
 }
 
-describe("R61 and R62 the schedule is named constants", () => {
+describe("R61 the schedule is named constants", () => {
   it("R61 the constants are the ones in docs/rules.md", () => {
-    expect([CEILING_FIRST_ROUND, CEILING_EVERY, MIN_ROWS]).toEqual([6, 6, 3]);
-    expect([WALLS_FIRST_ROUND, WALLS_EVERY, MIN_COLUMNS]).toEqual([12, 6, 3]);
+    expect([CEILING_FIRST_ROUND, CEILING_EVERY, MIN_ROWS]).toEqual([12, 8, 4]);
   });
 });
 
-describe("R61 the ceiling drops after round 6 and every 6 rounds after that, until 3 rows", () => {
-  it("R61 a new game has all 6 rows and 7 columns open (R2)", () => {
+describe("R61 the ceiling drops after round 12 and every 8 rounds after that, never below 4 rows", () => {
+  it("R2 and R61 a new game has all 6 rows open, and all 7 columns", () => {
     const state = newGame();
-    expect([state.rows, state.firstColumn, state.lastColumn]).toEqual([6, 0, 6]);
+    expect(state.rows).toBe(6);
+    expect(state.board.length).toBe(COLUMNS);
+    expect("firstColumn" in state || "lastColumn" in state).toBe(false); // the walls are gone (ADR 0011)
   });
 
-  it("R61 the ceiling drops exactly after rounds 6, 12 and 18 and not after any round in between", () => {
+  it("R61 the ceiling drops exactly after rounds 12 and 20, and not after any round in between", () => {
     const rowsAfter = (round: number) => quietRounds(newGame(), round).rows;
-    expect([5, 6, 7, 11, 12, 13, 17, 18, 19, 30].map(rowsAfter)).toEqual([6, 5, 5, 5, 4, 4, 4, 3, 3, 3]);
+    expect([6, 11, 12, 13, 19, 20, 21, 27, 28, 29, 60].map(rowsAfter)).toEqual([6, 6, 5, 5, 5, 4, 4, 4, 4, 4, 4]);
   });
 
-  it("R61 the ceiling stops at 3 rows, however long the game runs", () => {
-    expect(quietRounds(newGame(), 60).rows).toBe(3);
-    expect(shapeAt(10_000).rows).toBe(3);
+  it("R61 round 28 is on the schedule but changes nothing, because the board is already at 4 rows", () => {
+    expect(quietRounds(newGame(), 27).rows).toBe(4);
+    const result = resolveRound(quietRounds(newGame(), 27), { A: null, B: null });
+    expect(result.state.round).toBe(28);
+    expect(result.state.rows).toBe(4);
+    expect(result.ceilingDropped).toBe(false);
   });
 
-  it("R61 the round that resolves the drop reports it in collapsed.ceiling, and only that round", () => {
-    let state = quietRounds(newGame(), 5);
-    const six = resolveRound(state, { A: null, B: null });
-    expect(six.collapsed).toEqual({ ceiling: true, walls: false });
-    const seven = resolveRound(six.state, { A: null, B: null });
-    expect(seven.collapsed).toEqual({ ceiling: false, walls: false });
-    state = quietRounds(newGame(), 4);
-    expect(resolveRound(state, { A: null, B: null }).collapsed).toEqual({ ceiling: false, walls: false });
+  it("R61 the ceiling stops at 4 rows, however long the game runs", () => {
+    expect(quietRounds(newGame(), 100).rows).toBe(4);
+    expect(rowsAt(10_000)).toBe(4);
+  });
+
+  it("R61 the round that resolves a drop reports ceilingDropped, and only that round", () => {
+    const flags = [];
+    let state = newGame();
+    for (let round = 1; round <= 30; round++) {
+      const result = resolveRound(state, { A: null, B: null });
+      flags.push(result.ceilingDropped);
+      state = result.state;
+    }
+    const dropped = flags.map((flag, index) => (flag ? index + 1 : 0)).filter(Boolean);
+    expect(dropped).toEqual([12, 20]);
   });
 
   it("R61 the top row closes and any piece in it crumbles away, and the rest stays where it is", () => {
-    const state = withBoard({ 0: "ABABAB", 1: "AB", 2: "BABAB", 4: "A" });
-    const quiet = { ...state, round: 5 };
+    const quiet = { ...withBoard({ 0: "ABABAB", 1: "AB", 2: "BABAB", 4: "A" }), round: 11 };
     const result = resolveRound(quiet, { A: null, B: null });
     expect(result.state.rows).toBe(5);
     expect(result.state.board[0]).toEqual(["A", "B", "A", "B", "A"]); // the sixth piece crumbled
@@ -784,166 +791,108 @@ describe("R61 the ceiling drops after round 6 and every 6 rounds after that, unt
     expect(result.state.board[2]).toEqual(["B", "A", "B", "A", "B"]); // the fifth stays: only row 6 closed
     expect(result.state.board[4]).toEqual(["A"]);
   });
-});
 
-describe("R62 the walls collapse after round 12 and every 6 rounds after that, until 3 columns", () => {
-  it("R62 the walls collapse exactly after rounds 12 and 18 and not after any round in between", () => {
-    const open = (round: number) => {
-      const s = quietRounds(newGame(), round);
-      return [s.firstColumn, s.lastColumn];
-    };
-    expect([11, 12, 13, 17, 18, 19].map(open)).toEqual([[0, 6], [1, 5], [1, 5], [1, 5], [2, 4], [2, 4]]);
-  });
-
-  it("R62 the walls stop at 3 columns", () => {
-    const s = quietRounds(newGame(), 60);
-    expect([s.firstColumn, s.lastColumn]).toEqual([2, 4]);
-    expect(shapeAt(10_000)).toEqual({ rows: 3, firstColumn: 2, lastColumn: 4 });
-  });
-
-  it("R62 the leftmost and rightmost open columns close and every piece in them crumbles away", () => {
-    const state = { ...withBoard({ 0: "AB", 1: "ABA", 3: "B", 5: "BAB", 6: "A" }), round: 11, rows: 4 };
+  it("R61 the second drop closes the next row down, leaving 4 rows", () => {
+    const state = { ...withBoard({ 0: "ABABA", 3: "ABAB" }), round: 19, rows: 5 };
     const result = resolveRound(state, { A: null, B: null });
-    expect(result.collapsed.walls).toBe(true);
-    expect([result.state.firstColumn, result.state.lastColumn]).toEqual([1, 5]);
-    expect(result.state.board[0]).toEqual([]);
-    expect(result.state.board[6]).toEqual([]);
-    expect(result.state.board[1]).toEqual(["A", "B", "A"]);
-    expect(result.state.board[5]).toEqual(["B", "A", "B"]);
-    expect(result.state.board[3]).toEqual(["B"]);
+    expect(result.state.rows).toBe(4);
+    expect(result.state.board[0]).toEqual(["A", "B", "A", "B"]);
+    expect(result.state.board[3]).toEqual(["A", "B", "A", "B"]);
   });
 
-  it("R62 the second collapse closes the next outer columns", () => {
-    const state = { ...withBoard({ 1: "AB", 2: "A", 4: "B", 5: "AB" }), round: 17, rows: 4, firstColumn: 1, lastColumn: 5 };
-    const result = resolveRound(state, { A: null, B: null });
-    expect([result.state.firstColumn, result.state.lastColumn]).toEqual([2, 4]);
-    expect(result.state.board[1]).toEqual([]);
-    expect(result.state.board[5]).toEqual([]);
-    expect(result.state.board[2]).toEqual(["A"]);
+  it("R61 no column ever closes: every column accepts a disc at every round while it has room", () => {
+    for (const round of [0, 11, 12, 20, 40]) {
+      const state = { ...quietRounds(newGame(), round) };
+      for (let column = 0; column < COLUMNS; column++) {
+        expect(validateChoice(state, "A", { column, shield: false }), `round ${round} column ${column}`).toEqual({ ok: true });
+      }
+    }
+  });
+
+  it("R61 a vertical four still fits at the floor: a win stays possible at 4 rows", () => {
+    const state = { ...withBoard({ 3: "AAA" }), round: 40, rows: 4 };
+    const result = resolveRound(state, { A: { column: 3, shield: false }, B: { column: 6, shield: false } });
+    expect(result.state.status).toBe("won");
+    expect(result.state.winner).toBe("A");
   });
 });
 
-describe("R63 both after the same round: the ceiling first, then the walls", () => {
-  it("R63 after round 12 the ceiling drops to 4 rows and the walls collapse to 5 columns", () => {
-    const state = { ...withBoard({ 0: "AB", 1: "ABAB", 3: "ABAB", 5: "AB" }), round: 11, rows: 5 };
-    const result = resolveRound(state, { A: null, B: null });
-    expect(result.collapsed).toEqual({ ceiling: true, walls: true });
-    expect([result.state.rows, result.state.firstColumn, result.state.lastColumn]).toEqual([4, 1, 5]);
-    expect(result.state.board[0]).toEqual([]);
-    expect(result.state.board[1]).toEqual(["A", "B", "A", "B"]);
-  });
-
-  it("R63 after round 18 the board is 3 by 3, and a piece in the top row of a closing column is gone either way", () => {
-    const state = { ...withBoard({ 1: "ABAB", 2: "ABA", 3: "BBBB" }), round: 17, rows: 4, firstColumn: 1, lastColumn: 5 };
-    const result = resolveRound(state, { A: null, B: null });
-    expect([result.state.rows, result.state.firstColumn, result.state.lastColumn]).toEqual([3, 2, 4]);
-    expect(result.state.board[1]).toEqual([]);
-    expect(result.state.board[2]).toEqual(["A", "B", "A"]);
-    expect(result.state.board[3]).toEqual(["B", "B", "B"]);
-  });
-});
-
-describe("R64 a closed column cannot be chosen, and a column is full at the current row count", () => {
-  it("R64 column_closed for a column outside the open range, and bad_column still comes first", () => {
-    const state = { ...newGame(), firstColumn: 1, lastColumn: 5 };
-    expect(validateChoice(state, "A", { column: 0, shield: false })).toEqual({ ok: false, reason: "column_closed" });
-    expect(validateChoice(state, "A", { column: 6, shield: false })).toEqual({ ok: false, reason: "column_closed" });
-    expect(validateChoice(state, "A", { column: 1, shield: false })).toEqual({ ok: true });
-    expect(validateChoice(state, "A", { column: 5, shield: false })).toEqual({ ok: true });
-    expect(validateChoice(state, "A", { column: 7, shield: false })).toEqual({ ok: false, reason: "bad_column" });
-    expect(validateChoice(state, "A", { column: -1, shield: false })).toEqual({ ok: false, reason: "bad_column" });
-  });
-
-  it("R64 column_closed is checked before column_full and before no_shield", () => {
-    const state = { ...newGame(), firstColumn: 1, lastColumn: 5, rows: 3 };
-    state.shieldsLeft.A = false;
-    expect(validateChoice(state, "A", { column: 0, shield: true })).toEqual({ ok: false, reason: "column_closed" });
-    state.board[2] = ["A", "B", "A"];
-    expect(validateChoice(state, "A", { column: 2, shield: true })).toEqual({ ok: false, reason: "column_full" });
-  });
-
+describe("R64 a column is full at the current row count", () => {
   it("R64 a column is full when its pieces reach the current number of rows, not 6", () => {
-    const state = { ...withBoard({ 3: "ABA" }), rows: 3 };
+    const state = { ...withBoard({ 3: "ABAB" }), rows: 4 };
     expect(validateChoice(state, "A", { column: 3, shield: false })).toEqual({ ok: false, reason: "column_full" });
-    expect(validateChoice({ ...state, rows: 4 }, "A", { column: 3, shield: false })).toEqual({ ok: true });
+    expect(validateChoice({ ...state, rows: 5 }, "A", { column: 3, shield: false })).toEqual({ ok: true });
   });
 
-  it("R64 resolveRound throws for a closed column", () => {
-    const state = { ...newGame(), firstColumn: 1, lastColumn: 5 };
-    expect(() => resolveRound(state, { A: { column: 0, shield: false }, B: null })).toThrow();
+  it("R3 and R64 rejection order is game_over, bad_column, column_full, no_shield", () => {
+    const state = { ...newGame(), rows: 4 };
+    state.shieldsLeft.A = false;
+    state.board[2] = ["A", "B", "A", "B"];
+    expect(validateChoice(state, "A", { column: 7, shield: true })).toEqual({ ok: false, reason: "bad_column" });
+    expect(validateChoice(state, "A", { column: 2, shield: true })).toEqual({ ok: false, reason: "column_full" });
+    expect(validateChoice(state, "A", { column: 3, shield: true })).toEqual({ ok: false, reason: "no_shield" });
   });
 
-  it("R64 closure is judged on the board as it is before the round: a collapse after a round does not change what it accepted", () => {
-    const state = { ...newGame(), round: 11 };
-    const result = resolveRound(state, { A: { column: 0, shield: false }, B: { column: 6, shield: false } });
-    expect(result.collapsed.walls).toBe(true);
-    expect(result.state.board[0]).toEqual([]); // accepted, dropped, then the wall collapsed over it
-    expect(result.state.board[6]).toEqual([]);
+  it("R64 there is no closed-column rejection: column_closed is never a reason", () => {
+    const state = { ...quietRounds(newGame(), 40) };
+    for (let column = -1; column <= 7; column++) {
+      const result = validateChoice(state, "A", { column, shield: false });
+      if (!result.ok) expect(["bad_column", "column_full"]).toContain(result.reason);
+    }
+  });
+
+  it("R64 fullness is judged on the board as it is before the round: a drop after a round does not change what it accepted", () => {
+    const state = { ...withBoard({ 3: "ABABA" }), round: 11 };
+    const result = resolveRound(state, { A: { column: 3, shield: false }, B: null });
+    expect(result.ceilingDropped).toBe(true);
+    expect(result.state.board[3]).toEqual(["A", "B", "A", "B", "A"]); // the sixth, just dropped, crumbled
   });
 });
 
-describe("R65 a collapse never creates a win and never undoes one", () => {
-  it("R65 a line that a collapse breaks no longer wins: the disc that would have completed it does not", () => {
-    // A has A A A along row 1 (columns 2, 3, 4) and the fourth would be at column 1 or 5. First show
-    // that dropping there wins on the full-height board, then that it does not once the walls closed
-    // over the line's end: the end column was closed, so the line cannot be completed there.
-    const line = withBoard({ 2: "A", 3: "A", 4: "A" });
-    expect(resolveRound({ ...line, round: 3 }, { A: { column: 5, shield: false }, B: null }).state.winner).toBe("A");
-    // After round 12 the open area is columns 1 to 5, rows 1 to 4: the same line, then break it with the ceiling.
-    const high = { ...withBoard({ 2: "BBBA", 3: "BBBA", 4: "BBBA" }), round: 5, rows: 6 };
-    const broken = resolveRound(high, { A: null, B: null }); // after round 6 the ceiling drops, but row 4 stays
-    expect(broken.state.board[2][3]).toBe("A"); // still there: this ceiling only closes row 6
-    const topLine = { ...withBoard({ 2: "BBBBBA", 3: "BBBBBA", 4: "BBBBBA" }), round: 5 };
+describe("R65 a ceiling drop never creates a win and never undoes one", () => {
+  it("R65 a line that a drop breaks no longer wins: the disc that would have completed it does not", () => {
+    const topLine = { ...withBoard({ 2: "BBBBBA", 3: "BBBBBA", 4: "BBBBBA" }), round: 11 };
     const crumbled = resolveRound(topLine, { A: null, B: null });
     expect(crumbled.state.board.slice(2, 5).map((c) => c.length)).toEqual([5, 5, 5]); // the A row crumbled
     expect(resolveRound(crumbled.state, { A: { column: 5, shield: false }, B: null }).state.status).toBe("playing");
-    // Without the collapse the same position wins, so it really was the collapse that broke the line.
-    const kept = { ...topLine, round: 0 };
-    kept.board[5] = ["B", "B", "B", "B", "B"];
-    kept.board[1] = ["B", "B", "B", "B", "B"];
-    expect(resolveRound({ ...kept, board: kept.board.map((c, i) => (i >= 2 && i <= 4 ? [...c] : c)) }, { A: { column: 5, shield: false }, B: null }).state.winner).toBe("A");
+    // Without the drop the same position wins, so it really was the drop that broke the line.
+    const kept = { ...withBoard({ 2: "BBBBBA", 3: "BBBBBA", 4: "BBBBBA" }), round: 0 };
+    expect(resolveRound(kept, { A: { column: 5, shield: false }, B: null }).state.status).toBe("playing");
+    const low = { ...withBoard({ 2: "A", 3: "A", 4: "A" }), round: 3 };
+    expect(resolveRound(low, { A: { column: 5, shield: false }, B: null }).state.winner).toBe("A");
   });
 
-  it("R65 a collapse cannot create a win: a line the collapse leaves in place does not win by itself", () => {
-    // A's A A A B A: the B sits in the top row (row 5) and crumbles, leaving A A A with nothing dropped.
-    const state = { ...withBoard({ 0: "ABABAB", 1: "BABABA" }), round: 5 };
+  it("R65 a drop cannot create a win: a line the drop leaves in place does not win by itself", () => {
+    const state = { ...withBoard({ 0: "ABABAB", 1: "BABABA" }), round: 11 };
     const result = resolveRound(state, { A: null, B: null });
     expect(result.state.status).toBe("playing");
     expect(result.state.winner).toBeNull();
   });
 
-  it("R65 a vertical line of three left standing after a collapse still needs a dropped disc to win", () => {
-    const state = { ...withBoard({ 0: "AAAB", 6: "B" }), round: 11, rows: 4 };
-    const result = resolveRound(state, { A: null, B: null }); // the walls collapse over columns 0 and 6
-    expect(result.state.board[0]).toEqual([]);
-    expect(result.state.status).toBe("playing");
-  });
-
-  it("R65 a game that ends this round does not collapse, so the winning line stays on the board", () => {
-    const state = { ...withBoard({ 0: "BBB", 1: "AAA" }), round: 5 };
+  it("R65 a game that ends this round does not drop, so the winning line stays on the board", () => {
+    const state = { ...withBoard({ 0: "BBB", 1: "AAA" }), round: 11 };
     const result = resolveRound(state, { A: { column: 1, shield: false }, B: { column: 6, shield: false } });
     expect(result.state.status).toBe("won");
     expect(result.state.winner).toBe("A");
     expect(result.state.rows).toBe(6);
-    expect(result.collapsed).toEqual({ ceiling: false, walls: false });
+    expect(result.ceilingDropped).toBe(false);
     expect(result.state.board[1]).toEqual(["A", "A", "A", "A"]);
   });
 
-  it("R65 and R13 a win in the top row stands: the line is judged before the collapse closes that row", () => {
-    // Round 6, so the ceiling closes row 6 after it. A drops the last disc of a horizontal four in row 6.
-    const state = { ...newGame(), round: 5 };
+  it("R65 and R13 a win in the top row stands: the line is judged before the drop closes that row", () => {
+    const state = { ...newGame(), round: 11 };
     for (const c of [0, 1, 2]) state.board[c] = ["B", "A", "B", "A", "B", "A"];
     state.board[3] = ["A", "B", "A", "B", "A"];
     const result = resolveRound(state, { A: { column: 3, shield: false }, B: null });
     expect(result.state.status).toBe("won");
     expect(result.state.winner).toBe("A");
-    expect(result.state.rows).toBe(6); // the game ended, so nothing collapsed (R65)
+    expect(result.state.rows).toBe(6); // the game ended, so nothing dropped (R65)
     expect(result.state.board[3]).toEqual(["A", "B", "A", "B", "A", "A"]);
   });
 });
 
-describe("R61 and R62 a collapse never changes the number of columns", () => {
-  it("R62 the board still has exactly 7 columns after every collapse, however many rounds are played", () => {
+describe("R61 the board always has exactly 7 columns", () => {
+  it("R61 the board still has 7 columns after every round of a long game", () => {
     let state = newGame();
     for (let round = 0; round < 40; round++) {
       state = resolveRound(state, { A: null, B: null }).state;
@@ -953,97 +902,91 @@ describe("R61 and R62 a collapse never changes the number of columns", () => {
 });
 
 describe("R66 a full open area with no winner is a draw", () => {
-  it("R66 the draw is judged on the open area, so a shrunken board can be full with columns still holding room above", () => {
-    const state = { ...newGame(), rows: 3, firstColumn: 2, lastColumn: 4 };
-    state.board[2] = ["R", "A", "B"];
-    state.board[3] = ["A", "B", "R"];
-    state.board[4] = ["B", "R"];
-    const result = resolveRound(state, { A: null, B: { column: 4, shield: false } });
-    expect(result.state.board[4]).toEqual(["B", "R", "B"]);
+  it("R66 the draw is judged on the open area, so a shrunken board can be full with room above the ceiling", () => {
+    // 4 rows, every column holding 4 pieces except one, with no four in a row anywhere.
+    const rows = ["AABBAAB", "BBAABBA", "AABBAAB", "BBAABBA"];
+    const state = { ...newGame(), rows: 4, round: 25 };
+    for (let c = 0; c < COLUMNS; c++) state.board[c] = rows.map((row) => row[c]) as GameState["board"][number];
+    const top = state.board[3].pop()!;
+    const result = resolveRound(state, { A: top === "A" ? { column: 3, shield: false } : null, B: top === "B" ? { column: 3, shield: false } : null });
+    expect(result.state.board[3].length).toBe(4);
     expect(result.state.status).toBe("draw");
     expect(result.state.winner).toBeNull();
   });
 
-  it("R66 pieces in the closed columns do not count towards the open area being full", () => {
-    const state = { ...newGame(), rows: 3, firstColumn: 2, lastColumn: 4 };
-    state.board[2] = ["R", "A", "B"];
-    state.board[3] = ["A", "B", "R"];
-    state.board[4] = ["B", "R"];
-    expect(resolveRound(state, { A: null, B: null }).state.status).toBe("playing");
+  it("R66 a column holding 4 pieces on a 4 row board is full even though the board started with 6", () => {
+    const state = { ...newGame(), rows: 4, round: 25 };
+    state.board[0] = ["R", "R", "R", "R"];
+    expect(resolveRound(state, { A: null, B: null }).state.status).toBe("playing"); // the rest is empty
   });
 
-  it("R66 a collapse can leave the remaining area full, which is a draw", () => {
-    // 4 rows, columns 1 to 5 open and full except for row 4, which closes with the ceiling after round 12... use round 11.
-    const state = { ...newGame(), round: 11, rows: 5, firstColumn: 0, lastColumn: 6 };
-    const rows = ["RARAR", "ARARA", "RARAR", "ARARA", "RARAR", "ARARA", "RARAR"];
-    for (let c = 0; c < COLUMNS; c++) state.board[c] = rows[c].split("").slice(0, 4) as GameState["board"][number];
+  it("R66 a drop can leave the remaining area full, which is a draw", () => {
+    // 5 rows with 4 pieces in every column: not full yet, so the game goes on. After round 20 the ceiling
+    // drops to 4 rows, and 4 pieces in every column is now a full open area, with no line anywhere.
+    const state = { ...newGame(), round: 19, rows: 5 };
+    const rows = ["AABBAAB", "BBAABBA", "AABBAAB", "BBAABBA"];
+    for (let c = 0; c < COLUMNS; c++) state.board[c] = rows.map((row) => row[c]) as GameState["board"][number];
+    expect(resolveRound({ ...state, round: 3 }, { A: null, B: null }).state.status).toBe("playing"); // 5 rows: not full
     const result = resolveRound(state, { A: null, B: null });
+    expect(result.ceilingDropped).toBe(true);
     expect(result.state.rows).toBe(4);
-    expect([result.state.firstColumn, result.state.lastColumn]).toEqual([1, 5]);
     expect(result.state.status).toBe("draw");
     expect(result.state.winner).toBeNull();
   });
 });
 
 describe("R67 an Earthquake on a shrunken board", () => {
-  it("R67 removes the bottom row of the open area and shifts every open column down one", () => {
-    const state = { ...withBoard({ 1: "ABA", 2: "BAB", 3: "AB" }), round: 12, rows: 4, firstColumn: 1, lastColumn: 5 };
+  it("R67 removes the bottom row and shifts every column down one", () => {
+    const state = { ...withBoard({ 1: "ABA", 2: "BAB", 3: "AB" }), round: 12, rows: 5 };
     const result = resolveRound(state, { A: { earthquake: true }, B: null });
     expect(result.state.board[1]).toEqual(["B", "A"]);
     expect(result.state.board[2]).toEqual(["A", "B"]);
     expect(result.state.board[3]).toEqual(["B"]);
     expect(result.state.board[0]).toEqual([]);
-    expect(result.state.board[6]).toEqual([]);
   });
 
-  it("R67 the earthquake comes first, then the other disc, then any collapse", () => {
-    const state = { ...withBoard({ 1: "ABA", 3: "AB" }), round: 5 };
+  it("R67 the earthquake comes first, then the other disc, then any ceiling drop", () => {
+    const state = { ...withBoard({ 1: "ABABA", 3: "AB" }), round: 11 };
     const result = resolveRound(state, { A: { earthquake: true }, B: { column: 1, shield: false } });
     expect(result.shaken).toBe(true);
-    expect(result.collapsed.ceiling).toBe(true);
-    // column 1: ABA -> BA after the shift, B lands on top: BAB, then the ceiling (5 rows) leaves it as it is.
-    expect(result.state.board[1]).toEqual(["B", "A", "B"]);
+    expect(result.ceilingDropped).toBe(true);
+    // column 1: ABABA -> BABA after the shift, B lands on top (BABAB, five pieces), then the ceiling (5 rows) keeps all five.
+    expect(result.state.board[1]).toEqual(["B", "A", "B", "A", "B"]);
     expect(result.state.board[3]).toEqual(["B"]);
   });
 
-  it("R67 and R55 Earthquake is allowed when the only piece in the open area is in its first or its last open column", () => {
-    for (const column of [1, 5]) {
-      const state = { ...withBoard({ [column]: "A" }), round: 12, rows: 4, firstColumn: 1, lastColumn: 5 };
+  it("R67 an Earthquake that shifts a column below the new ceiling loses nothing to the drop", () => {
+    const state = { ...withBoard({ 2: "ABABAB" }), round: 11 };
+    const result = resolveRound(state, { A: { earthquake: true }, B: null });
+    expect(result.state.board[2]).toEqual(["B", "A", "B", "A", "B"]); // shifted to 5, then the ceiling is 5
+  });
+
+  it("R67 and R55 Earthquake is rejected with nothing_to_shake when the board is empty, and allowed with one piece in any column", () => {
+    expect(validateChoice({ ...newGame(), round: 12, rows: 5 }, "A", { earthquake: true })).toEqual({ ok: false, reason: "nothing_to_shake" });
+    for (let column = 0; column < COLUMNS; column++) {
+      const state = { ...withBoard({ [column]: "A" }), round: 12, rows: 5 };
       expect(validateChoice(state, "A", { earthquake: true }), `column ${column}`).toEqual({ ok: true });
     }
   });
-
-  it("R67 and R55 Earthquake is still rejected with nothing_to_shake when the open area is empty", () => {
-    const state = { ...withBoard({ 0: "AB", 6: "A" }), round: 12, rows: 4, firstColumn: 1, lastColumn: 5 };
-    expect(validateChoice(state, "A", { earthquake: true })).toEqual({ ok: false, reason: "nothing_to_shake" });
-  });
 });
 
-describe("R69 a game's shape follows the schedule, never backwards, and collapseDue says what is next", () => {
-  it("R69 a game saved before the shrinking board has the full shape and catches up at its next round", () => {
-    const old = { ...withBoard({ 0: "AB", 3: "ABABAB", 6: "A" }), round: 14 }; // the full shape, whatever the round count
+describe("R69 a game's rows follow the schedule, never backwards, and ceilingDue says what is next", () => {
+  it("R69 a game saved before the shrinking board has 6 rows and catches up at its next round", () => {
+    const old = { ...withBoard({ 0: "AB", 3: "ABABAB", 6: "A" }), round: 25 }; // 6 rows, whatever the round count
     const result = resolveRound(old, { A: null, B: null });
-    expect(result.collapsed).toEqual({ ceiling: true, walls: true });
-    expect([result.state.rows, result.state.firstColumn, result.state.lastColumn]).toEqual([shapeAt(15).rows, shapeAt(15).firstColumn, shapeAt(15).lastColumn]);
-    expect(result.state.board[0]).toEqual([]);
-    expect(result.state.board[3].length).toBe(shapeAt(15).rows);
+    expect(result.ceilingDropped).toBe(true);
+    expect(result.state.rows).toBe(rowsAt(26));
+    expect(result.state.rows).toBe(4);
+    expect(result.state.board[3].length).toBe(4);
+    expect(result.state.board[0]).toEqual(["A", "B"]);
   });
 
-  it("R69 collapseDue is true for exactly what the next round will close", () => {
-    const due = (round: number) => collapseDue({ ...quietRounds(newGame(), round) });
-    expect(due(4)).toEqual({ ceiling: false, walls: false });
-    expect(due(5)).toEqual({ ceiling: true, walls: false });
-    expect(due(6)).toEqual({ ceiling: false, walls: false });
-    expect(due(11)).toEqual({ ceiling: true, walls: true });
-    expect(due(17)).toEqual({ ceiling: true, walls: true });
-    expect(due(18)).toEqual({ ceiling: false, walls: false });
-    expect(due(60)).toEqual({ ceiling: false, walls: false });
+  it("R69 ceilingDue is true for exactly the round before a drop", () => {
+    const due = (round: number) => ceilingDue(quietRounds(newGame(), round));
+    expect([10, 11, 12, 18, 19, 20, 26, 27, 28, 60].map(due)).toEqual([false, true, false, false, true, false, false, false, false, false]);
   });
 
-  it("R69 shapeAt is a pure function of the round count", () => {
-    expect(shapeAt(0)).toEqual({ rows: 6, firstColumn: 0, lastColumn: 6 });
-    expect(shapeAt(6)).toEqual({ rows: 5, firstColumn: 0, lastColumn: 6 });
-    expect(shapeAt(12)).toEqual({ rows: 4, firstColumn: 1, lastColumn: 5 });
-    expect(shapeAt(18)).toEqual({ rows: 3, firstColumn: 2, lastColumn: 4 });
+  it("R69 rowsAt is a pure function of the round count", () => {
+    expect([0, 11, 12, 19, 20, 27, 28, 500].map(rowsAt)).toEqual([6, 6, 5, 5, 4, 4, 4, 4]);
   });
 });

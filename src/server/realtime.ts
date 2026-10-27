@@ -281,8 +281,6 @@ export function attachRealtime(
         shieldsLeft: record.state.shieldsLeft,
         earthquakesLeft: record.state.earthquakesLeft,
         rows: record.state.rows,
-        firstColumn: record.state.firstColumn,
-        lastColumn: record.state.lastColumn,
         opponentReady: choices.A !== null,
       },
       "B",

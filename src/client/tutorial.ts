@@ -3,7 +3,7 @@
 // action is done. It runs on a practice board in the browser against a scripted computer. It never
 // opens a game on the server, so it can never change the leaderboard (R50): the only thing it
 // sends is "finished" or "skipped", which saves with the player (R48).
-import { buildBoard, collapseAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, themeNumber } from "./arcade.ts";
+import { buildBoard, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, themeNumber } from "./arcade.ts";
 import { $ } from "./common.ts";
 
 type Piece = "you" | "opponent" | "rubble";
@@ -47,9 +47,9 @@ interface Step {
 }
 
 const THINK = () => themeNumber("--ms-beat");
-// The practice board's open area before and after the ceiling drops (R61): the same shapes as round 6.
-const FULL = { rows: 6, firstColumn: 0, lastColumn: 6 };
-const SHRUNK = { rows: 5, firstColumn: 0, lastColumn: 6 };
+// The practice board's rows before and after the first ceiling drop (R61, after round 12).
+const FULL_ROWS = 6;
+const SHRUNK_ROWS = 5;
 
 const STEPS: Step[] = [
   {
@@ -149,7 +149,7 @@ const STEPS: Step[] = [
   },
   {
     title: "The board shrinks",
-    caption: "The board shrinks as rounds pass: after round 6 the ceiling drops and after round 12 the walls collapse. Pieces in closed rows and columns crumble away.",
+    caption: "The board shrinks as rounds pass: after round 12 the ceiling drops, and it drops again after round 20. Pieces in a closed row crumble away.",
     async run(s) {
       s.reset();
       s.place(2, "opponent");
@@ -362,11 +362,11 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
       warning.hidden = text === null;
       warning.textContent = text ?? "";
       // The top row of the practice board flashes while the warning shows (U69).
-      markDoomed(board, FULL, { ceiling: text !== null, walls: false }, text !== null ? SHRUNK : null);
+      markDoomed(board, FULL_ROWS, text !== null, SHRUNK_ROWS);
     },
     async shrink() {
-      await collapseAnimation(board, FULL, SHRUNK);
-      for (let c = 0; c < 7; c++) heights[c] = Math.min(heights[c], SHRUNK.rows);
+      await ceilingAnimation(board, FULL_ROWS, SHRUNK_ROWS);
+      for (let c = 0; c < 7; c++) heights[c] = Math.min(heights[c], SHRUNK_ROWS);
     },
     waitQuake() {
       return new Promise((resolve) => {

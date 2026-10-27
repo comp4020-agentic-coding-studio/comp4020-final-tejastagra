@@ -299,9 +299,9 @@ describe("S: what happens is kept (promise 5)", () => {
 
       const upgraded = openDb(path);
       // The tutorial flag was the tenth migration, applied once; the Earthquake migration (S4) is the 11th
-      // and the shrinking board's (S5) the 12th.
+      // and the shrinking board's (S5) the 12th and the walls' removal (S6) the 13th.
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(12);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(13);
       raw.close();
       // An existing player has not seen the tutorial, so it is due for them.
       expect(upgraded.playerById("p-old")?.tutorialSeen).toBe(false);
@@ -348,7 +348,7 @@ describe("R53 a game saved before Earthquake is upgraded", () => {
       expect(games.NEW11.earthquakesLeft).toEqual({ A: false, B: true });
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(12);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(13);
       raw.close();
     } finally {
       rmSync(path, { force: true });
@@ -359,45 +359,75 @@ describe("R53 a game saved before Earthquake is upgraded", () => {
 });
 
 describe("R69 a game saved before the shrinking board is upgraded", () => {
-  it("S5 (R69) migration 12 gives a game saved without a shape the full 7 by 6 shape, once, and leaves newer games alone", () => {
+  const oldSchema = (path: string, version: number) => {
+    const old = new DatabaseSync(path);
+    old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+    old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
+    old.exec(`ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`);
+    old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
+    old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+    old.exec(`ALTER TABLE games ADD COLUMN player_a TEXT`);
+    old.exec(`ALTER TABLE games ADD COLUMN player_b TEXT`);
+    old.exec(`ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`);
+    old.exec(`ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`);
+    old.exec(`ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`);
+    old.exec(`PRAGMA user_version = ${version}`);
+    return old;
+  };
+  const clean = (path: string) => {
+    rmSync(path, { force: true });
+    rmSync(`${path}-wal`, { force: true });
+    rmSync(`${path}-shm`, { force: true });
+  };
+
+  it("S5 (R69) migration 12 gives a game saved without a number of rows the full 6 rows, once, and leaves newer games alone", () => {
     const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration12.db`);
     try {
-      const old = new DatabaseSync(path);
-      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
-      old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
-      old.exec(`ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`);
-      old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
-      old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
-      old.exec(`ALTER TABLE games ADD COLUMN player_a TEXT`);
-      old.exec(`ALTER TABLE games ADD COLUMN player_b TEXT`);
-      old.exec(`ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`);
-      old.exec(`ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`);
-      old.exec(`ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`);
-      old.exec(`PRAGMA user_version = 11`);
-      const { rows: _r, firstColumn: _f, lastColumn: _l, ...legacy } = newGame();
-      const shrunk = { ...newGame(), round: 13, rows: 4, firstColumn: 1, lastColumn: 5 };
+      const old = oldSchema(path, 11);
+      const { rows: _r, ...legacy } = newGame();
       const insert = old.prepare("INSERT INTO games (code, state, updated_at) VALUES (?, ?, ?)");
       insert.run("OLD12", JSON.stringify({ ...legacy, round: 14 }), Date.now());
-      insert.run("NEW12", JSON.stringify(shrunk), Date.now());
+      insert.run("NEW12", JSON.stringify({ ...newGame(), round: 13, rows: 5 }), Date.now());
       old.close();
 
       const upgraded = openDb(path);
       const games = Object.fromEntries(upgraded.loadGames().map((g) => [g.code, g.state]));
-      expect([games.OLD12.rows, games.OLD12.firstColumn, games.OLD12.lastColumn]).toEqual([6, 0, 6]);
+      expect(games.OLD12.rows).toBe(6);
       expect(games.OLD12.round).toBe(14);
-      expect([games.NEW12.rows, games.NEW12.firstColumn, games.NEW12.lastColumn]).toEqual([4, 1, 5]); // never overwritten
+      expect(games.NEW12.rows).toBe(5); // never overwritten
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(12);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(13);
       raw.close();
-      // Opening again runs nothing a second time.
-      const again = openDb(path);
-      expect(again.loadGames().find((g) => g.code === "NEW12")?.state.rows).toBe(4);
+      const again = openDb(path); // opening again runs nothing a second time
+      expect(again.loadGames().find((g) => g.code === "NEW12")?.state.rows).toBe(5);
       again.close();
     } finally {
-      rmSync(path, { force: true });
-      rmSync(`${path}-wal`, { force: true });
-      rmSync(`${path}-shm`, { force: true });
+      clean(path);
+    }
+  });
+
+  it("S6 (ADR 0011) migration 13 removes the open-columns range that migration 12 had added, and keeps everything else", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration13.db`);
+    try {
+      const old = oldSchema(path, 12); // a database that already ran migration 12 and so carries firstColumn and lastColumn
+      const withWalls = { ...newGame(), round: 13, rows: 4, firstColumn: 1, lastColumn: 5, board: [[], ["A", "B"], [], ["R"], [], [], []] };
+      old.prepare("INSERT INTO games (code, state, updated_at) VALUES (?, ?, ?)").run("WALL13", JSON.stringify(withWalls), Date.now());
+      old.close();
+
+      const upgraded = openDb(path);
+      const state = upgraded.loadGames().find((g) => g.code === "WALL13")!.state as unknown as Record<string, unknown>;
+      expect("firstColumn" in state).toBe(false);
+      expect("lastColumn" in state).toBe(false);
+      expect(state.round).toBe(13);
+      expect(state.rows).toBe(4);
+      expect((state.board as string[][])[1]).toEqual(["A", "B"]);
+      upgraded.close();
+      const raw = new DatabaseSync(path);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(13);
+      raw.close();
+    } finally {
+      clean(path);
     }
   });
 });

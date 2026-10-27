@@ -4,13 +4,10 @@
 export const COLUMNS = 7;
 export const ROWS = 6; // the starting number of rows
 
-// The shrinking schedule (R61, R62). Tunable by playtests; change docs/rules.md first.
-export const CEILING_FIRST_ROUND = 6;
-export const CEILING_EVERY = 6;
-export const MIN_ROWS = 3;
-export const WALLS_FIRST_ROUND = 12;
-export const WALLS_EVERY = 6;
-export const MIN_COLUMNS = 3;
+// The shrinking schedule (R61). Tunable by playtests; change docs/rules.md first.
+export const CEILING_FIRST_ROUND = 12;
+export const CEILING_EVERY = 8;
+export const MIN_ROWS = 4;
 
 export type Player = "A" | "B";
 export type Cell = Player | "R"; // 'R' is a rubble block
@@ -25,9 +22,7 @@ export interface GameState {
   round: number; // rounds resolved so far
   shieldsLeft: Record<Player, boolean>;
   earthquakesLeft: Record<Player, boolean>; // R53
-  rows: number; // R61: the current number of rows
-  firstColumn: number; // R62: the open columns run from firstColumn to lastColumn, inclusive
-  lastColumn: number;
+  rows: number; // R61: the current number of rows (all 7 columns are always open)
   status: Status;
   winner: Player | null;
 }
@@ -45,34 +40,21 @@ export interface RoundResult {
   outcome: RoundOutcome;
   shieldWinner: Player | null;
   shaken: boolean; // R56: the bottom row was removed this round
-  collapsed: { ceiling: boolean; walls: boolean }; // R61, R62: what closed after this round
+  ceilingDropped: boolean; // R61: the ceiling dropped after this round
 }
 
-export interface Shape {
-  rows: number;
-  firstColumn: number;
-  lastColumn: number;
+// The number of rows after `round` resolved rounds (R61). Pure: it depends on the round count alone, so
+// the engine needs no clock (ADR 0011).
+export function rowsAt(round: number): number {
+  const drops = round < CEILING_FIRST_ROUND ? 0 : Math.floor((round - CEILING_FIRST_ROUND) / CEILING_EVERY) + 1;
+  return Math.max(MIN_ROWS, ROWS - drops);
 }
 
-// How many times something has happened by `round` when it first happens at `first` and then every `every`.
-function steps(round: number, first: number, every: number): number {
-  return round < first ? 0 : Math.floor((round - first) / every) + 1;
-}
-
-// The shape of the open area after `round` resolved rounds (R61 to R63). Pure: it depends on the
-// round count alone, so the engine needs no clock (ADR 0011).
-export function shapeAt(round: number): Shape {
-  const rows = Math.max(MIN_ROWS, ROWS - steps(round, CEILING_FIRST_ROUND, CEILING_EVERY));
-  const open = Math.max(MIN_COLUMNS, COLUMNS - 2 * steps(round, WALLS_FIRST_ROUND, WALLS_EVERY));
-  const firstColumn = Math.floor((COLUMNS - open) / 2);
-  return { rows, firstColumn, lastColumn: firstColumn + open - 1 };
-}
-
-// What the next resolved round will close, given the shape the game is in now (R69). Used only to
-// show the warning (U68) and by the computer (R68); a result is always decided by resolveRound.
-export function collapseDue(state: GameState): { ceiling: boolean; walls: boolean } {
-  const next = shapeAt(state.round + 1);
-  return { ceiling: next.rows < state.rows, walls: next.firstColumn > state.firstColumn };
+// Whether the ceiling will drop after the next resolved round, given the state the game is in now
+// (R69). Used only to show the warning (U68) and by the computer (R68); a result is always decided by
+// resolveRound.
+export function ceilingDue(state: GameState): boolean {
+  return rowsAt(state.round + 1) < state.rows;
 }
 
 export function newGame(): GameState {
@@ -86,8 +68,6 @@ export function newGame(): GameState {
     shieldsLeft: { A: true, B: true },
     earthquakesLeft: { A: true, B: true },
     rows: ROWS,
-    firstColumn: 0,
-    lastColumn: COLUMNS - 1,
     status: "playing",
     winner: null,
   };
@@ -96,7 +76,6 @@ export function newGame(): GameState {
 export type RejectReason =
   | "game_over"
   | "bad_column"
-  | "column_closed"
   | "column_full"
   | "no_shield"
   | "one_power_up"
@@ -120,16 +99,11 @@ export function validateChoice(
     const extra = choice as { column?: unknown; shield?: unknown };
     if (extra.column !== undefined || extra.shield) return { ok: false, reason: "one_power_up" };
     if (!state.earthquakesLeft[player]) return { ok: false, reason: "no_earthquake" };
-    // R55, R67: it needs a piece in the bottom row of the open area.
-    const bottomRowEmpty = state.board.every((column, c) => c < state.firstColumn || c > state.lastColumn || column.length === 0);
-    if (bottomRowEmpty) return { ok: false, reason: "nothing_to_shake" };
+    if (state.board.every((column) => column.length === 0)) return { ok: false, reason: "nothing_to_shake" }; // R55
     return { ok: true };
   }
   if (!Number.isInteger(choice.column) || choice.column < 0 || choice.column >= COLUMNS) {
     return { ok: false, reason: "bad_column" };
-  }
-  if (choice.column < state.firstColumn || choice.column > state.lastColumn) {
-    return { ok: false, reason: "column_closed" }; // R64
   }
   if (state.board[choice.column].length >= state.rows) {
     return { ok: false, reason: "column_full" };
@@ -167,12 +141,9 @@ function completesLine(board: Board, column: number, row: number): boolean {
   return false;
 }
 
-// R66: the open area is full when every open column holds as many pieces as there are rows.
-function isFull(board: Board, shape: Shape): boolean {
-  for (let column = shape.firstColumn; column <= shape.lastColumn; column++) {
-    if (board[column].length < shape.rows) return false;
-  }
-  return true;
+// R66: the open area is full when every column holds as many pieces as there are rows.
+function isFull(board: Board, rows: number): boolean {
+  return board.every((column) => column.length >= rows);
 }
 
 export function resolveRound(
@@ -243,7 +214,6 @@ export function resolveRound(
     outcome = "none";
   }
 
-  const shape: Shape = { rows: state.rows, firstColumn: state.firstColumn, lastColumn: state.lastColumn };
   const aWins = dropped.some(([c, r]) => board[c][r] === "A" && completesLine(board, c, r));
   const bWins = dropped.some(([c, r]) => board[c][r] === "B" && completesLine(board, c, r));
   let status: Status = state.status;
@@ -257,24 +227,21 @@ export function resolveRound(
   } else if (bWins) {
     status = "won";
     winner = "B";
-  } else if (isFull(board, shape)) {
+  } else if (isFull(board, state.rows)) {
     status = "draw";
     winner = null;
   }
 
-  // R65: a collapse happens after the discs have dropped and the result is decided, and never in the
-  // round that ended the game, so the winning line stays on the board. Pieces in the closed area
-  // crumble away (R61, R62). A collapse cannot create a win, because only dropped discs win (R13).
+  // R65: a ceiling drop happens after the discs have dropped and the result is decided, and never in the
+  // round that ended the game, so the winning line stays on the board. Pieces above the new ceiling
+  // crumble away (R61). A drop cannot create a win, because only dropped discs win (R13).
   const round = state.round + 1;
-  const next = status === "playing" ? shapeAt(round) : shape;
-  const collapsed = { ceiling: next.rows < shape.rows, walls: next.firstColumn > shape.firstColumn };
-  if (collapsed.ceiling || collapsed.walls) {
-    for (let column = 0; column < COLUMNS; column++) {
-      if (column < next.firstColumn || column > next.lastColumn) board[column] = [];
-      else board[column].length = Math.min(board[column].length, next.rows);
-    }
-    if (isFull(board, next)) {
-      status = "draw"; // R66: a collapse can leave the remaining area full
+  const rows = status === "playing" ? rowsAt(round) : state.rows;
+  const ceilingDropped = rows < state.rows;
+  if (ceilingDropped) {
+    for (const column of board) column.length = Math.min(column.length, rows);
+    if (isFull(board, rows)) {
+      status = "draw"; // R66: a drop can leave the remaining area full
       winner = null;
     }
   }
@@ -285,15 +252,13 @@ export function resolveRound(
       round,
       shieldsLeft,
       earthquakesLeft,
-      rows: next.rows,
-      firstColumn: next.firstColumn,
-      lastColumn: next.lastColumn,
+      rows,
       status,
       winner,
     },
     outcome,
     shieldWinner,
     shaken,
-    collapsed,
+    ceilingDropped,
   };
 }

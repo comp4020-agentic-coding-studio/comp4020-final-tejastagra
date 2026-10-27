@@ -39,6 +39,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | P10 | Existing pieces only ever move down by exactly one row, and only in an earthquake round | R12, R56 | passing |
 | P11 | No piece ever sits above the current rows, and no column holds more than the current rows | R61, R64 | passing |
 | P12 | The rows never grow and never go below 4, and equal the schedule for the round count; no column ever closes | R61, R64 | passing |
+| P13 | A win stays possible for the whole game: a vertical four fits at the 4 row floor | R61 | passing |
 | M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.61% after the shrinking board) |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
@@ -55,7 +56,7 @@ L1 to L5, I1 to I6, B1 to B5. See the files.
 
 ## Computer, persistence and logging (`spec/unit-computer.test.ts`, `spec/unit-persistence.test.ts`, `spec/unit-logging.test.ts`)
 
-C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only open columns and avoids squares about to close (R68), passing. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), passing. S5 adds: a game saved before the shrinking board is upgraded by migration 12 with the full 7 by 6 shape (R61), passing; S6 adds: migration 13 removes the open-columns range that migration 12 had added (ADR 0011), todo. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), passing.
+C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only open columns and avoids squares about to close (R68), passing. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), passing. S5 adds: a game saved before the shrinking board is upgraded by migration 12 with the full 7 by 6 shape (R61), passing; S6 adds: migration 13 removes the open-columns range that migration 12 had added (ADR 0011), passing. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), passing.
 
 ## Phone layout (`e2e/`, Playwright, `pnpm test:e2e`)
 

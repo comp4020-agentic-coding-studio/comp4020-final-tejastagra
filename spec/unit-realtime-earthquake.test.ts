@@ -187,8 +187,8 @@ async function crash(a: Seat, b: Seat, column: number): Promise<any> {
   return result;
 }
 
-describe("R61 to R65 the shrinking board through the server", () => {
-  it("R61 after round 6 the snapshot has 5 rows, the same on both screens, with the top piece gone", async () => {
+describe("R61 and R65 the shrinking board through the server", () => {
+  it("R61 after round 12 the snapshot has 5 rows, the same on both screens, with the top piece gone", async () => {
     const { server, rt, url } = startServer();
     cleanup = () => {
       rt.dispose();
@@ -198,13 +198,18 @@ describe("R61 to R65 the shrinking board through the server", () => {
     const b = await seat(url, "SHR001", "B");
     expect(await a.next()).toEqual({ type: "opponent_joined" });
     let last: any;
-    for (let round = 1; round <= 6; round++) last = await crash(a, b, (round - 1) % 5);
-    expect(last.state.round).toBe(6);
-    expect([last.state.rows, last.state.firstColumn, last.state.lastColumn]).toEqual([5, 0, 6]);
+    for (let round = 1; round <= 11; round++) {
+      last = await crash(a, b, (round - 1) % 7);
+      expect(last.state.rows, `after round ${round}`).toBe(6); // nothing closes before round 12
+    }
+    last = await crash(a, b, 0);
+    expect(last.state.round).toBe(12);
+    expect(last.state.rows).toBe(5);
     expect(last.state.board.every((column: string[]) => column.length <= 5)).toBe(true);
+    expect("firstColumn" in last.state || "lastColumn" in last.state).toBe(false);
   });
 
-  it("R64 a closed column is rejected as column_closed, and nobody else hears of it (R22)", async () => {
+  it("R64 every column stays choosable at every round: nothing is ever rejected as closed (the walls are gone)", async () => {
     const { server, rt, url } = startServer();
     cleanup = () => {
       rt.dispose();
@@ -213,16 +218,10 @@ describe("R61 to R65 the shrinking board through the server", () => {
     const a = await seat(url, "SHR002", "A");
     const b = await seat(url, "SHR002", "B");
     expect(await a.next()).toEqual({ type: "opponent_joined" });
-    let last: any;
-    for (let round = 1; round <= 12; round++) last = await crash(a, b, 1 + ((round - 1) % 5)); // columns 1 to 5 only
-    expect(last.state.round).toBe(12);
-    expect([last.state.rows, last.state.firstColumn, last.state.lastColumn]).toEqual([4, 1, 5]);
+    for (let round = 1; round <= 12; round++) await crash(a, b, 1 + ((round - 1) % 5)); // columns 1 to 5 only
     const before = b.raw.length;
-    send(a, { column: 0, shield: false });
-    expect(await a.next()).toEqual({ type: "rejected", reason: "column_closed" });
-    send(a, { column: 6, shield: false });
-    expect(await a.next()).toEqual({ type: "rejected", reason: "column_closed" });
-    await quiet(100);
-    expect(b.raw.length).toBe(before);
+    send(a, { column: 0, shield: false }); // the outer columns would have been closed by the old walls
+    await quiet(50);
+    expect(b.raw.slice(before)).toEqual([JSON.stringify({ type: "opponent_ready" })]); // accepted, and the opponent hears only "ready"
   });
 });
