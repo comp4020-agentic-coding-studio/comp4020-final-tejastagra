@@ -190,7 +190,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
       <div class="stage" data-testid="game-group">
         <div class="status-row">
         <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>
-        <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg><span data-testid="shrink-warning-text"></span></p>
+        <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 1 5 13h5l-3 10 12-14h-6z"/></svg><span data-testid="shrink-warning-text"></span></p>
         </div>
 
         <div class="players" data-testid="players">

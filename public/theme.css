@@ -44,7 +44,7 @@
   /* Rubble */
   --rubble: #8a94a8;
   --rubble-hatch: #4b5568;
-  --rock: #8c735c; /* a closed row or column (U71): solid, not hatched, so it is never mistaken for rubble */
+  --rock: #8c735c; /* a closed row (U71): solid, not hatched, so it is never mistaken for rubble */
   --rock-dark: #4a3a2c;
 
   /* Markers: a ring on your discs, a cross on the opponent's. */

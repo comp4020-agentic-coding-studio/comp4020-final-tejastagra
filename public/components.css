@@ -563,7 +563,7 @@ button.round-item {
   border: var(--outline-thin);
 }
 
-/* Rock (U71): a closed row or column. Solid and square-cornered, with crack lines and no hatch, so it
+/* Rock (U71): a closed row. Solid and square-cornered, with crack lines and no hatch, so it
    is never mistaken for rubble, which is a round hatched piece in a hole. It belongs to nobody. */
 .cell[data-closed="true"] {
   background:

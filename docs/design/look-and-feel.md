@@ -25,7 +25,7 @@ Tejas chose this style on 27 October 2026 (ADR 0006). He kept the navy backgroun
 | `--board-shine` | `#4D82EA` | Highlight along the top of the board |
 | `--hole` | `#0A1030` | Board holes |
 | `--rubble` | `#8A94A8` with `--rubble-hatch` `#4B5568` | Rubble blocks |
-| `--rock` | `#8C735C` with `--rock-dark` `#4A3A2C` | Rock: a closed row or column (U71) |
+| `--rock` | `#8C735C` with `--rock-dark` `#4A3A2C` | Rock: a closed row (U71) |
 | `--field` | `#121A4A` | The inside of a text input |
 | `--disabled` | `#3A4580` | A disabled button's fill (opaque, so nothing shows through it) |
 | `--stack-width` | `420px` | The widest a stack of menu buttons gets |
