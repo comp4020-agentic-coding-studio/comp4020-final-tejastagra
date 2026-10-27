@@ -40,7 +40,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | P11 | No piece ever sits above the current rows, and no column holds more than the current rows | R61, R64 | passing |
 | P12 | The rows never grow and never go below 4, and equal the schedule for the round count; no column ever closes | R61, R64 | passing |
 | P13 | A win stays possible for the whole game: a vertical four fits at the 4 row floor | R61 | passing |
-| M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.61% after the shrinking board) |
+| M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.11% after the ceiling-only shrinking board) |
 
 ## Spectating (`spec/unit-spectating.test.ts`, `spec/app-spectating.test.ts`, `e2e/spectating.spec.ts`)
 
