@@ -58,6 +58,7 @@ The reveal starts when the server's result arrives and never before, so an anima
 | Home | `/` | Nickname or sign in, Play the computer, Play a friend, Quick match, Enter a game code, leaderboard preview, link to `/readme/` |
 | Game | `/g/<code>` | Board, timer bar, both players' names, opponent status, shields, result line |
 | Waiting | `/g/<code>` before the opponent arrives | A compact centred card (docs/design/game-screen.md U54) with the code, Copy link and Share |
+| Watch | `/watch` | A "Watching live" banner, both players' names, the board, the watcher count and "Watch another game" and "Home", with nothing to act on (docs/design/spectating.md) |
 | Quick match | `/play/quick` | Waiting state, after 20 seconds an offer to play the computer |
 | Leaderboard | `/leaderboard` | Most wins and fewest rounds to win, as two lists |
 | Sign up and sign in | `/account` | Username, password, clear errors |
@@ -67,7 +68,7 @@ The reveal starts when the server's result arrives and never before, so an anima
 
 Use these `data-testid` values so tests do not depend on layout:
 
-`column-0` to `column-6`, `shield-badge`, `earthquake-badge`, `shrink-warning`, `round-number`, `timer`, `opponent-status`, `my-shield`, `opponent-shield`, `result-line`, `game-code`, `copy-link`, `nickname-input`, `play-computer`, `play-friend`, `quick-match`, `code-input`, `leaderboard-wins`, `leaderboard-rounds`, `cell-<column>-<row>` (with `data-piece="A" | "B" | "R" | ""`).
+`column-0` to `column-6`, `shield-badge`, `earthquake-badge`, `shrink-warning`, `watch-live`, `live-count`, `watching-banner`, `watcher-count`, `round-number`, `timer`, `opponent-status`, `my-shield`, `opponent-shield`, `result-line`, `game-code`, `copy-link`, `nickname-input`, `play-computer`, `play-friend`, `quick-match`, `code-input`, `leaderboard-wins`, `leaderboard-rounds`, `cell-<column>-<row>` (with `data-piece="A" | "B" | "R" | ""`).
 
 ## Words
 

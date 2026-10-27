@@ -11,6 +11,7 @@ This folder is the source of truth for how Rubble looks, moves and teaches itsel
 | `tutorial.md` | The first-time tutorial, including what the shield does (U41 to U48, rules R47 to R50) |
 | `earthquake.md` | The Earthquake badge, the shake and crumble, its result line and tutorial step (U61 to U67) |
 | `shrinking-board.md` | The warning, the ceiling dropping to rock, the result line and the tutorial step (U68 to U74) |
+| `spectating.md` | Watching a live game: the Watch live button, the watching screen, the watcher count and the exhibition game (U76 to U84) |
 | `game-screen.md` | The waiting card, timer bar, names and layout (U54 to U60) |
 | `plan.md` | The order of work, the commits and where to stop for Tejas |
 

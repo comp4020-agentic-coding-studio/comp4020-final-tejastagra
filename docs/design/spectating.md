@@ -1,0 +1,27 @@
+# Spectating
+
+Added on 27 October 2026 for spectating (ADR 0012, rules R70 to R80). It extends `home.md`, `game-screen.md` and `board-interaction.md`.
+
+The watching screen is the normal game screen with everything that acts taken away. Nothing on it can change a game, and nothing on it shows a choice before the round resolves (R72).
+
+## The home screen
+
+- **U76** The round icon row gains a "Watch live" button (`watch-live`): a round button with an eye icon and the label "Watch live", the same size and style as the others (U34), placed first in the row. A small badge on the round button (`live-count`) says how many games are live, for example "3 live", and "0 live" shows as "No games live". The badge is text, so it never depends on colour, is at least 44px tall as part of the button, and is an `aria-live` status so it is announced when it changes. It is a number only (R80): never a game code, a name or which games exist. The count refreshes when the home screen opens and every 10 seconds while it is open, from `GET /api/live`, and is never fetched more often than that (R77).
+- **U77** Tapping "Watch live" opens `/watch`, the watching screen. With no live game it still opens: the exhibition game is shown (U81).
+
+## The watching screen
+
+- **U78** `/watch` uses the game screen's layout, board and colours: both players' names and avatars, with your-colour and their-colour discs as on the players' screens (the first seat's discs use the ring marker and the second seat's the cross marker, so they differ by shape as well as colour). Above the board a **"Watching live" banner** (`watching-banner`) sits where the round line and the ceiling warning sit on the game screen, and shows the round number beside it. The ceiling warning (U68), the rock (U71) and the result line (U66, U73) all work as they do for the players.
+- **U79** There is **nothing to act on** the board: no column hit areas that respond (`column-0` to `column-6` do not exist on this screen), no hover highlight, no ghost disc, no shield badge, no Earthquake badge, no info buttons for them, no timer bar (a spectator does not need to hurry) and no keyboard shortcut for a column or a power-up. The player panels show names, avatars, the shield and the Earthquake as small icons (available, or struck through when used, with the words as hidden text, as in U75) and never "Choosing" or "Ready" (R72). The only buttons are **"Watch another game"** (`watch-another`) and **"Home"** (`go-home`), each at least 44 by 44px.
+- **U80** The watcher count (`watching-count`) is shown on the watching screen as a small eye icon and a number, for example "2 watching", in the banner's row or directly under it, so it never costs a row on a 320 x 568 screen (the first-screen rule of `docs/design.md` holds: the whole board, both names and the banner are visible without scrolling). It says "1 watching" when the spectator is alone, and it includes the spectator themselves.
+- **U81** An exhibition game is labelled **"Exhibition: Computer vs Computer"** in the banner (`watching-banner`), in place of "Watching live", and both players are named "Computer 1" and "Computer 2". It plays at the computers' own pace (R52). It is never described as a real game.
+- **U82** When a watched game ends, the end popup of U27 does not appear. Instead a small card over the board (`watch-result`) shows the result, "Player X wins!", "It's a draw!" or "Game over", names the winner and says "Next game in 5 seconds" with a count down from 5 (a plain number, `aria-live`, no animation). After 5 seconds the browser asks for another random live game (R76) and the screen moves to it. "Watch another game" does it at once, and "Home" leaves. Under reduced motion the number still counts down. The card is compact (at most 300px wide) and centred over the board like U27a.
+- **U83** If the server cannot place the spectator (`room_full`, R77), the screen says "The room is full right now. Try again in a moment." with "Home" and "Watch another game" and no board. If a game stops while it is being watched (its players left), the spectator is moved on as in U82 with the card saying "That game has ended".
+
+## On the players' screen
+
+- **U84** During a game, each player's screen shows a small eye icon and the watcher count (`watcher-count`), for example "2 watching", next to the round line in the same row as the ceiling warning (U68), and it is hidden while nobody is watching. It is a number only (R75). It is a single line at 320px (smaller type, as in U68), updates when a spectator joins or leaves (the `watching` message) and is an `aria-live` status that is not read out every time it changes (`aria-live="off"`, so a changing number does not interrupt a player mid-round). A friend game never shows it, because a friend game can never have spectators (R71).
+
+## Test hooks
+
+`watch-live`, `live-count` (home screen); `watching-banner`, `watching-count`, `watch-another`, `watch-result`, `go-home` (watching screen, at `/watch`); `watcher-count` (the players' screen). The watching screen has no `column-N`, `shield-badge`, `earthquake-badge`, `ghost-disc` or `timer` hook.

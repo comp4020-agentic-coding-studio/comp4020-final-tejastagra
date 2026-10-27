@@ -42,6 +42,24 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | P13 | A win stays possible for the whole game: a vertical four fits at the 4 row floor | R61 | passing |
 | M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.61% after the shrinking board) |
 
+## Spectating (`spec/unit-spectating.test.ts`, `spec/app-spectating.test.ts`, `e2e/spectating.spec.ts`)
+
+| ID | Claim | Rule | Status |
+| --- | --- | --- | --- |
+| W1 | A spectator never receives a pending column, shield, Earthquake or whether either player has chosen, in any message, before the round resolves | R72, R21, R22 | todo |
+| W2 | A spectator's choice or any other action is rejected with `spectator`, and nobody else hears of it | R74 | todo |
+| W3 | Friend games are never chosen, listed, counted or confirmed to exist | R71, R80 | todo |
+| W4 | A spectator who joins mid-game gets a snapshot whose board matches the players' and contains no pending choice | R73 | todo |
+| W5 | The watching count is correct for players and spectators as spectators join and leave | R75 | todo |
+| W6 | A spectator is told the result and moves on to another game after 5 seconds | R76 | todo |
+| W7 | At most 50 spectators per game and 300 per machine; a full game is skipped | R77 | todo |
+| W8 | With no live game, an exhibition game starts on demand, stops with no audience and never touches the leaderboard | R78, R37 | todo |
+| W9 | A spectator gets each round's result within one second of the players, and the players' result is sent first | R79, R23 | todo |
+| W10 | Spectators never change round timers, abandonment, presence or forfeits | R79 | todo |
+| W11 | Watchable games stay watchable across a restart (migration 14) | R71 | todo |
+| E9 | Watching works at both viewports, nothing on the watching screen is interactive, the home count and the players' watcher count update | todo (`e2e/spectating.spec.ts`) |
+| U76 to U84 | Watch live button and count, the watching screen, the exhibition label, the result card and the watcher count | `e2e/spectating.spec.ts` | todo |
+
 ## No peeking (`spec/app-no-peek.test.ts`)
 
 N1 to N4. See the file. N6 adds: the ceiling warning carries only public information, the same on both screens (R21, R22), passing (`spec/unit-realtime-earthquake.test.ts` and the warning check in `e2e/shrinking-board.spec.ts`). N5 adds: an Earthquake choice is never revealed to the opponent before the round resolves (R21, R22, R54), passing (also `spec/unit-realtime-earthquake.test.ts`).
