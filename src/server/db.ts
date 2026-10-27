@@ -92,6 +92,9 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`,
   // R53: games saved before Earthquake have no earthquakesLeft in their state; both are available.
   `UPDATE games SET state = json_set(state, '$.earthquakesLeft', json('{"A":true,"B":true}')) WHERE json_extract(state, '$.earthquakesLeft') IS NULL`,
+  // R69: games saved before the shrinking board have the full 7 by 6 shape, whatever their round count.
+  // They take the shape for their round count at their next resolved round.
+  `UPDATE games SET state = json_set(state, '$.rows', 6, '$.firstColumn', 0, '$.lastColumn', 6) WHERE json_extract(state, '$.rows') IS NULL`,
 ];
 
 function migrate(db: DatabaseSync): void {

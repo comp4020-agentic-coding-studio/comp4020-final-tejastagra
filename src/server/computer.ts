@@ -3,13 +3,18 @@
 // chosen yet. Its input type has no field for the human's column or shield,
 // so it cannot be handed them. Randomness comes from a seeded generator so
 // tests repeat (R46).
-import { COLUMNS, ROWS, resolveRound, type Board, type Choice, type GameState, type Player } from "../engine/index.ts";
+import { COLUMNS, collapseDue, resolveRound, shapeAt, type Board, type Choice, type GameState, type Player } from "../engine/index.ts";
 
 export interface PublicView {
   board: Board;
   round: number;
   shieldsLeft: Record<Player, boolean>;
   earthquakesLeft: Record<Player, boolean>;
+  // The open area (R64): public, like the board. The computer plays only inside it and knows the
+  // schedule, like a human who can see the warning (R68).
+  rows: number;
+  firstColumn: number;
+  lastColumn: number;
   opponentReady: boolean;
 }
 
@@ -30,16 +35,23 @@ const LATE_SHIELD_CHANCE = 0.12; // R45: a random point after round 6
 const SHIELD_FROM_ROUND = 6;
 const EARTHQUAKE_CHANCE = 0.5; // R60: it may, not always, so it cannot be predicted perfectly
 
-function winsAt(view: PublicView, player: Player, column: number): boolean {
-  const other: Player = player === "A" ? "B" : "A";
-  const state: GameState = {
+function stateOf(view: PublicView): GameState {
+  return {
     board: view.board,
     round: view.round,
     shieldsLeft: view.shieldsLeft,
     earthquakesLeft: view.earthquakesLeft,
+    rows: view.rows,
+    firstColumn: view.firstColumn,
+    lastColumn: view.lastColumn,
     status: "playing",
     winner: null,
   };
+}
+
+function winsAt(view: PublicView, player: Player, column: number): boolean {
+  const other: Player = player === "A" ? "B" : "A";
+  const state = stateOf(view);
   const choices = { A: null, B: null, [player]: { column, shield: false }, [other]: null } as {
     A: Choice | null;
     B: Choice | null;
@@ -48,18 +60,18 @@ function winsAt(view: PublicView, player: Player, column: number): boolean {
   return result.state.status === "won" && result.state.winner === player;
 }
 
-// R60: a window is four squares in a line (on the 7 by 6 board, empty squares included) holding at
+// R60: a window is four squares in a line (inside the open area, empty squares included) holding at
 // least one of the player's discs and nothing of the other player's or rubble. The count of such
 // windows is the player's "potential lines": how much of a line they have started and could still finish.
-function potentialLines(board: Board, player: Player): number {
+function potentialLines(view: PublicView, board: Board, player: Player): number {
   const directions: Array<[number, number]> = [[1, 0], [0, 1], [1, 1], [1, -1]];
   let count = 0;
-  for (let column = 0; column < COLUMNS; column++) {
-    for (let row = 0; row < ROWS; row++) {
+  for (let column = view.firstColumn; column <= view.lastColumn; column++) {
+    for (let row = 0; row < view.rows; row++) {
       for (const [dc, dr] of directions) {
         const endColumn = column + dc * 3;
         const endRow = row + dr * 3;
-        if (endColumn < 0 || endColumn >= COLUMNS || endRow < 0 || endRow >= ROWS) continue;
+        if (endColumn < view.firstColumn || endColumn > view.lastColumn || endRow < 0 || endRow >= view.rows) continue;
         let mine = 0;
         let blocked = false;
         for (let step = 0; step < 4; step++) {
@@ -78,8 +90,8 @@ function potentialLines(board: Board, player: Player): number {
 function earthquakeHelps(view: PublicView, me: Player, them: Player): boolean {
   if (!view.earthquakesLeft[me] || view.board.every((column) => column.length === 0)) return false;
   const shaken = view.board.map((column) => column.slice(1));
-  const theirLoss = potentialLines(view.board, them) - potentialLines(shaken, them);
-  const myLoss = potentialLines(view.board, me) - potentialLines(shaken, me);
+  const theirLoss = potentialLines(view, view.board, them) - potentialLines(view, shaken, them);
+  const myLoss = potentialLines(view, view.board, me) - potentialLines(view, shaken, me);
   return theirLoss > myLoss;
 }
 
@@ -90,7 +102,7 @@ function pick<T>(items: T[], rng: () => number): T {
 export function chooseMove(view: PublicView, me: Player, rng: () => number): Choice {
   const them: Player = me === "A" ? "B" : "A";
   const open: number[] = [];
-  for (let c = 0; c < COLUMNS; c++) if (view.board[c].length < ROWS) open.push(c); // R41
+  for (let c = view.firstColumn; c <= view.lastColumn; c++) if (view.board[c].length < view.rows) open.push(c); // R41: open and not full
   const myWins = open.filter((c) => winsAt(view, me, c));
   const theirWins = open.filter((c) => winsAt(view, them, c));
   const haveShield = view.shieldsLeft[me];
@@ -103,14 +115,23 @@ export function chooseMove(view: PublicView, me: Player, rng: () => number): Cho
   // R60: after the winning and blocking logic, and without looking at the human's choice.
   if (earthquakeHelps(view, me, them) && rng() < EARTHQUAKE_CHANCE) return { earthquake: true };
 
+  // R68: it knows the schedule, so when nothing more urgent is on, it avoids dropping a disc into a
+  // square that is about to close, unless every open column is about to close.
+  const due = collapseDue(stateOf(view));
+  const next = shapeAt(view.round + 1);
+  const aboutToClose = (c: number): boolean =>
+    (due.ceiling && view.board[c].length >= next.rows) || (due.walls && (c < next.firstColumn || c > next.lastColumn));
+  const safe = open.filter((c) => !aboutToClose(c));
+  const choices = safe.length ? safe : open;
+
   // R44: central columns are more likely, but any open column can be chosen.
-  const weights = open.map((c) => COLUMNS - Math.abs(c - (COLUMNS - 1) / 2) * 1.5);
+  const weights = choices.map((c) => COLUMNS - Math.abs(c - (COLUMNS - 1) / 2) * 1.5);
   let roll = rng() * weights.reduce((a, b) => a + b, 0);
-  let column = open[open.length - 1];
-  for (let i = 0; i < open.length; i++) {
+  let column = choices[choices.length - 1];
+  for (let i = 0; i < choices.length; i++) {
     roll -= weights[i];
     if (roll <= 0) {
-      column = open[i];
+      column = choices[i];
       break;
     }
   }

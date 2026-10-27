@@ -26,7 +26,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 
 | ID | Claim | Rule | Status |
 | --- | --- | --- | --- |
-| R-tests | One or more tests per engine rule, named by rule ID | R1 to R17, R53 to R58, R61 to R67 | passing |
+| R-tests | One or more tests per engine rule, named by rule ID | R1 to R17, R53 to R58, R61 to R67, R69 | passing |
 | P1 | Each round without an earthquake adds exactly 2, 1 or 0 pieces, as the choices dictate | R5 to R10 | passing |
 | P2 | No column holds more than 6 pieces | R1 | passing |
 | P3 | A shield is spent exactly when used and never comes back | R8, R9 | passing |
@@ -37,8 +37,8 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | P8 | An earthquake round removes exactly the bottom row's pieces, adds only the discs dropped, and never overfills a column | R56, R57 | passing |
 | P9 | Each player uses Earthquake at most once, and it is never accepted again | R53 | passing |
 | P10 | Existing pieces only ever move down by exactly one row, and only in an earthquake round | R12, R56 | passing |
-| P11 | No piece ever sits outside the open area (below the current rows, between the first and last open column) | R61 to R64 | todo |
-| P12 | The open area never grows and never shrinks below 3 rows or 3 columns, and it equals the schedule for the round count | R61, R62 | todo |
+| P11 | No piece ever sits outside the open area (below the current rows, between the first and last open column) | R61 to R64 | passing |
+| P12 | The open area never grows and never shrinks below 3 rows or 3 columns, and it equals the schedule for the round count | R61, R62 | passing |
 | M1 | Mutation score of the engine is at least 85% | all engine rules | passing (97.13% after Earthquake) |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
@@ -55,7 +55,7 @@ L1 to L5, I1 to I6, B1 to B5. See the files.
 
 ## Computer, persistence and logging (`spec/unit-computer.test.ts`, `spec/unit-persistence.test.ts`, `spec/unit-logging.test.ts`)
 
-C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only open columns and avoids squares about to close (R68), todo. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), passing. S5 adds: a game saved before the shrinking board is upgraded by migration 12 with the full 7 by 6 shape (R61, R62), todo. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), passing.
+C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only open columns and avoids squares about to close (R68), passing. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), passing. S5 adds: a game saved before the shrinking board is upgraded by migration 12 with the full 7 by 6 shape (R61, R62), passing. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), passing.
 
 ## Phone layout (`e2e/`, Playwright, `pnpm test:e2e`)
 
