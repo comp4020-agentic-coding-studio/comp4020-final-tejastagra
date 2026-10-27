@@ -36,6 +36,11 @@ The first six are the events the tutorial requires. The rest are specific to Rub
 | `tab_replaced` | A second tab took over a connection (R32) | |
 | `server_start` | The server starts | `games_loaded` `db_path` |
 | `persist_error` | A database write fails | `error` |
+| `spectate_join` | A spectator starts watching a game (R70) | `game` `spectators` `kind=quick\|computer\|exhibition` |
+| `spectate_leave` | A spectator stops watching: it closed the tab, or left on purpose | `game` `spectators` |
+| `spectate_move` | A spectator is moved to another game after a game ended (R76), or because their game stopped | `game` (the new game) `from` (the old game) `spectators` (in the new game) |
+
+`spectators` is the number of spectators in that game after the event. A spectator is identified like a player is, by the first 5 characters of their id when they have one, and never by anything else. These events never carry a column, a shield flag, an Earthquake or any other choice: a spectator has none, and what the players chose is not part of what a spectator is told (R72). `spectate_join` for an exhibition game also logs `kind=exhibition`, and the exhibition game's start and stop are logged as `spectate_join` and `spectate_leave` for its first and last spectator.
 
 ## Never log
 
