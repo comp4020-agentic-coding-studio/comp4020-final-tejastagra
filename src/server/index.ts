@@ -55,6 +55,7 @@ setInterval(() => db.deleteExpiredSessions(SESSION_MAX_AGE_S * 1000), 6 * 60 * 6
 const allowRead = createRateLimiter(120, 60_000);
 const allowAuth = createRateLimiter(60, 60_000);
 const allowQuick = createRateLimiter(120, 60_000);
+const allowLive = createRateLimiter(60, 60_000); // the home screen asks every 10 seconds (U76), so 6 a minute is normal
 
 // Bundled once at start; pnpm dev's --watch restarts the whole process on
 // any source change, so this never goes stale while developing.
@@ -408,6 +409,16 @@ const server = createServer((req, res) => {
     }
     res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify(body));
+  } else if (path === "/api/live" && req.method === "GET") {
+    // How many watchable games are live (R80): a number only, never a code or a name, and never a friend game
+    // or the exhibition game. Rate limited per client address like every read (R77).
+    if (!allowLive(clientAddress(req))) {
+      res.writeHead(429, { "content-type": "text/plain; charset=utf-8", "retry-after": "60" });
+      res.end("Too many requests. Try again in a minute.");
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    res.end(JSON.stringify({ live: realtime.liveCount() }));
   } else if (path === "/api/leaderboard" && req.method === "GET") {
     if (!allowRead(clientAddress(req))) {
       res.writeHead(429, { "content-type": "text/plain; charset=utf-8", "retry-after": "60" });
@@ -468,7 +479,7 @@ const realtime = attachRealtime(server, db, {
 const matchmaker = createMatchmaker({
   makeGame: () => {
     const code = generateCode((c) => realtime.game.getGame(c) !== undefined);
-    realtime.game.createGame(code);
+    realtime.createQuickGame(code); // watchable, and saved as such (R71)
     return code;
   },
 });

@@ -301,7 +301,7 @@ describe("S: what happens is kept (promise 5)", () => {
       // The tutorial flag was the tenth migration, applied once; the Earthquake migration (S4) is the 11th
       // and the shrinking board's (S5) the 12th and the walls' removal (S6) the 13th.
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(13);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
       raw.close();
       // An existing player has not seen the tutorial, so it is due for them.
       expect(upgraded.playerById("p-old")?.tutorialSeen).toBe(false);
@@ -348,7 +348,7 @@ describe("R53 a game saved before Earthquake is upgraded", () => {
       expect(games.NEW11.earthquakesLeft).toEqual({ A: false, B: true });
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(13);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
       raw.close();
     } finally {
       rmSync(path, { force: true });
@@ -397,7 +397,7 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
       expect(games.NEW12.rows).toBe(5); // never overwritten
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(13);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
       raw.close();
       const again = openDb(path); // opening again runs nothing a second time
       expect(again.loadGames().find((g) => g.code === "NEW12")?.state.rows).toBe(5);
@@ -424,10 +424,55 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
       expect((state.board as string[][])[1]).toEqual(["A", "B"]);
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(13);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
       raw.close();
     } finally {
       clean(path);
+    }
+  });
+});
+
+describe("R71 which games are watchable is saved", () => {
+  it("S7 (R71) migration 14 adds the watchable mark: old games are not watchable, games against the computer still are, and a newer game keeps its mark", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration14.db`);
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
+      old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN player_a TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN player_b TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`PRAGMA user_version = 13`);
+      const insert = old.prepare("INSERT INTO games (code, state, updated_at, vs_computer) VALUES (?, ?, ?, ?)");
+      insert.run("OLDFRN", JSON.stringify(newGame()), Date.now(), 0); // a friend or quick game made before the change
+      insert.run("OLDCMP", JSON.stringify(newGame()), Date.now(), 1); // a game against the computer
+      old.close();
+
+      const upgraded = openDb(path);
+      const games = Object.fromEntries(upgraded.loadGames().map((g) => [g.code, g]));
+      expect(games.OLDFRN.watchable).toBe(false); // errs on the side of privacy
+      expect(games.OLDCMP.watchable).toBe(true);
+      upgraded.markWatchable("NEWQCK", newGame()); // an upsert: the row is created already marked
+      upgraded.saveGame("NEWQCK", { ...newGame(), round: 3 }); // saving a round never clears the mark
+      expect(upgraded.loadGames().find((g) => g.code === "NEWQCK")?.watchable).toBe(true);
+      upgraded.saveGame("PLAIN1", newGame());
+      expect(upgraded.loadGames().find((g) => g.code === "PLAIN1")?.watchable).toBe(false); // a friend game is never marked
+      upgraded.close();
+      const raw = new DatabaseSync(path);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
+      raw.close();
+      const again = openDb(path);
+      expect(again.loadGames().find((g) => g.code === "NEWQCK")?.watchable).toBe(true);
+      again.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
     }
   });
 });

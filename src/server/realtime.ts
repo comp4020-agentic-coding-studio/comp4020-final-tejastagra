@@ -9,11 +9,12 @@
 import { WebSocketServer, type WebSocket } from "ws";
 import type { Server } from "node:http";
 import { randomUUID } from "node:crypto";
-import { newGame, validateChoice, type Choice, type GameState, type Player, type RejectReason } from "../engine/index.ts";
+import { newGame, resolveRound, validateChoice, type Choice, type GameState, type Player, type RejectReason } from "../engine/index.ts";
 import { createGameService, ROUND_TIMER_MS, type GameService } from "./game-service.ts";
 import type { Db, Ended } from "./db.ts";
 import { logEvent } from "./log.ts";
 import { chooseMove, seededRandom } from "./computer.ts";
+import { createSpectators, SPECTATOR_MOVE_MS, type WatchableView } from "./spectators.ts";
 
 export interface Snapshot {
   type: "snapshot";
@@ -30,6 +31,8 @@ export interface Snapshot {
   // the seat's person is not known; the computer is named "Computer".
   yourName: string | null;
   opponentName: string | null;
+  // How many people are watching this game (R75). A number only.
+  watching: number;
 }
 
 export interface OpponentJoined {
@@ -46,6 +49,12 @@ export interface Rejected {
   reason: RejectReason | "already_chosen"; // already_chosen: R4, a choice is final
 }
 
+// How many people are watching (R75): a number only, sent to players when it changes.
+export interface Watching {
+  type: "watching";
+  watching: number;
+}
+
 export interface GameFull {
   type: "game_full";
 }
@@ -58,7 +67,7 @@ export type GameOver =
   | { type: "game_over"; result: "forfeit"; winner: Player }
   | { type: "game_over"; result: "abandoned" }; // R19: no winner
 
-export type ServerMessage = Snapshot | OpponentJoined | OpponentReady | Rejected | GameFull | TabReplaced | GameOver;
+export type ServerMessage = Snapshot | OpponentJoined | OpponentReady | Rejected | GameFull | TabReplaced | GameOver | Watching;
 
 interface JoinMessage {
   type: "join";
@@ -95,6 +104,10 @@ export interface RealtimeOptions {
   identify?: (request: import("node:http").IncomingMessage) => string | null;
   // The public display name for a person id (nickname and tag, or username), for the panels (U57).
   nameFor?: (personId: string) => string | null;
+  spectatorMoveMs?: number; // how long a spectator sees a result before moving on (R76); the browser waits this long
+  spectatorsPerGame?: number; // R77
+  spectatorsTotal?: number; // R77
+  spectatorBufferLimit?: number; // R77: bytes waiting to be sent to a spectator before it is closed
 }
 
 export const DISCONNECT_GRACE_MS = 30_000;
@@ -106,7 +119,17 @@ export function attachRealtime(
   server: Server,
   db: Db,
   options: RealtimeOptions = {},
-): { wss: WebSocketServer; game: GameService; dispose: () => void; createComputerGame: (code: string) => void } {
+): {
+  wss: WebSocketServer;
+  game: GameService;
+  dispose: () => void;
+  createComputerGame: (code: string) => void;
+  createQuickGame: (code: string) => void;
+  liveCount: () => number;
+  exhibitionRunning: () => boolean;
+  watchingIn: (code: string) => number;
+  spectatorMoveMs: number;
+} {
   const roundTimerMs = options.roundTimerMs ?? ROUND_TIMER_MS;
   const disconnectGraceMs = options.disconnectGraceMs ?? DISCONNECT_GRACE_MS;
   const computerRandom = seededRandom(options.computerSeed ?? Math.floor(Math.random() * 2 ** 32));
@@ -207,15 +230,119 @@ export function attachRealtime(
           opponentPresent: presentFor(code, player),
           yourName: nameOfSeat(code, player),
           opponentName: nameOfSeat(code, opponentOf(player)),
+          watching: spectators.watchingCount(code),
         });
         recipients++;
       }
     }
     logEvent("broadcast", { type: "snapshot", recipients, game: code });
+    // R79: the players' result goes first. Spectators get it after it is saved (R25), because broadcast is only
+    // called once the round is in the database, and they are sent public state only (R72).
+    spectators.round(code, state);
+    closeSlowSpectators();
   }
+
+  // R77: a spectator that does not read its messages is closed once too much is waiting to be sent to it. Called
+  // after every send to spectators: a round, the exhibition game and the end of a game.
+  function closeSlowSpectators(): void {
+    for (const slow of spectators.slowSpectators()) {
+      spectators.leave(slow);
+      slow.close();
+    }
+  }
+
+  // The client address Fly passes in, as for every other limit (CLAUDE.md), not the proxy's socket address.
+  function addressOf(request: import("node:http").IncomingMessage): string {
+    const fly = request.headers["fly-client-ip"];
+    return (typeof fly === "string" ? fly : undefined) ?? request.socket.remoteAddress ?? "unknown";
+  }
+
+  // ---- Spectating (ADR 0012, R70 to R80) ----
+  // Which games spectators may watch (R71): quick match games, marked when they are made and saved with the
+  // game, and games against the computer. A friend game is never in this set.
+  const watchable = new Set<string>();
+  // The exhibition game (R78): two computers, in memory only. It is never saved (so the leaderboard cannot
+  // see it, R37), is never in `watchable` and is forgotten when nobody is watching.
+  const exhibition = { code: null as string | null, state: null as GameState | null, timer: null as NodeJS.Timeout | null, rng: seededRandom(options.computerSeed ?? Math.floor(Math.random() * 2 ** 32)) };
+  const spectatorMoveMs = options.spectatorMoveMs ?? SPECTATOR_MOVE_MS;
+
+  function stopExhibition(code: string): void {
+    if (exhibition.code !== code) return;
+    if (exhibition.timer) clearTimeout(exhibition.timer);
+    exhibition.code = null;
+    exhibition.state = null;
+    exhibition.timer = null;
+  }
+
+  // One round of the exhibition game: both computers choose from the public board only (R40), the engine
+  // resolves it and every spectator is sent the result. When the game ends it is left for the spectators'
+  // browsers to move on (R76), and a new exhibition game starts for whoever asks next.
+  function exhibitionRound(): void {
+    const code = exhibition.code;
+    const state = exhibition.state;
+    if (!code || !state) return;
+    if (state.status !== "playing" || spectators.watchingCount(code) === 0) return;
+    const view = (me: Player) => ({ board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: state.earthquakesLeft, rows: state.rows, opponentReady: false });
+    const result = resolveRound(state, { A: chooseMove(view("A"), "A", exhibition.rng), B: chooseMove(view("B"), "B", exhibition.rng) });
+    exhibition.state = result.state;
+    spectators.round(code, result.state);
+    closeSlowSpectators();
+    if (result.state.status === "playing") exhibition.timer = setTimeout(exhibitionRound, exhibitionPaceMs());
+  }
+  // The exhibition computers play at a watchable pace (1.5 seconds a round), or twice the injected computer delay in tests.
+  const exhibitionPaceMs = (): number => (options.computerDelayMs !== undefined ? options.computerDelayMs * 2 : 1_500);
+
+  function startExhibition(): string {
+    if (exhibition.code && exhibition.state?.status === "playing") return exhibition.code;
+    if (exhibition.code) stopExhibition(exhibition.code);
+    const code = `EXH${randomUUID().slice(0, 3).toUpperCase()}`;
+    exhibition.code = code;
+    exhibition.state = newGame();
+    exhibition.timer = setTimeout(exhibitionRound, exhibitionPaceMs());
+    return code;
+  }
+
+  // A game is live when it is watchable, still playing and both seats are present (R70).
+  function isLive(code: string): boolean {
+    const record = game.getGame(code);
+    return !!record && watchable.has(code) && record.state.status === "playing" && !forfeited.has(code) && bothPresentFor(code);
+  }
+
+  // Both seats are taken by someone connected, the computer counting as always connected (R51).
+  function bothPresentFor(code: string): boolean {
+    return connections.has(key(code, "A")) && presentFor(code, "A");
+  }
+
+  const spectators = createSpectators(
+    {
+      send: (socket, message) => send(socket, message as never),
+      viewOf(code) {
+        if (exhibition.code === code && exhibition.state) {
+          return { state: exhibition.state, kind: "exhibition", names: { A: "Computer 1", B: "Computer 2" } };
+        }
+        if (!isLive(code)) return undefined; // friend, over, waiting or unknown: all the same answer (R71)
+        const record = game.getGame(code)!;
+        return { state: record.state, kind: computerGames.has(code) ? "computer" : "quick", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") } } satisfies WatchableView;
+      },
+      liveCodes: () => [...watchable].filter(isLive),
+      watchingChanged(code, watching) {
+        for (const player of ["A", "B"] as const) {
+          const socket = connections.get(key(code, player));
+          if (socket) send(socket, { type: "watching", watching });
+        }
+      },
+      startExhibition,
+      stopExhibition,
+      isExhibition: (code) => exhibition.code === code,
+      log: (event, fields) => logEvent(event, fields),
+    },
+    { perGame: options.spectatorsPerGame, total: options.spectatorsTotal, bufferLimit: options.spectatorBufferLimit },
+  );
 
   const game = createGameService({ db, broadcast, roundTimerMs });
   const restoredCodes = game.restore();
+  // Games marked watchable in the database stay watchable across a restart (R71).
+  for (const saved of db.loadGames()) if (saved.watchable) watchable.add(saved.code);
 
   const wss = new WebSocketServer({ server, path: "/ws" });
 
@@ -257,7 +384,16 @@ export function attachRealtime(
     if (!seatTokens.has(key(code, "B"))) seatTokens.set(key(code, "B"), randomUUID()); // never given to anyone
   }
 
+  // A quick match game (R35): made watchable and saved as such, so a restart does not change it (R71). A friend
+  // game, made by game.createGame alone, never is.
+  function createQuickGame(code: string): void {
+    watchable.add(code);
+    db.markWatchable(code, newGame());
+    game.createGame(code);
+  }
+
   function createComputerGame(code: string): void {
+    watchable.add(code); // a game against the computer can be watched (R71)
     // Mark first: if a later write failed, the game would still be known as
     // a computer game (R37) rather than becoming a human one after a restart.
     db.markComputer(code, newGame());
@@ -346,6 +482,8 @@ export function attachRealtime(
     forfeited.set(code, { result: "abandoned" });
     idleRounds.delete(code);
     logEvent("game_over", { game: code, result: "abandoned" });
+    spectators.ended(code, { type: "ended", result: "abandoned" }); // after the save above (R25, R76)
+    closeSlowSpectators();
     for (const player of ["A", "B"] as const) {
       const socket = connections.get(key(code, player));
       if (socket) send(socket, { type: "game_over", result: "abandoned" });
@@ -400,6 +538,8 @@ export function attachRealtime(
       logEvent("game_over", { game: code, result: "forfeit" });
       const winnerSocket = connections.get(key(code, winner));
       if (winnerSocket) send(winnerSocket, { type: "game_over", result: "forfeit", winner });
+      spectators.ended(code, { type: "ended", result: "forfeit", winner }); // after the save above (R25, R76)
+      closeSlowSpectators();
     }, disconnectGraceMs);
     graceTimers.set(key(code, player), timer);
   }
@@ -419,6 +559,7 @@ export function attachRealtime(
       opponentPresent: presentFor(code, player),
       yourName: nameOfSeat(code, player),
       opponentName: nameOfSeat(code, opponentOf(player)),
+      watching: spectators.watchingCount(code),
     });
     logEvent("snapshot_sent", { game: code, round: record.state.round, reason: "join" });
   }
@@ -490,6 +631,28 @@ export function attachRealtime(
       }
       if (typeof message !== "object" || message === null || !("type" in message)) return;
       const parsed = message as ClientMessage;
+
+      // A spectator is not a seat (R70). Whatever it sends, apart from asking to watch or leave, is refused,
+      // and only it is told (R74): a spectator can never choose, join a seat or change a game.
+      if (spectators.isSpectator(socket) && parsed.type !== "spectate" && parsed.type !== "leave") {
+        spectators.reject(socket);
+        logEvent("action_rejected", { type: String(parsed.type).slice(0, 20), reason: "spectator" }); // client-controlled, so bounded
+        return;
+      }
+      if (parsed.type === "spectate") {
+        // A connection that holds a seat is a player (R70): it is refused and changes nothing.
+        if ([...connections.values()].includes(socket)) {
+          send(socket, { type: "rejected", reason: "spectator" } as never);
+          return;
+        }
+        const wanted = (parsed as { code?: unknown }).code;
+        spectators.join(socket, addressOf(request), typeof wanted === "string" ? wanted : undefined);
+        return;
+      }
+      if (parsed.type === "leave") {
+        spectators.leave(socket);
+        return;
+      }
 
       if (parsed.type === "choose") {
         handleChoose(parsed as ChooseMessage);
@@ -584,6 +747,7 @@ export function attachRealtime(
     });
 
     socket.on("close", () => {
+      spectators.leave(socket);
       for (const [connectionKey, connectionSocket] of connections) {
         if (connectionSocket === socket) {
           connections.delete(connectionKey);
@@ -609,7 +773,18 @@ export function attachRealtime(
     graceTimers.clear();
     for (const timer of computerTimers.values()) clearTimeout(timer);
     computerTimers.clear();
+    if (exhibition.timer) clearTimeout(exhibition.timer);
   }
 
-  return { wss, game, dispose, createComputerGame };
+  return {
+    wss,
+    game,
+    dispose,
+    createComputerGame,
+    createQuickGame,
+    liveCount: () => [...watchable].filter(isLive).length, // R80: live watchable games, never the exhibition game
+    exhibitionRunning: () => exhibition.code !== null,
+    watchingIn: (code: string) => spectators.watchingCount(code),
+    spectatorMoveMs,
+  };
 }

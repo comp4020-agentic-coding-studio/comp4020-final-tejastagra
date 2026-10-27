@@ -46,17 +46,17 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 
 | ID | Claim | Rule | Status |
 | --- | --- | --- | --- |
-| W1 | A spectator never receives a pending column, shield, Earthquake or whether either player has chosen, in any message, before the round resolves | R72, R21, R22 | todo |
-| W2 | A spectator's choice or any other action is rejected with `spectator`, and nobody else hears of it | R74 | todo |
-| W3 | Friend games are never chosen, listed, counted or confirmed to exist | R71, R80 | todo |
-| W4 | A spectator who joins mid-game gets a snapshot whose board matches the players' and contains no pending choice | R73 | todo |
-| W5 | The watching count is correct for players and spectators as spectators join and leave | R75 | todo |
-| W6 | A spectator is told the result and moves on to another game after 5 seconds | R76 | todo |
-| W7 | At most 50 spectators per game and 300 per machine; a full game is skipped | R77 | todo |
-| W8 | With no live game, an exhibition game starts on demand, stops with no audience and never touches the leaderboard | R78, R37 | todo |
-| W9 | A spectator gets each round's result within one second of the players, and the players' result is sent first | R79, R23 | todo |
-| W10 | Spectators never change round timers, abandonment, presence or forfeits | R79 | todo |
-| W11 | Watchable games stay watchable across a restart (migration 14) | R71 | todo |
+| W1 | A spectator never receives a pending column, shield, Earthquake or whether either player has chosen, in any message, before the round resolves | R72, R21, R22 | passing |
+| W2 | A spectator's choice or any other action is rejected with `spectator`, and nobody else hears of it | R74 | passing |
+| W3 | Friend games are never chosen, listed, counted or confirmed to exist | R71, R80 | passing |
+| W4 | A spectator who joins mid-game gets a snapshot whose board matches the players' and contains no pending choice | R73 | passing |
+| W5 | The watching count is correct for players and spectators as spectators join and leave | R75 | passing |
+| W6 | A spectator is told the result and moves on to another game after 5 seconds | R76 | passing |
+| W7 | At most 50 spectators per game and 300 per machine; a full game is skipped | R77 | passing |
+| W8 | With no live game, an exhibition game starts on demand, stops with no audience and never touches the leaderboard | R78, R37 | passing |
+| W9 | A spectator gets each round's result within one second of the players, and the players' result is sent first | R79, R23 | passing |
+| W10 | Spectators never change round timers, abandonment, presence or forfeits | R79 | passing |
+| W11 | Watchable games stay watchable across a restart (migration 14) | R71 | passing |
 | E9 | Watching works at both viewports, nothing on the watching screen is interactive, the home count and the players' watcher count update | todo (`e2e/spectating.spec.ts`) |
 | U76 to U84 | Watch live button and count, the watching screen, the exhibition label, the result card and the watcher count | `e2e/spectating.spec.ts` | todo |
 
@@ -74,7 +74,7 @@ L1 to L5, I1 to I6, B1 to B5. See the files.
 
 ## Computer, persistence and logging (`spec/unit-computer.test.ts`, `spec/unit-persistence.test.ts`, `spec/unit-logging.test.ts`)
 
-C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only open columns and avoids squares about to close (R68), passing. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), passing. S5 adds: a game saved before the shrinking board is upgraded by migration 12 with the full 7 by 6 shape (R61), passing; S6 adds: migration 13 removes the open-columns range that migration 12 had added (ADR 0011), passing. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), passing.
+C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only open columns and avoids squares about to close (R68), passing. C8 adds: the computer may use Earthquake and never sees the human's choice (R60), passing. S5 adds: a game saved before the shrinking board is upgraded by migration 12 with the full 7 by 6 shape (R61), passing; S6 adds: migration 13 removes the open-columns range that migration 12 had added (ADR 0011), passing; S7 adds: migration 14 adds the watchable mark (R71), passing. S4 adds: a game saved before Earthquake is upgraded by migration 11 with both Earthquakes available (R53), passing.
 
 ## Phone layout (`e2e/`, Playwright, `pnpm test:e2e`)
 

@@ -12,6 +12,7 @@ export interface SavedGame {
   updatedAt: number;
   ended: Ended | null;
   vsComputer: boolean; // R33, R37: the opponent is the computer
+  watchable: boolean; // R71: a quick match or computer game, which spectators may watch
   playerA: string | null; // player ids of the people in each seat (R28), when known
   playerB: string | null;
   missedA: number; // rounds in which that seat made no choice (R39)
@@ -56,6 +57,9 @@ export interface Db {
   // never counts for the leaderboard (R37).
   // An upsert, so the mark can be written before the game itself (one source of truth).
   markComputer(code: string, state: GameState): void;
+  // Marks a game as one spectators may watch (R71): a quick match game. A game against the computer is
+  // watchable too and is marked by markComputer. Friend games are never marked. An upsert, like markComputer.
+  markWatchable(code: string, state: GameState): void;
   loadGames(): SavedGame[];
   close(): void;
 }
@@ -99,6 +103,10 @@ const MIGRATIONS: string[] = [
   // migration 12 may have added. A game's rows are kept, and the engine sets them from the round count at
   // its next resolved round (R69).
   `UPDATE games SET state = json_remove(state, '$.firstColumn', '$.lastColumn')`,
+  // R71 (ADR 0012): which games spectators may watch. Existing quick match games cannot be told apart from
+  // friend games, so none is marked: only games made after this change are watchable, which errs on the
+  // side of privacy. Games against the computer are watchable already, through vs_computer.
+  `ALTER TABLE games ADD COLUMN watchable INTEGER NOT NULL DEFAULT 0`,
 ];
 
 function migrate(db: DatabaseSync): void {
@@ -123,13 +131,17 @@ export function openDb(path: string): Db {
     INSERT INTO games (code, state, updated_at, vs_computer) VALUES (?, ?, ?, 1)
     ON CONFLICT(code) DO UPDATE SET vs_computer = 1
   `);
+  const markWatchableRow = db.prepare(`
+    INSERT INTO games (code, state, updated_at, watchable) VALUES (?, ?, ?, 1)
+    ON CONFLICT(code) DO UPDATE SET watchable = 1
+  `);
   const saveRoundRow = db.prepare(`
     UPDATE games SET state = ?, updated_at = ?, missed_a = missed_a + ?, missed_b = missed_b + ? WHERE code = ?
   `);
   const seatA = db.prepare(`UPDATE games SET player_a = ? WHERE code = ? AND player_a IS NULL`);
   const seatB = db.prepare(`UPDATE games SET player_b = ? WHERE code = ? AND player_b IS NULL`);
   const selectById = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen FROM players WHERE id = ?`);
-  const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer, player_a, player_b, missed_a, missed_b FROM games");
+  const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer, watchable, player_a, player_b, missed_a, missed_b FROM games");
 
   const insertPlayer = db.prepare(`INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)`);
   const updateNickname = db.prepare(`UPDATE players SET nickname = ? WHERE id = ?`);
@@ -205,6 +217,9 @@ export function openDb(path: string): Db {
     markComputer(code: string, state: GameState): void {
       markComputerRow.run(code, JSON.stringify(state), Date.now());
     },
+    markWatchable(code: string, state: GameState): void {
+      markWatchableRow.run(code, JSON.stringify(state), Date.now());
+    },
     loadGames(): SavedGame[] {
       const saved: SavedGame[] = [];
       for (const row of selectAll.all()) {
@@ -216,6 +231,7 @@ export function openDb(path: string): Db {
             updatedAt: row.updated_at as number,
             ended: endedColumn ? (JSON.parse(endedColumn) as Ended) : null,
             vsComputer: row.vs_computer === 1,
+            watchable: row.watchable === 1 || row.vs_computer === 1,
             playerA: (row.player_a as string | null) ?? null,
             playerB: (row.player_b as string | null) ?? null,
             missedA: row.missed_a as number,
