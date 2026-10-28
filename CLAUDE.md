@@ -60,14 +60,14 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 
 ## Every change must
 
-- Keep `pnpm check` passing before it is pushed. `pnpm check` needs the app running locally; start it first. Keep `pnpm check:fast` passing at every commit.
+- Keep `pnpm check` passing before it is pushed. `pnpm check` starts its own test server on a free port with a temporary data folder and deletes it afterwards, so it never needs the dev server and **never writes to `data-dev/`** (correction C22). With `APP_URL` set, as in CI, it runs against that app instead. Keep `pnpm check:fast` passing at every commit.
 - `pnpm check:evidence` may fail only because PROCESS.md still has its template comment or no reflection exists yet. Any other failure must be fixed.
 - Add or update a test when it changes behaviour, with the rule ID in the test name. Name test files `spec/app-<name>.test.ts` (checks against the running app, using `inject("baseUrl")`) or `spec/unit-<name>.test.ts` (no app needed). Browser checks go in `e2e/` and never in `spec/`. See `spec/CHECKS.md`.
 - Be one logical change per commit.
 - Pass the reviewer subagent (`.claude/agents/reviewer.md`, always by name) once per group of related commits that touch `src/` or `spec/` (for example once after all the R13 to R17 commits, or once per screen), and always before a commit that touches the no-peek rules (R21, R22) or persistence (R25). If the reviewer is not available, tell Tejas.
 - Give every endpoint that creates server state (a game, a ticket, a row) a rate limit, and an expiry on anything it keeps in memory, so a public URL cannot fill the 256 MB machine or the volume. Key limits on the client address Fly passes in `Fly-Client-IP`, not the proxy's socket address.
 - Every endpoint that reads a request body must require `application/json`, so a cross-site form cannot call it, and must have a size limit.
-- Make every check repeatable: `pnpm check` must pass twice in a row against the same running app. A check that creates anything sends its own `Fly-Client-IP` so it never shares a rate limit with other checks, and never relies on being in a top-10 list or on a state a previous run left behind.
+- Make every check repeatable: `pnpm check` must pass twice in a row, and so must `pnpm check` against one app that keeps running between the two runs. A check that creates anything sends its own `Fly-Client-IP` so it never shares a rate limit with other checks, and never relies on being in a top-10 list or on a state a previous run left behind.
 - Every database schema change (a new column, table or index in `src/server/db.ts`) must come with a numbered migration, applied through `PRAGMA user_version` so it runs exactly once against an existing database, and a test that opens a database built with the old schema and checks it is upgraded correctly. A deploy must never crash because the database on `/data` was created before the change.
 
 ## Commit messages

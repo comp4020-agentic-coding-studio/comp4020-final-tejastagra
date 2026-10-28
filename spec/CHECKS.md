@@ -7,11 +7,18 @@ Status: **todo** (stub only), **written**, **passing**.
 ## How checks run in this repo
 
 - **Course checks.** `spec/invariants.test.ts` and `spec/global-setup.ts` ship with the course. Never delete or weaken them. `spec/README.md` explains them.
-- **`pnpm check`** runs `pnpm typecheck`, then every `spec/**/*.test.ts` through `vitest.config.ts`, against the **running** app at `APP_URL` (default `http://localhost:8080`). In CI it runs against the Docker image with an empty `/data`, and a failure blocks the deploy.
+- **`pnpm check`** (`scripts/check.sh`) starts its own test server on a free port with a temporary data folder, runs `pnpm typecheck`, then every `spec/**/*.test.ts` through `vitest.config.ts` against it, then deletes the folder, so it never touches `data-dev/` (check H1, correction C22). With `APP_URL` set (as CI does, against the Docker image) it runs against that app instead and starts nothing. `pnpm test` alone is the old behaviour: vitest against whatever app is at `APP_URL` (default `http://localhost:8080`). In CI it runs against the Docker image with an empty `/data`, and a failure blocks the deploy.
 - **`spec/app-*.test.ts`** are app checks. They talk to the running app with real HTTP and WebSocket clients, using `inject("baseUrl")`.
 - **`spec/unit-*.test.ts`** are unit checks. They need no running app. They also run alone with `pnpm check:fast`, which uses `vitest.unit.config.ts` (no global setup, so no app needed), and are what mutation testing uses.
 - **`e2e/*.spec.ts`** are Playwright browser checks for phone layout. They run only with `pnpm test:e2e`, never in `pnpm check`, because CI may have no browser.
 - **Manual checks** cannot be automated here, because a test cannot restart the server it is testing. They run in the multi-user test session (`docs/testing/multi-user-test-plan.md`).
+
+## Hygiene (`spec/unit-check-isolation.test.ts`)
+
+| ID | Claim | Status |
+| --- | --- | --- |
+| H1 | A test run never writes to `data-dev/`: `scripts/check.sh` points the test server at a temporary folder and removes it afterwards, and a check fails if the dev database's size or modified time changes during a run | todo |
+| H2 | `scripts/check.sh` uses `APP_URL` as it is when one is given, so CI is unchanged | todo |
 
 ## Course
 

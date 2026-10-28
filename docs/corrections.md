@@ -170,3 +170,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** the spectating app checks now compare only their own games by code, never a shared count, and every connection sends its own `Fly-Client-IP` (CLAUDE.md already says so for anything that creates state). The leaderboard problem is **not fixed**: it needs a decision (clear `data-dev/`, raise the cap on a public endpoint, or rewrite the check to read one saved game). It cannot happen in CI, which runs against an image with an empty `/data`, and `pnpm check` passed twice in a row against that image.
 - **Rule for the future:** a check on something shared must name its own objects, not read a number other checks also change; and a ranked list read by a check must be shorter than the cap, or the check must not depend on rank.
 - **Commits:** the spectating fix is in the commit that follows this entry.
+
+### C22. `pnpm check` wrote to the dev database and filled the leaderboard with test players
+- **Date:** 28 October 2026
+- **What went wrong:** `pnpm check` ran against whatever app was on port 8080, which is the dev server, so every run wrote its test games and guests into `data-dev/rubble.db`. After a day of runs it held 5286 games and 6367 players, almost all of them test players, so the local leaderboard showed no real play, and an old leaderboard check (B2) started to fail about one run in fifteen once more than 1000 one-win players pushed a new winner past the list's cap (C21). `pnpm check:isolated` existed from C15, but nothing said to use it and `pnpm check` stayed the default.
+- **How it was caught:** the flaky check, then reading the database (C21); Tejas named the cause.
+- **Harness fix:** `pnpm check` is now `scripts/check.sh`, which starts its own server on a free port with a temporary data folder and deletes it afterwards (an `APP_URL` from the caller, as CI sets, is used as it is). CLAUDE.md says so, and a unit check (H1) fails if a run changes `data-dev/`. The old `check:isolated` is the same script now, so it is removed.
+- **Rule for the future:** the thing that runs the checks owns the data they write; a check never writes to a database a person uses.
+- **Commits:** the commits that follow this entry.

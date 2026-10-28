@@ -15,7 +15,7 @@ The harness has been merged with the course template, so there is nothing to mer
 
 ## How the course checks work
 
-- `pnpm check` runs `pnpm typecheck`, then every `spec/**/*.test.ts` against the **running** app at `APP_URL` (default `http://localhost:8080`), found by `spec/global-setup.ts`. Start the app first. In CI (once the repo is public) it runs against the Docker image with an empty `/data`, and a failure blocks the deploy.
+- `pnpm check` runs `pnpm typecheck`, then every `spec/**/*.test.ts` against a throwaway app it starts itself on a free port with a temporary data folder (`scripts/check.sh`), so it never touches the dev database in `data-dev/` and you do not need to start anything. With `APP_URL` set it runs against that app instead, found by `spec/global-setup.ts`. In CI (once the repo is public) it runs against the Docker image with an empty `/data`, and a failure blocks the deploy.
 - `pnpm check:fast` runs `pnpm typecheck` and only `spec/unit-*.test.ts`, with no app needed. The Stop hook uses it.
 - `pnpm check:evidence` needs `CLAUDE.md`, at least one of `reflections/crit-8.md`, `crit-9.md` or `crit-10.md`, a PROCESS.md without its `TEMPLATE:` comment and every commit cited in PROCESS.md to exist. It will fail until Tejas writes PROCESS.md and a reflection. That is expected. Never remove the comment or write a reflection yourself.
 
