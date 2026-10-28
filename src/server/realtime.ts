@@ -524,6 +524,60 @@ export function attachRealtime(
     }
   }
 
+  // Ends a game as a forfeit by `player`: the other player wins (R27, R81). Server-side state, not an engine Status: the
+  // engine's GameState is left exactly as it was. Saved before anyone is told (R25).
+  function forfeit(code: string, player: Player): boolean {
+    const winner = opponentOf(player);
+    // Save first: if the save fails, memory must not claim an end the database does not have, and nobody is told. The
+    // game stays live; a leaving player can try again, and a timed-out one is handled by the next disconnect or timer (R25).
+    try {
+      db.saveEnded(code, { result: "forfeit", winner });
+    } catch (error) {
+      logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+    clearTimerFor(code);
+    for (const seat of ["A", "B"] as const) clearGraceTimer(code, seat);
+    forfeited.set(code, { result: "forfeit", winner });
+    logEvent("forfeit", { game: code });
+    logEvent("game_over", { game: code, result: "forfeit" });
+    const winnerSocket = connections.get(key(code, winner));
+    if (winnerSocket) send(winnerSocket, { type: "game_over", result: "forfeit", winner });
+    spectators.ended(code, { type: "ended", result: "forfeit", winner }); // after the save above (R25, R76)
+    closeSlowSpectators();
+    return true;
+  }
+
+  // A player leaving on purpose (R81): a game being played is a forfeit; one that never started, or is against the
+  // computer, is abandoned with nobody told. Only the seat's own token counts (R32), and a game already over is left alone.
+  function leaveGame(message: { code?: unknown; player?: unknown; seatToken?: unknown }): void {
+    const { code, player, seatToken } = message;
+    if (typeof code !== "string" || (player !== "A" && player !== "B")) return;
+    const expected = seatTokens.get(key(code, player));
+    if (typeof seatToken !== "string" || typeof expected !== "string" || seatToken !== expected) return;
+    const record = game.getGame(code);
+    if (!record || record.state.status !== "playing" || forfeited.has(code)) return;
+    const started = !computerGames.has(code) && bothSeatsTaken(code);
+    logEvent("leave_game", { game: code, started });
+    if (started) {
+      forfeit(code, player);
+      return;
+    }
+    try {
+      db.saveEnded(code, { result: "abandoned" });
+    } catch (error) {
+      logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+      return;
+    }
+    clearTimerFor(code);
+    for (const seat of ["A", "B"] as const) clearGraceTimer(code, seat);
+    forfeited.set(code, { result: "abandoned" });
+    idleRounds.delete(code);
+    logEvent("game_over", { game: code, result: "abandoned" });
+    spectators.ended(code, { type: "ended", result: "abandoned" });
+    closeSlowSpectators();
+  }
+
   function startGraceTimer(code: string, player: Player): void {
     const record = game.getGame(code);
     if (!record || record.state.status !== "playing" || forfeited.has(code)) return;
@@ -542,16 +596,7 @@ export function attachRealtime(
       // an engine Status value (docs/rules.md R27): the engine's GameState is
       // left exactly as it was, with status still "playing". Saved before
       // broadcasting (R25).
-      clearTimerFor(code);
-      const winner = opponentOf(player);
-      forfeited.set(code, { result: "forfeit", winner });
-      db.saveEnded(code, { result: "forfeit", winner });
-      logEvent("forfeit", { game: code });
-      logEvent("game_over", { game: code, result: "forfeit" });
-      const winnerSocket = connections.get(key(code, winner));
-      if (winnerSocket) send(winnerSocket, { type: "game_over", result: "forfeit", winner });
-      spectators.ended(code, { type: "ended", result: "forfeit", winner }); // after the save above (R25, R76)
-      closeSlowSpectators();
+      if (!forfeit(code, player)) startGraceTimer(code, player); // the save failed: try again after another grace period
     }, disconnectGraceMs);
     graceTimers.set(key(code, player), timer);
   }
@@ -708,6 +753,10 @@ export function attachRealtime(
       }
       if (parsed.type === "leave") {
         spectators.leave(socket);
+        return;
+      }
+      if (parsed.type === "leave_game") {
+        leaveGame(parsed as { code?: unknown; player?: unknown; seatToken?: unknown });
         return;
       }
 

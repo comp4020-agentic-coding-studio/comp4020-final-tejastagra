@@ -1,0 +1,199 @@
+// Unit check: needs no running app. Leaving a game on purpose (R81) on an ephemeral server.
+import { afterEach, describe, expect, it } from "vitest";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { openDb, type Db } from "../src/server/db.ts";
+import { attachRealtime } from "../src/server/realtime.ts";
+import { leaderboardFrom } from "../src/server/leaderboard.ts";
+
+function start() {
+  const server = createServer((_req, res) => res.end());
+  const db = openDb(":memory:");
+  const rt = attachRealtime(server, db, {
+    disconnectGraceMs: 60_000,
+    roundTimerMs: 60_000,
+    computerDelayMs: 20,
+    computerSeed: 3,
+    identify: (request) => (typeof request.headers["x-person"] === "string" ? (request.headers["x-person"] as string) : null),
+    nameFor: (id) => `Person ${id}`,
+  });
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+  cleanup.push(() => {
+    rt.dispose();
+    server.close();
+  });
+  return { db, rt, url: `ws://localhost:${port}/ws` };
+}
+
+let cleanup: Array<() => void> = [];
+afterEach(() => {
+  for (const fn of cleanup) fn();
+  cleanup = [];
+});
+
+function connect(url: string, person?: string) {
+  const socket = new WebSocket(url, person ? ({ headers: { "x-person": person } } as never) : undefined);
+  const queued: any[] = [];
+  const waiting: Array<{ type: string; resolve: (m: any) => void }> = [];
+  socket.addEventListener("message", (event) => {
+    const message = JSON.parse(event.data as string);
+    const at = waiting.findIndex((w) => w.type === message.type);
+    if (at >= 0) waiting.splice(at, 1)[0].resolve(message);
+    else queued.push(message);
+  });
+  const opened = new Promise<void>((resolve) => socket.addEventListener("open", () => resolve(), { once: true }));
+  const next = (type: string): Promise<any> => {
+    const at = queued.findIndex((m) => m.type === type);
+    if (at >= 0) return Promise.resolve(queued.splice(at, 1)[0]);
+    return new Promise((resolve) => waiting.push({ type, resolve }));
+  };
+  const quiet = async (type: string, ms = 150): Promise<boolean> => {
+    await new Promise((r) => setTimeout(r, ms));
+    return !queued.some((m) => m.type === type);
+  };
+  cleanup.push(() => socket.close());
+  return { socket, opened, next, quiet, send: (body: object) => socket.send(JSON.stringify(body)) };
+}
+
+async function seat(url: string, code: string, person: string, player?: "A" | "B") {
+  const c = connect(url, person);
+  await c.opened;
+  c.send({ type: "join", code, ...(player ? { player } : {}) });
+  const snap = await c.next("snapshot");
+  return { ...c, snap };
+}
+
+describe("R81 leaving a game on purpose", () => {
+  it("R81 leaving a game being played ends it as a forfeit at once, the other player wins and is told, and it is saved first", async () => {
+    const { db, rt, url } = start();
+    rt.createLinkGame("LEV001", "p1");
+    const a = await seat(url, "LEV001", "p1");
+    const b = await seat(url, "LEV001", "p2");
+    await a.next("opponent_joined");
+    a.send({ type: "leave_game", code: "LEV001", player: "A", seatToken: a.snap.seatToken });
+    const over = await b.next("game_over");
+    expect(over).toEqual({ type: "game_over", result: "forfeit", winner: "B" });
+    const saved = db.loadGames().find((g) => g.code === "LEV001")!;
+    expect(saved.ended).toEqual({ result: "forfeit", winner: "B" }); // saved (the order is proven by the failed-save test below)
+    // The leaver's seat is not given a result: their screen goes Home.
+    expect(await a.quiet("game_over")).toBe(true);
+  });
+
+  it("R81 and R38 a forfeit by leaving counts as a win for the other person on the leaderboard", async () => {
+    const { db, rt, url } = start();
+    db.createPlayer("p1", "Alpha");
+    db.createPlayer("p2", "Beta");
+    rt.createLinkGame("LEV002", "p1");
+    const a = await seat(url, "LEV002", "p1");
+    const b = await seat(url, "LEV002", "p2");
+    await a.next("opponent_joined");
+    a.send({ type: "leave_game", code: "LEV002", player: "A", seatToken: a.snap.seatToken });
+    await b.next("game_over");
+    const board = leaderboardFrom(db, 10);
+    expect(board.wins.find((r) => r.name.startsWith("Beta"))?.value).toBe(1);
+    expect(board.wins.find((r) => r.name.startsWith("Alpha"))).toBeUndefined();
+  });
+
+  it("R81 and R32 a leave_game without the seat's own token does nothing", async () => {
+    const { rt, url } = start();
+    rt.createLinkGame("LEV003", "p1");
+    const a = await seat(url, "LEV003", "p1");
+    const b = await seat(url, "LEV003", "p2");
+    await a.next("opponent_joined");
+    const stranger = connect(url, "p3");
+    await stranger.opened;
+    stranger.send({ type: "leave_game", code: "LEV003", player: "A", seatToken: "wrong" });
+    stranger.send({ type: "leave_game", code: "LEV003", player: "B" });
+    expect(await a.quiet("game_over")).toBe(true);
+    expect(await b.quiet("game_over")).toBe(true);
+    // B's own token still works afterwards: the game was still being played.
+    b.send({ type: "leave_game", code: "LEV003", player: "B", seatToken: b.snap.seatToken });
+    expect(await a.next("game_over")).toEqual({ type: "game_over", result: "forfeit", winner: "A" });
+  });
+
+  it("R81 a spectator is told the game ended when a player leaves", async () => {
+    const { rt, url } = start();
+    rt.createLinkGame("LEV004", "p1");
+    const a = await seat(url, "LEV004", "p1");
+    const b = await seat(url, "LEV004", "p2");
+    await a.next("opponent_joined");
+    const w = connect(url, "w");
+    await w.opened;
+    w.send({ type: "join", code: "LEV004" });
+    await w.next("spectating");
+    b.send({ type: "leave_game", code: "LEV004", player: "B", seatToken: b.snap.seatToken });
+    expect(await w.next("ended")).toEqual({ type: "ended", result: "forfeit", winner: "A" });
+  });
+
+  it("R81 leaving before anyone has joined, or a game against the computer, ends it as abandoned and tells nobody", async () => {
+    const { db, rt, url } = start();
+    rt.createLinkGame("LEV005", "p1");
+    const a = await seat(url, "LEV005", "p1");
+    a.send({ type: "leave_game", code: "LEV005", player: "A", seatToken: a.snap.seatToken });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(db.loadGames().find((g) => g.code === "LEV005")!.ended).toEqual({ result: "abandoned" });
+    expect(await a.quiet("game_over")).toBe(true);
+
+    rt.createComputerGame("LEV006");
+    const h = await seat(url, "LEV006", "p9");
+    h.send({ type: "leave_game", code: "LEV006", player: "A", seatToken: h.snap.seatToken });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(db.loadGames().find((g) => g.code === "LEV006")!.ended).toEqual({ result: "abandoned" });
+  });
+
+  it("R81 leaving a game that is already over changes nothing, and leaving twice does nothing the second time", async () => {
+    const { db, rt, url } = start();
+    rt.createLinkGame("LEV007", "p1");
+    const a = await seat(url, "LEV007", "p1");
+    const b = await seat(url, "LEV007", "p2");
+    await a.next("opponent_joined");
+    a.send({ type: "leave_game", code: "LEV007", player: "A", seatToken: a.snap.seatToken });
+    await b.next("game_over");
+    b.send({ type: "leave_game", code: "LEV007", player: "B", seatToken: b.snap.seatToken });
+    a.send({ type: "leave_game", code: "LEV007", player: "A", seatToken: a.snap.seatToken });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(db.loadGames().find((g) => g.code === "LEV007")!.ended).toEqual({ result: "forfeit", winner: "B" });
+  });
+});
+
+describe("R81 and R25 a failed save never claims an end", () => {
+  it("R25 and R81 if saving the forfeit fails, the game stays live, nobody is told and a second try can succeed", async () => {
+    const { db, rt, url } = start();
+    rt.createLinkGame("LEV008", "p1");
+    const a = await seat(url, "LEV008", "p1");
+    const b = await seat(url, "LEV008", "p2");
+    await a.next("opponent_joined");
+    const real = db.saveEnded.bind(db);
+    let fail = true;
+    (db as Db).saveEnded = (code, ended) => {
+      if (fail) throw new Error("disk full");
+      real(code, ended);
+    };
+    a.send({ type: "leave_game", code: "LEV008", player: "A", seatToken: a.snap.seatToken });
+    expect(await b.quiet("game_over", 200)).toBe(true);
+    expect(db.loadGames().find((g) => g.code === "LEV008")!.ended).toBeNull();
+    fail = false;
+    a.send({ type: "leave_game", code: "LEV008", player: "A", seatToken: a.snap.seatToken });
+    expect(await b.next("game_over")).toEqual({ type: "game_over", result: "forfeit", winner: "B" });
+  });
+
+  it("R25 and R81 if saving the abandonment fails, the game stays as it was and leaving again works", async () => {
+    const { db, rt, url } = start();
+    rt.createLinkGame("LEV009", "p1");
+    const a = await seat(url, "LEV009", "p1");
+    const real = db.saveEnded.bind(db);
+    let fail = true;
+    (db as Db).saveEnded = (code, ended) => {
+      if (fail) throw new Error("disk full");
+      real(code, ended);
+    };
+    a.send({ type: "leave_game", code: "LEV009", player: "A", seatToken: a.snap.seatToken });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(db.loadGames().find((g) => g.code === "LEV009")!.ended).toBeNull();
+    fail = false;
+    a.send({ type: "leave_game", code: "LEV009", player: "A", seatToken: a.snap.seatToken });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(db.loadGames().find((g) => g.code === "LEV009")!.ended).toEqual({ result: "abandoned" });
+  });
+});
