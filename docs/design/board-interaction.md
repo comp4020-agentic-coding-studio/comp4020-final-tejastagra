@@ -22,7 +22,7 @@ The game screen has no column buttons and no Drop button. Players act on the boa
 
 ## Keyboard and access
 
-- **U18** Keys 1 to 7 choose a column, S arms or disarms the shield, E uses the Earthquake (U62), and every choice is announced in an `aria-live` region. Hover only ever adds a preview: everything works by tap and keyboard alone.
+- **U18** Keys 1 to 7 choose a column, S arms or disarms the shield, E uses the Earthquake (U62), and every choice is announced in an `aria-live` region. **There is no keyboard hint line on the game screen** (removed 28 October 2026: it was noise on a phone and on a laptop alike); the keys are mentioned once, in the last step of How to play (U46). Hover only ever adds a preview: everything works by tap and keyboard alone.
 
 ## Test hooks
 

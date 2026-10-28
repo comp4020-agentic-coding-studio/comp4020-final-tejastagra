@@ -1554,18 +1554,6 @@ input {
   text-align: center;
 }
 
-.keys-hint {
-  margin: 0;
-  text-align: center;
-  font-size: 0.8rem;
-}
-
-@media (hover: none) {
-  .keys-hint {
-    display: none;
-  }
-}
-
 /* "Get ready" shows once, when a game first starts (U55). */
 .get-ready {
   position: absolute;
@@ -1595,8 +1583,7 @@ input {
 }
 
 .game[data-waiting="true"] .players,
-.game[data-waiting="true"] .status-row,
-.game[data-waiting="true"] .keys-hint {
+.game[data-waiting="true"] .status-row {
   visibility: hidden;
 }
 

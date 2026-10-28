@@ -21,5 +21,5 @@ Added on 27 October 2026 from Tejas's fix list (ADR 0009). It extends `board-int
 
 ## Layout
 
-- **U59** The game screen is one centred group: the player panels and the board together are centred on the page, with the round number above the board and centred with it. On a laptop the panels sit to the left of the board; on a phone they sit above it. The keyboard hint sits under the board, centred, in small text. The centre of the group is within 16px of the centre of the screen at both viewports.
+- **U59** The game screen is one centred group: the player panels and the board together are centred on the page, with the round number above the board and centred with it. On a laptop the panels sit to the left of the board; on a phone they sit above it. There is no keyboard hint under the board (U18). The centre of the group is within 16px of the centre of the screen at both viewports.
 - **U60** Forms and lists are never wider than 560px and are centred: the account forms, the leaderboard lists, the join-with-code input and the home "Top players" list. The nickname button reads "Save nickname".

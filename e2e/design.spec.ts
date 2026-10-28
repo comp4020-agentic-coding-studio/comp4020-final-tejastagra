@@ -375,6 +375,8 @@ test.describe("Tutorial", () => {
       await page.click(testid("tutorial-next"));
     }
     await expect(page.locator(testid("tutorial-title"))).toHaveText("Ready to play");
+    // U46 and U18: the keys are written down here, once, and nowhere on the game screen.
+    await expect(page.locator(testid("tutorial-caption"))).toHaveText("You know the rules. On a keyboard, keys 1 to 7 choose a column, S arms your shield and E uses Earthquake.");
     await page.click(testid("tutorial-skip")); // Back home
     await expect(page.locator(testid("tutorial"))).toBeHidden();
     await expect(page.locator(testid("home-screen"))).toBeVisible();

@@ -67,6 +67,9 @@ describe("screens (docs/design.md)", () => {
     for (const hook of hooks) expect(html, hook).toContain(`data-testid="${hook}"`);
     expect(html).not.toContain('data-testid="drop"');
     expect(html).not.toContain('data-testid="shield-toggle"');
+    // U18: no keyboard hint line on the game screen; the keys are in How to play only.
+    expect(html).not.toContain("keys-hint");
+    expect(html).not.toMatch(/Keys 1 to 7/);
   });
 
   it("every screen sets the viewport and the UK English language", async () => {

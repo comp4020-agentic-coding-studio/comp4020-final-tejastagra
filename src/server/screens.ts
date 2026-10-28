@@ -329,7 +329,6 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
           <div class="timer-track" data-testid="timer" role="progressbar" aria-label="Time left in this round" aria-valuemin="0" aria-valuemax="10" aria-valuenow="10"><span class="timer-fill"></span></div>
           <p class="result" data-testid="result-line" role="status" aria-live="polite"></p>
           <p class="message" data-testid="game-message" role="status"></p>
-          <p class="note keys-hint" data-testid="keys-hint">Keys 1 to 7 choose a column. S arms your shield. E uses Earthquake.</p>
         </div>
       </div>
     </main>

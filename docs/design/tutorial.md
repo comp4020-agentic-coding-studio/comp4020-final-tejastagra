@@ -20,7 +20,7 @@ The tutorial is an overlay over a practice board against a scripted computer. It
 - **U44a** Step 5, "Power-ups: Earthquake" (U67): the player uses Earthquake to break up a line the computer is building. Caption: "Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Use it to break up a line."
 - **U44b** Step 6, "The board shrinks" (U74): a warning shows, the player taps a column and the top row turns to rock. Caption: "The board shrinks as rounds pass: after round 12 the ceiling drops, and it drops again after round 20. Pieces in a closed row crumble away."
 - **U45** Step 7, "Four in a row wins": four of the player's discs line up and glow, with confetti. Caption: "Get four of your discs in a row, across, down or diagonally. If you both do it in the same round, it is a draw."
-- **U46** Step 8 offers "Play the computer" or "Back home".
+- **U46** Step 8 offers "Play the computer" or "Back home". Its caption is "You know the rules. On a keyboard, keys 1 to 7 choose a column, S arms your shield and E uses Earthquake." This is the only place the keys are written down (U18); the game screen has no hint line.
 
 - **U47** Every caption is short, uses the words in `docs/glossary.md` and is readable on a 320px screen. Captions are announced in an `aria-live` region.
 - **U48** The tutorial works by tap, mouse and keyboard, and under reduced motion every step still makes sense without animation.

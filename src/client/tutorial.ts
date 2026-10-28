@@ -204,7 +204,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Ready to play",
-    caption: "You know the rules. Play the computer to try them out.",
+    caption: "You know the rules. On a keyboard, keys 1 to 7 choose a column, S arms your shield and E uses Earthquake.",
     async run(s) {
       s.reset();
       s.showShield(false);
