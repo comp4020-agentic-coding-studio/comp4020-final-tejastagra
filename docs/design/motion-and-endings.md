@@ -4,7 +4,7 @@ Every animation uses only `transform` and `opacity` so it stays smooth on phones
 
 ## The reveal (the game's signature moment)
 
-- **U19** There is no countdown in any round (ADR 0009). Both discs drop the moment the server's result arrives, so both screens show the same result well within the one-second promise (R23, U23). Only once, when a game first starts, does a short "Get ready" (`get-ready`, about a second) appear over the board; it never blocks a choice. History: the pack first had a 900ms countdown, which was cut to 390ms on 27 October 2026 for promise 2, and removed the same day because it slowed every round.
+- **U19** There is no countdown in any round (ADR 0009). Both discs drop the moment the server's result arrives, so both screens show the same result well within the one-second promise (R23, U23). Only before round 1 is there a **3 second countdown** (U133, R97, ADR 0014), which replaced the short "Get ready" on 29 October 2026. History: the pack first had a 900ms countdown, which was cut to 390ms on 27 October 2026 for promise 2, and removed the same day because it slowed every round.
 - **U20** Both discs then fall from above the board at the same moment, with gravity and a small bounce on landing.
 - **U21** A crash: the two discs meet at the top of the column, burst, the column shakes, a rubble block thuds into place with a small puff of dust and the whole screen gives a tiny shake.
 - **U22** A shield win: the winning disc flashes a glowing ring and the losing disc shatters.
@@ -29,7 +29,7 @@ Every animation uses only `transform` and `opacity` so it stays smooth on phones
 
 ## Recorded exceptions
 
-- **U19 under reduced motion:** discs appear in place as soon as the server sends the result, and "Get ready" simply shows and hides.
+- **U19 under reduced motion:** discs appear in place as soon as the server sends the result, and the start countdown (U133) shows its words and numbers without any animation, for the same 3 seconds.
 - **U9 and U30, the button shadow:** the rest of the motion uses only `transform` and `opacity`, but a button's hard shadow grows on hover and flattens when pressed, so `.btn` and `.round` also transition `box-shadow`, for 0.08 seconds. It is a very small, short change on one element at a time, it is the toy-like press the style depends on, and it stops under reduced motion. This is the only exception.
 
 ## Reduced motion

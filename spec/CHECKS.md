@@ -160,6 +160,9 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only op
 | U65, U66 | The earthquake animation within one second, its reduced-motion version and the result line | `e2e/earthquake.spec.ts` | passing |
 | U67 | The tutorial's Earthquake step | `e2e/earthquake.spec.ts` | passing |
 | R4, R51, R52 | Locked choices, nothing starts until both are present, the computer thinks | `spec/unit-realtime-timer.test.ts`, `spec/unit-realtime-computer.test.ts` | passing |
+| R93 to R96 | The server decides colours at random and saves them; both players and spectators are sent the same colours; colours vary across many games; a computer game's too; a rematch swaps them; migration 19 gives old games A red and B yellow | `spec/unit-player-colours.test.ts`, `spec/unit-persistence.test.ts` | todo |
+| R97 | A 3 second countdown starts when both are present; no round, timer or computer choice runs during it; a choice in it is refused with `not_started`; round 1 starts when it ends; again after a rematch | `spec/unit-realtime-countdown.test.ts` | todo |
+| Q14, U133, U134 | In a friend game both screens and a spectator's show the same seat in the same colour and marker, and each player is told "You are Red" or "You are Yellow" | `e2e/player-colours.spec.ts` | todo |
 | U10 to U13, U54 to U60 | Column highlight, waiting card, names, centred game, 560px limit | `e2e/design.spec.ts` | todo |
 | Screenshots | Approved look at both viewports | `e2e/design.spec.ts` | passing |
 | Judged | It feels like a cheerful navy toy game and is clearly its own; a newcomer understands crashes and the shield after the tutorial; the reveal is exciting | `/style-preview` approval by Tejas (given 27 October 2026), then playtests in `docs/playtests.md` | judged |

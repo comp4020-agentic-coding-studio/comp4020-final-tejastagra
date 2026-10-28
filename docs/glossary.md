@@ -20,6 +20,8 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Open area** | The rows still in play | playing area, grid |
 | **Spectator** | Someone watching a game without playing in it. Never a player, never has a seat | viewer, observer, guest (a guest is a kind of player) |
 | **Link game** | A game made with Play a friend, played through its link or 6-character code. The creator is player 1, the first other person is player 2 and everyone after watches | friend game (in code and docs only), private game |
+| **Red** and **Yellow** | The two players' colours in a game. Red discs have a ring marker and yellow discs a cross marker. The server decides who is which (R93) | your colour, their colour, player colour |
+| **Countdown** | The 3 seconds before round 1, which tell each player their colour (R97) | get ready (only the countdown's own words) |
 | **Missed round** | A player made no choice before the timer ran out | skip, pass |
 | **Resolve** | The server turning both choices into the next board | |
 | **Game code** | The 6-character code that joins a shared game | room code, PIN |
@@ -32,4 +34,4 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Rematch** | A new game with the same people on the same link, started when both tap Play again | play again as a new link, replay |
 | **Leave game** | Ending a game on purpose, which counts as a forfeit | quit, resign |
 
-Player A and Player B are code-only names. On screen, a player is "You" or the opponent's nickname.
+Player A and Player B are code-only names (the two seats). On screen, a player is "You" or the opponent's nickname, and their colour is Red or Yellow (R93).
