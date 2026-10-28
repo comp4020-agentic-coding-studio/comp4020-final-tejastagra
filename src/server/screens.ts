@@ -191,9 +191,20 @@ export function watchScreen(ctx: ScreenContext): string {
         <div class="status-row">
           <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>
           <p class="watching-banner" data-testid="watching-banner" role="status">Watching live</p>
+          <p class="watching-banner spectator-notice" data-testid="spectator-notice" role="status" hidden>This game already has two players, so you're watching.</p>
           <p class="watcher-count" data-testid="watching-count" aria-live="off">${EYE_ICON}<span data-testid="watching-count-text">1 watching</span></p>
           <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 1 5 13h5l-3 10 12-14h-6z"/></svg><span data-testid="shrink-warning-text"></span></p>
         </div>
+
+        <section class="panel no-live" data-testid="no-live-games" hidden>
+          <span class="no-live-icon" aria-hidden="true">${EYE_ICON}</span>
+          <h2>No live games right now</h2>
+          <p>Start a Quick match and other people can watch you play.</p>
+          <div class="no-live-actions">
+            ${button({ label: "Quick match", iconName: "bolt", kind: "red", testid: "quick-match", href: "/play/quick" })}
+            ${button({ label: "Home", iconName: "join", kind: "blue", testid: "go-home", href: "/" })}
+          </div>
+        </section>
 
         <div class="players" data-testid="players">
           <div class="player player-you" data-testid="panel-a">
@@ -222,7 +233,7 @@ export function watchScreen(ctx: ScreenContext): string {
           </div>
           <p class="result" data-testid="result-line" role="status" aria-live="polite"></p>
           <p class="message" data-testid="watch-message" role="status"></p>
-          <div class="watch-actions">
+          <div class="watch-actions" data-testid="watch-actions">
             ${button({ label: "Watch another game", iconName: "join", kind: "red", testid: "watch-another" })}
             ${button({ label: "Home", iconName: "join", kind: "blue", testid: "go-home", href: "/" })}
           </div>
@@ -295,6 +306,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <div class="get-ready" data-testid="get-ready" aria-hidden="true" hidden>Get ready</div>
             <section class="panel share" data-testid="waiting-panel">
               <h2>Waiting for your opponent</h2>
+              <p class="share-text" data-testid="share-text">Send this link. The first person to open it plays you, and anyone after that watches.</p>
               <p class="code" data-testid="game-code" aria-label="Game code">${code}</p>
               <div class="share-actions">
                 <button type="button" class="btn btn-blue" data-testid="copy-link">Copy link</button>

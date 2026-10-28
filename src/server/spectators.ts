@@ -15,7 +15,7 @@ export const SPECTATE_BURST = 10; // R77: at most this many spectate messages fr
 export const SPECTATE_WINDOW_MS = 10_000; // ...in this long
 export const SPECTATOR_BUFFER_LIMIT = 256 * 1024; // R77: a spectator with more than this waiting to be sent is closed
 
-export type GameKind = "quick" | "computer" | "exhibition";
+export type GameKind = "quick" | "link";
 
 // What the spectator module needs to know about a game, and nothing more. `names` are public identity.
 export interface WatchableView {
@@ -25,7 +25,8 @@ export interface WatchableView {
 }
 
 export type SpectatorMessage =
-  | { type: "spectating"; code: string; kind: GameKind; state: GameState; watching: number; names: { A: string | null; B: string | null } }
+  | { type: "spectating"; code: string; kind: GameKind; state: GameState; watching: number; names: { A: string | null; B: string | null }; because?: "two_players" }
+  | { type: "none_live" }
   | { type: "round"; state: GameState; watching: number }
   | { type: "watching"; watching: number }
   | { type: "ended"; result: "forfeit"; winner: "A" | "B" }
@@ -41,10 +42,6 @@ export interface SpectatorHooks {
   liveCodes(): string[];
   // Tells the players of a game how many are watching (R75).
   watchingChanged(code: string, watching: number): void;
-  // The exhibition game (R78): started on demand, forgotten when nobody watches.
-  startExhibition(): string;
-  stopExhibition(code: string): void;
-  isExhibition(code: string): boolean;
   log(event: "spectate_join" | "spectate_leave" | "spectate_move", fields: Record<string, string | number>): void;
 }
 
@@ -92,22 +89,21 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
     return code;
   }
 
-  // After a socket leaves a game: tell everyone the new count, and stop an exhibition game nobody watches (R78).
+  // After a socket leaves a game: tell everyone the new count.
   function left(code: string, event: "spectate_leave" | "spectate_move" | null): void {
     const n = count(code);
     for (const other of watchers.get(code) ?? []) hooks.send(other, { type: "watching", watching: n });
     hooks.watchingChanged(code, n);
     if (event) hooks.log(event, { game: code, spectators: n });
-    if (n === 0 && hooks.isExhibition(code)) hooks.stopExhibition(code);
   }
 
-  function attach(socket: WebSocket, code: string, kind: GameKind, view: WatchableView, isMove: boolean, from?: string): void {
+  function attach(socket: WebSocket, code: string, kind: GameKind, view: WatchableView, isMove: boolean, from?: string, because?: "two_players"): void {
     let set = watchers.get(code);
     if (!set) watchers.set(code, (set = new Set()));
     set.add(socket);
     watching.set(socket, code);
     const n = set.size;
-    hooks.send(socket, { type: "spectating", code, kind, state: view.state, watching: n, names: view.names });
+    hooks.send(socket, { type: "spectating", code, kind, state: view.state, watching: n, names: view.names, ...(because ? { because } : {}) });
     for (const other of set) if (other !== socket) hooks.send(other, { type: "watching", watching: n });
     hooks.watchingChanged(code, n);
     if (isMove) hooks.log("spectate_move", { game: code, from: from ?? "none", spectators: n });
@@ -124,7 +120,7 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
 
   return {
     // R70: join the game in `code`, or a random live one. Answers with the game's public snapshot (R73), or why not.
-    join(socket: WebSocket, address: string, code?: string): void {
+    join(socket: WebSocket, address: string, code?: string, because?: "two_players"): void {
       const t = now();
       for (const [who, times] of asked) if (times.every((at) => t - at >= SPECTATE_WINDOW_MS)) asked.delete(who); // so the map cannot grow
       const recent = (asked.get(address) ?? []).filter((at) => t - at < SPECTATE_WINDOW_MS);
@@ -135,7 +131,7 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
       if (code !== undefined && watching.get(socket) === code) {
         const view = hooks.viewOf(code);
         if (view) {
-          hooks.send(socket, { type: "spectating", code, kind: view.kind, state: view.state, watching: count(code), names: view.names });
+          hooks.send(socket, { type: "spectating", code, kind: view.kind, state: view.state, watching: count(code), names: view.names, ...(because ? { because } : {}) });
           return;
         }
       }
@@ -151,7 +147,10 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
 
       let target = code;
       if (target === undefined) target = pickLive(socket);
-      if (target === undefined) target = hooks.startExhibition(); // R78: nothing is live
+      if (target === undefined) {
+        hooks.send(socket, { type: "none_live" }); // R70: nothing is live, and nothing is made up to watch
+        return;
+      }
       const view = hooks.viewOf(target);
       // A friend game, an unknown code and a game that is not live are all answered "unknown", so a friend
       // game's existence is never revealed (R71).
@@ -163,7 +162,15 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
         hooks.send(socket, { type: "not_watchable", reason: "full" });
         return;
       }
-      attach(socket, target, view.kind, view, wasMove, previous);
+      attach(socket, target, view.kind, view, wasMove, previous, because);
+    },
+
+    // A visitor opened a link game's page and both seats are taken: the server makes them a spectator (R36). The same caps
+    // and limits apply, and a seat is never given (R36). Returns false when they could not be placed (a full game).
+    watchLink(socket: WebSocket, address: string, code: string): boolean {
+      const before = watching.has(socket);
+      this.join(socket, address, code, "two_players");
+      return watching.get(socket) === code || (!before && watching.has(socket));
     },
 
     // The socket is gone, or asked to stop watching.

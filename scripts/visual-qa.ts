@@ -59,6 +59,22 @@ async function twoPlayers(browser: Browser, v: Viewport, first: Page) {
   return { code, second };
 }
 
+// Two people matched by Quick match, each in their own context, ready to be watched.
+async function quickPair(browser: Browser, v: Viewport) {
+  const drain = await newPlayer(browser, v);
+  const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
+  if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+  await drain.context.close();
+  const one = await newPlayer(browser, v, { nickname: "Pip Squeak" });
+  const two = await newPlayer(browser, v, { nickname: "Sam Wombat" });
+  await one.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+  const code = ((await (await two.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json()) as { code: string }).code;
+  await one.page.goto(`/g/${code}`);
+  await two.page.goto(`/g/${code}`);
+  await one.page.locator(testid("round-number")).waitFor();
+  return { code, one, two };
+}
+
 const STATES: State[] = [
   { name: "home", run: async ({ page, shot }) => { await page.goto("/"); await settle(page, 1200); await shot(); } },
   { name: "tutorial-step-1", tutorial: true, run: async ({ page, shot }) => { await page.goto("/"); await page.locator(testid("tutorial")).waitFor(); await settle(page); await shot(); } },
@@ -108,14 +124,38 @@ const STATES: State[] = [
   {
     name: "watching",
     run: async ({ browser, v, page, shot }) => {
-      const owner = await newPlayer(browser, v, { nickname: "Sam Wombat" });
-      const code = await openGame(owner.page);
-      await owner.page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
-      await page.goto("/watch");
-      await settle(page, 1500);
+      const { code, one, two } = await quickPair(browser, v);
+      await page.goto(`/watch?game=${code}`);
+      await page.locator(testid("name-a")).filter({ hasNotText: "Player" }).waitFor();
+      await settle(page, 1200);
       await shot();
-      void code;
-      await owner.context.close();
+      await one.context.close();
+      await two.context.close();
+    },
+  },
+  {
+    name: "watching-none-live",
+    run: async ({ page, shot }) => {
+      // The server's own "none live" answer, so the state is reachable whatever else the app has live.
+      await page.routeWebSocket(/\/ws$/, (ws) => ws.onMessage(() => ws.send(JSON.stringify({ type: "none_live" }))));
+      await page.goto("/watch");
+      await page.locator(testid("no-live-games")).waitFor();
+      await settle(page);
+      await shot();
+    },
+  },
+  {
+    name: "watching-link-game",
+    run: async ({ browser, v, page, shot }) => {
+      const { code, second } = await twoPlayers(browser, v, page);
+      const watcher = await newPlayer(browser, v, { nickname: "Wren Spectator" });
+      await watcher.page.goto(`/g/${code}`);
+      await watcher.page.locator(testid("spectator-notice")).waitFor();
+      await settle(watcher.page, 1200);
+      await watcher.page.screenshot({ path: `reports/visual-qa/watching-link-game--${v.name}.png` });
+      await watcher.context.close();
+      await second.context.close();
+      await shot();
     },
   },
 ];

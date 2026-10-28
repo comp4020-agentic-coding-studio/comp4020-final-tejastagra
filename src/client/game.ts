@@ -544,6 +544,16 @@ socket.addEventListener("message", (event) => {
       popupOpen();
       renderChoice();
       break;
+    case "spectating":
+    case "ended":
+      // Both seats are taken (R36): the server has made this visitor a spectator of the game, so the page moves to the
+      // watching view of this very game (U92). `ended` is how a finished game is shown to someone who has no seat.
+      if (you === null) {
+        location.replace(`/watch?game=${code}&via=link`);
+        break;
+      }
+      if (message.type === "ended") break; // a player is told through game_over
+      break;
     case "game_full":
       over = true;
       say("This game already has two players. Start your own from Home.", "error");

@@ -12,7 +12,9 @@ export interface SavedGame {
   updatedAt: number;
   ended: Ended | null;
   vsComputer: boolean; // R33, R37: the opponent is the computer
-  watchable: boolean; // R71: a quick match or computer game, which spectators may watch
+  // R36, R71: what kind of game this is. Old games get a kind from what was known (migration 15).
+  kind: "quick" | "link" | "computer";
+  creator: string | null; // the person who made a link game, who is player 1 (R36)
   playerA: string | null; // player ids of the people in each seat (R28), when known
   playerB: string | null;
   missedA: number; // rounds in which that seat made no choice (R39)
@@ -57,9 +59,10 @@ export interface Db {
   // never counts for the leaderboard (R37).
   // An upsert, so the mark can be written before the game itself (one source of truth).
   markComputer(code: string, state: GameState): void;
-  // Marks a game as one spectators may watch (R71): a quick match game. A game against the computer is
-  // watchable too and is marked by markComputer. Friend games are never marked. An upsert, like markComputer.
+  // Marks a game as a quick match game (R35, R71). An upsert, like markComputer.
   markWatchable(code: string, state: GameState): void;
+  // Marks a game as a link game and records who made it (R34, R36). The first creator wins. An upsert.
+  markLink(code: string, state: GameState, creator: string | null): void;
   loadGames(): SavedGame[];
   close(): void;
 }
@@ -107,6 +110,11 @@ const MIGRATIONS: string[] = [
   // friend games, so none is marked: only games made after this change are watchable, which errs on the
   // side of privacy. Games against the computer are watchable already, through vs_computer.
   `ALTER TABLE games ADD COLUMN watchable INTEGER NOT NULL DEFAULT 0`,
+  // R36, R71 (ADR 0012 amended): the kind of every game, and a link game's creator. A game saved before this knows only
+  // whether it was against the computer or marked watchable, so that is what its kind is made from; the rest are link games.
+  `ALTER TABLE games ADD COLUMN kind TEXT`,
+  `ALTER TABLE games ADD COLUMN creator TEXT`,
+  `UPDATE games SET kind = CASE WHEN vs_computer = 1 THEN 'computer' WHEN watchable = 1 THEN 'quick' ELSE 'link' END WHERE kind IS NULL`,
 ];
 
 function migrate(db: DatabaseSync): void {
@@ -128,12 +136,16 @@ export function openDb(path: string): Db {
   `);
   const updateEnded = db.prepare(`UPDATE games SET ended = ? WHERE code = ?`);
   const markComputerRow = db.prepare(`
-    INSERT INTO games (code, state, updated_at, vs_computer) VALUES (?, ?, ?, 1)
-    ON CONFLICT(code) DO UPDATE SET vs_computer = 1
+    INSERT INTO games (code, state, updated_at, vs_computer, kind) VALUES (?, ?, ?, 1, 'computer')
+    ON CONFLICT(code) DO UPDATE SET vs_computer = 1, kind = 'computer'
   `);
   const markWatchableRow = db.prepare(`
-    INSERT INTO games (code, state, updated_at, watchable) VALUES (?, ?, ?, 1)
-    ON CONFLICT(code) DO UPDATE SET watchable = 1
+    INSERT INTO games (code, state, updated_at, watchable, kind) VALUES (?, ?, ?, 1, 'quick')
+    ON CONFLICT(code) DO UPDATE SET watchable = 1, kind = 'quick'
+  `);
+  const markLinkRow = db.prepare(`
+    INSERT INTO games (code, state, updated_at, kind, creator) VALUES (?, ?, ?, 'link', ?)
+    ON CONFLICT(code) DO UPDATE SET kind = 'link', creator = COALESCE(creator, excluded.creator)
   `);
   const saveRoundRow = db.prepare(`
     UPDATE games SET state = ?, updated_at = ?, missed_a = missed_a + ?, missed_b = missed_b + ? WHERE code = ?
@@ -141,7 +153,7 @@ export function openDb(path: string): Db {
   const seatA = db.prepare(`UPDATE games SET player_a = ? WHERE code = ? AND player_a IS NULL`);
   const seatB = db.prepare(`UPDATE games SET player_b = ? WHERE code = ? AND player_b IS NULL`);
   const selectById = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen FROM players WHERE id = ?`);
-  const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer, watchable, player_a, player_b, missed_a, missed_b FROM games");
+  const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b FROM games");
 
   const insertPlayer = db.prepare(`INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)`);
   const updateNickname = db.prepare(`UPDATE players SET nickname = ? WHERE id = ?`);
@@ -220,6 +232,9 @@ export function openDb(path: string): Db {
     markWatchable(code: string, state: GameState): void {
       markWatchableRow.run(code, JSON.stringify(state), Date.now());
     },
+    markLink(code: string, state: GameState, creator: string | null): void {
+      markLinkRow.run(code, JSON.stringify(state), Date.now(), creator);
+    },
     loadGames(): SavedGame[] {
       const saved: SavedGame[] = [];
       for (const row of selectAll.all()) {
@@ -231,7 +246,8 @@ export function openDb(path: string): Db {
             updatedAt: row.updated_at as number,
             ended: endedColumn ? (JSON.parse(endedColumn) as Ended) : null,
             vsComputer: row.vs_computer === 1,
-            watchable: row.watchable === 1 || row.vs_computer === 1,
+            kind: ((row.kind as string | null) ?? (row.vs_computer === 1 ? "computer" : row.watchable === 1 ? "quick" : "link")) as "quick" | "link" | "computer",
+            creator: (row.creator as string | null) ?? null,
             playerA: (row.player_a as string | null) ?? null,
             playerB: (row.player_b as string | null) ?? null,
             missedA: row.missed_a as number,

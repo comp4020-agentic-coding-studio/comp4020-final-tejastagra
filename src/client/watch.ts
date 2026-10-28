@@ -5,7 +5,10 @@
 import { avatar, buildBoard, ceilingAnimation, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 
-type Kind = "quick" | "computer" | "exhibition";
+type Kind = "quick" | "link";
+// A link game is watched at its own address, /watch?game=CODE&via=link (U92): it shows a notice in place of the banner, has only a
+// Home button and never moves on to another game, because it belongs to its two players.
+const viaLink = new URLSearchParams(location.search).get("via") === "link";
 type Names = { A: string | null; B: string | null };
 
 const MOVE_SECONDS = 5; // R76: a result is shown, then the spectator moves to another game
@@ -28,7 +31,15 @@ const pieceFor = (cell: string): "you" | "opponent" | "rubble" | null => (cell =
 const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
 // /watch?game=CODE watches one particular game (U77); anything else, or a game that cannot be watched, falls back to a random one.
 const wantedGame = new URLSearchParams(location.search).get("game")?.toUpperCase();
-socket.addEventListener("open", () => socket.send(JSON.stringify(wantedGame && /^[A-Z0-9]{6}$/.test(wantedGame) ? { type: "spectate", code: wantedGame } : { type: "spectate" })));
+// A visitor sent here from a link game's address (U92) joins as the page they opened did: the server decides again, so a game that
+// has ended is shown with its result rather than answered as not watchable.
+socket.addEventListener("open", () =>
+  socket.send(
+    JSON.stringify(
+      wantedGame && /^[A-Z0-9]{6}$/.test(wantedGame) ? (viaLink ? { type: "join", code: wantedGame } : { type: "spectate", code: wantedGame }) : { type: "spectate" },
+    ),
+  ),
+);
 window.addEventListener("pagehide", () => {
   try {
     socket.send(JSON.stringify({ type: "leave" }));
@@ -90,8 +101,13 @@ function warning(state: GameState): void {
   markDoomed(board, state.rows, due, rowsAt(state.round + 1));
 }
 
+// U92, U94: a quick match game says who is playing whom; a link game says why the visitor is watching instead.
 function banner(): void {
-  setText("watching-banner", kind === "exhibition" ? "Exhibition: Computer vs Computer" : "Watching live");
+  const link = kind === "link" || viaLink;
+  $("watching-banner").hidden = link;
+  $("spectator-notice").hidden = !link;
+  $("watch-another").hidden = link; // there is nothing to move on to from a link game
+  setText("watching-banner", `Watching ${nameOf.A ?? "Player 1"} vs ${nameOf.B ?? "Player 2"}`);
 }
 
 // What happened this round, in the words of the players' screens but without "you" (U66, U73).
@@ -179,8 +195,12 @@ function endCard(title: string): void {
   card.hidden = false;
   setText("watch-result-title", title);
   let left = MOVE_SECONDS;
-  setText("watch-result-next", `Next game in ${left} seconds`);
   clearInterval(moveTimer);
+  if (kind === "link" || viaLink) {
+    setText("watch-result-next", ""); // a link game ends here: no count down and no moving on (U92)
+    return;
+  }
+  setText("watch-result-next", `Next game in ${left} seconds`);
   moveTimer = setInterval(() => {
     left--;
     if (left <= 0) {
@@ -229,9 +249,21 @@ socket.addEventListener("message", (event) => {
     case "ended":
       busy = busy.then(() => endedCard(message));
       break;
+    case "none_live":
+      // U93: nothing is live, and nothing is made up to watch. The empty state replaces the board.
+      $("no-live-games").hidden = false;
+      for (const id of ["players", "board-wrap", "result-line", "watch-message"]) $(id).hidden = true;
+      $("watch-actions").hidden = true;
+      $("watching-banner").hidden = true;
+      $("watching-count").hidden = true;
+      $("round-line").hidden = true;
+      break;
     case "not_watchable":
       // U83: the room is full, or the game stopped. Nothing to show but a message, and the buttons.
       setText("watch-message", message.reason === "room_full" ? "The room is full right now. Try again in a moment." : "That game cannot be watched. Try another.");
+      break;
+    case "game_full":
+      setText("watch-message", "That game cannot be watched. Try another.");
       break;
     case "rejected":
       break; // a spectator cannot act (R74): this screen sends nothing that could be rejected

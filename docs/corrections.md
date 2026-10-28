@@ -178,3 +178,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** `pnpm check` is now `scripts/check.sh`, which starts its own server on a free port with a temporary data folder and deletes it afterwards (an `APP_URL` from the caller, as CI sets, is used as it is). CLAUDE.md says so, and a unit check (H1) fails if a run changes `data-dev/`. The old `check:isolated` is the same script now, so it is removed. `pnpm test:e2e` uses the same wrapper (`scripts/e2e.sh`), because the browser checks write guests and games too.
 - **Rule for the future:** the thing that runs the checks owns the data they write; a check never writes to a database a person uses.
 - **Commits:** the commits that follow this entry.
+
+### C23. Link-game seats were kept for people with a session only, and a finished game was answered as "cannot be watched"
+- **Date:** 28 October 2026
+- **What went wrong:** (1) The first version of link-game seating kept seat A for the creator by session id, but a creator with no session was saved as nobody, so a stranger who opened the link first could take seat A. (2) A seat taken by a visitor with no session was not remembered across a restart. (3) A visitor to a finished link game was sent to the watching page, which asked to spectate and was told the game could not be watched, so the result never showed. (4) The mobile watching banner ("Watching A vs B") had no `nowrap`, so its ellipsis never applied, and two test hooks named `go-home` collided.
+- **How it was caught:** the reviewer (1 to 3) and the design-reviewer (4). My tests only used named creators.
+- **Harness fix:** opening a game page or making a link game now gives a visitor a guest session (ADR 0012), the watching page sent from a link joins as the page did so the server answers with the result, tests in `spec/app-spectating.test.ts` and `spec/unit-link-game-seats.test.ts` cover a creator with no session and a finished game, and the e2e check measures the notice and banner at 320px.
+- **Rule for the future:** test the case with no session as well as the one with a named person, and read every hook name in the design file against the code.
+- **Commits:** the commits that follow this entry.

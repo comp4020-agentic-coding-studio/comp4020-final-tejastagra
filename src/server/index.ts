@@ -202,6 +202,19 @@ function readBody(req: IncomingMessage): Promise<Record<string, unknown> | null>
   });
 }
 
+// A person who opens a game page or makes a link game always has a player behind them, a nameless guest if need be, so the
+// server can say who holds each seat and a restart never frees one (R28, R36). Returns the cookie header to send, if one is made.
+function ensurePlayer(req: IncomingMessage): { id: string | null; headers: Record<string, string> } {
+  const existing = currentPlayer(req);
+  if (existing) return { id: existing.id, headers: {} };
+  if (!allowGuest(clientAddress(req))) return { id: null, headers: {} };
+  const id = newPlayerId();
+  db.createPlayer(id, generatedNickname(id));
+  const token = newSessionToken();
+  db.createSession(hashToken(token), id);
+  return { id, headers: { "set-cookie": sessionCookie(token, isSecure(req)) } };
+}
+
 function currentPlayer(req: IncomingMessage) {
   const token = readCookie(req.headers.cookie, SESSION_COOKIE);
   return token ? db.playerBySession(hashToken(token), SESSION_MAX_AGE_S * 1000) : undefined;
@@ -451,12 +464,14 @@ const server = createServer((req, res) => {
       return;
     }
     const code = generateCode((c) => realtime.game.getGame(c) !== undefined);
-    realtime.game.createGame(code);
-    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    // The person who makes a link game is player 1 (R36): their id is saved with the game, so the seat is kept for them.
+    const creator = ensurePlayer(req);
+    realtime.createLinkGame(code, creator.id);
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store", ...creator.headers });
     res.end(JSON.stringify({ code }));
   } else if (GAME_CODE_PATTERN.test(path)) {
     const code = path.match(GAME_CODE_PATTERN)![1];
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8", ...ensurePlayer(req).headers });
     res.end(screens.gameScreen(screenContext(), code));
   } else if (path.startsWith("/static/") && path.slice("/static/".length) in clientBundles) {
     res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });

@@ -301,7 +301,7 @@ describe("S: what happens is kept (promise 5)", () => {
       // The tutorial flag was the tenth migration, applied once; the Earthquake migration (S4) is the 11th
       // and the shrinking board's (S5) the 12th and the walls' removal (S6) the 13th.
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
       raw.close();
       // An existing player has not seen the tutorial, so it is due for them.
       expect(upgraded.playerById("p-old")?.tutorialSeen).toBe(false);
@@ -348,7 +348,7 @@ describe("R53 a game saved before Earthquake is upgraded", () => {
       expect(games.NEW11.earthquakesLeft).toEqual({ A: false, B: true });
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
       raw.close();
     } finally {
       rmSync(path, { force: true });
@@ -397,7 +397,7 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
       expect(games.NEW12.rows).toBe(5); // never overwritten
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
       raw.close();
       const again = openDb(path); // opening again runs nothing a second time
       expect(again.loadGames().find((g) => g.code === "NEW12")?.state.rows).toBe(5);
@@ -424,7 +424,7 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
       expect((state.board as string[][])[1]).toEqual(["A", "B"]);
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
       raw.close();
     } finally {
       clean(path);
@@ -433,7 +433,7 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
 });
 
 describe("R71 which games are watchable is saved", () => {
-  it("S7 (R71) migration 14 adds the watchable mark: old games are not watchable, games against the computer still are, and a newer game keeps its mark", () => {
+  it("S7 (R71) migration 14 adds the watchable mark, now read as a game's kind: an old unmarked game is a link game, a computer game is a computer game (never watched, R71) and a newer game keeps its mark", () => {
     const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration14.db`);
     try {
       const old = new DatabaseSync(path);
@@ -455,19 +455,72 @@ describe("R71 which games are watchable is saved", () => {
 
       const upgraded = openDb(path);
       const games = Object.fromEntries(upgraded.loadGames().map((g) => [g.code, g]));
-      expect(games.OLDFRN.watchable).toBe(false); // errs on the side of privacy
-      expect(games.OLDCMP.watchable).toBe(true);
+      expect(games.OLDFRN.kind).toBe("link"); // never in Watch live: it errs on the side of privacy
+      expect(games.OLDCMP.kind).toBe("computer"); // was watchable before 28 October 2026; R71 now says never
       upgraded.markWatchable("NEWQCK", newGame()); // an upsert: the row is created already marked
       upgraded.saveGame("NEWQCK", { ...newGame(), round: 3 }); // saving a round never clears the mark
-      expect(upgraded.loadGames().find((g) => g.code === "NEWQCK")?.watchable).toBe(true);
+      expect(upgraded.loadGames().find((g) => g.code === "NEWQCK")?.kind).toBe("quick");
       upgraded.saveGame("PLAIN1", newGame());
-      expect(upgraded.loadGames().find((g) => g.code === "PLAIN1")?.watchable).toBe(false); // a friend game is never marked
+      expect(upgraded.loadGames().find((g) => g.code === "PLAIN1")?.kind).toBe("link"); // an unmarked game is a link game, never in Watch live
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(14);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
       raw.close();
       const again = openDb(path);
-      expect(again.loadGames().find((g) => g.code === "NEWQCK")?.watchable).toBe(true);
+      expect(again.loadGames().find((g) => g.code === "NEWQCK")?.kind).toBe("quick");
+      again.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
+});
+
+describe("R36 and R71 the kind of a game and its creator are saved", () => {
+  it("S8 (R36, R71) migration 15, 16 and 17 give old games a kind from what is known, saves a link game's creator, and never changes a game that has one", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration15.db`);
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
+      old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN player_a TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN player_b TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE games ADD COLUMN watchable INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`PRAGMA user_version = 14`);
+      const insert = old.prepare("INSERT INTO games (code, state, updated_at, vs_computer, watchable) VALUES (?, ?, ?, ?, ?)");
+      insert.run("OLDCMP", JSON.stringify(newGame()), Date.now(), 1, 0); // against the computer
+      insert.run("OLDQCK", JSON.stringify(newGame()), Date.now(), 0, 1); // marked watchable: a quick match game
+      insert.run("OLDLNK", JSON.stringify(newGame()), Date.now(), 0, 0); // neither: a link game
+      old.close();
+
+      const upgraded = openDb(path);
+      const games = Object.fromEntries(upgraded.loadGames().map((g) => [g.code, g]));
+      expect(games.OLDCMP.kind).toBe("computer");
+      expect(games.OLDQCK.kind).toBe("quick");
+      expect(games.OLDLNK.kind).toBe("link");
+      expect(games.OLDLNK.creator).toBeNull();
+      upgraded.markLink("NEWLNK", newGame(), "person-1");
+      upgraded.saveGame("NEWLNK", { ...newGame(), round: 2 }); // saving a round never clears the kind or the creator
+      const fresh = upgraded.loadGames().find((g) => g.code === "NEWLNK")!;
+      expect(fresh.kind).toBe("link");
+      expect(fresh.creator).toBe("person-1");
+      upgraded.markWatchable("NEWQCK", newGame());
+      expect(upgraded.loadGames().find((g) => g.code === "NEWQCK")?.kind).toBe("quick");
+      upgraded.markLink("NEWLNK", newGame(), "someone-else"); // the first creator wins
+      expect(upgraded.loadGames().find((g) => g.code === "NEWLNK")?.creator).toBe("person-1");
+      upgraded.close();
+      const raw = new DatabaseSync(path);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
+      raw.close();
+      const again = openDb(path);
+      expect(again.loadGames().find((g) => g.code === "OLDQCK")?.kind).toBe("quick");
       again.close();
     } finally {
       rmSync(path, { force: true });

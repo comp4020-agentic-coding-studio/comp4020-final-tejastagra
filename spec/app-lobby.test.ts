@@ -24,6 +24,14 @@ function freshCode(): string {
   return code;
 }
 
+// The person who makes a link game is player 1 (R36): the server keeps seat A for their session, so the first socket in a
+// check that stands for the creator carries the cookie the server gave them when it made the game.
+async function linkGame(): Promise<{ code: string; creator: { headers: { cookie: string } } }> {
+  const res = await fetch(inject("baseUrl") + "/api/games", { method: "POST", headers: { "fly-client-ip": fakeAddress() } });
+  const cookie = (res.headers.get("set-cookie") ?? "").split(";")[0];
+  return { code: (await res.json()).code as string, creator: { headers: { cookie } } };
+}
+
 const fakeAddress = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
 
 describe("L: playing modes (R33 to R36)", () => {
@@ -61,9 +69,9 @@ describe("L: playing modes (R33 to R36)", () => {
   });
 
   it("L3 (R34) the created code's /g/<code> page loads and two clients joining it share one game", async () => {
-    const { code } = await (await fetch(inject("baseUrl") + "/api/games", { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
+    const { code, creator } = await linkGame();
     expect((await fetch(inject("baseUrl") + "/g/" + code)).status).toBe(200);
-    const a = new WebSocket(wsUrl("/ws"));
+    const a = new WebSocket(wsUrl("/ws"), creator as never);
     await onceOpen(a);
     a.send(JSON.stringify({ type: "join", code }));
     const first = await onceMessage(a);
@@ -103,24 +111,26 @@ describe("L: playing modes (R33 to R36)", () => {
     for (const code of perGame.keys()) expect((await fetch(`${base}/g/${code}`)).status).toBe(200);
   });
 
-  it("L5 (R36) a third client joining a full game is refused with game_full", async () => {
-    const code = freshCode();
-    const a = new WebSocket(wsUrl("/ws"));
+  it("L5 (R36, replaced on 28 October 2026) a third client joining a full link game watches it: it is never given a seat and never refused", async () => {
+    const { code, creator } = await linkGame();
+    const a = new WebSocket(wsUrl("/ws"), creator as never);
     await onceOpen(a);
-    a.send(JSON.stringify({ type: "join", code, player: "A" }));
-    await onceMessage(a);
+    a.send(JSON.stringify({ type: "join", code }));
+    expect((await onceMessage(a)).you).toBe("A");
 
     const b = new WebSocket(wsUrl("/ws"));
     await onceOpen(b);
-    b.send(JSON.stringify({ type: "join", code, player: "B" }));
-    await onceMessage(b);
+    b.send(JSON.stringify({ type: "join", code }));
+    expect((await onceMessage(b)).you).toBe("B");
 
     const third = new WebSocket(wsUrl("/ws"));
     await onceOpen(third);
     third.send(JSON.stringify({ type: "join", code }));
     const reply = await onceMessage(third);
 
-    expect(reply.type).toBe("game_full");
+    expect(reply.type).toBe("spectating");
+    expect(reply.because).toBe("two_players");
+    expect(JSON.stringify(reply)).not.toMatch(/seatToken/);
     a.close();
     b.close();
     third.close();

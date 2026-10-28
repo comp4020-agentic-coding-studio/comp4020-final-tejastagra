@@ -1703,6 +1703,66 @@ input {
   font-size: 1rem;
 }
 
+/* A link game's spectator is told why they are watching, in place of the banner (U92). One line, in a smaller type on a phone. */
+.spectator-notice {
+  background: var(--panel);
+  color: var(--text);
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.spectator-notice[hidden] {
+  display: none;
+}
+
+/* Nothing is live: a centred card in the toy style with the way on (U93). */
+.no-live {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(480px, 100%);
+  margin: 32px auto 16px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.no-live[hidden] {
+  display: none;
+}
+
+.no-live h2 {
+  margin: 0;
+}
+
+.no-live p {
+  margin: 0;
+}
+
+.no-live-icon svg {
+  width: 48px;
+  height: 48px;
+  fill: var(--yellow);
+}
+
+.no-live-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.no-live-actions .btn {
+  min-width: 0;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.share-text {
+  margin: 0 0 12px;
+  text-align: center;
+}
+
 /* The result card sits over the board, compact and centred, like the end popup (U82). */
 .watch-result {
   position: absolute;
@@ -1856,7 +1916,7 @@ input {
 
   .watching .status-row {
     flex-wrap: wrap;
-    gap: 3px 8px;
+    gap: 1px 8px;
   }
 
   .watching .shrink-warning {
@@ -1866,6 +1926,25 @@ input {
   .watching .watching-banner,
   .watching .watcher-count {
     font-size: 0.78rem;
+  }
+
+  /* "Watching <name> vs <name>" is as long as two nicknames and tags (U94): it takes its own line, cut with an ellipsis if
+     the widest names still do not fit, and the names stay whole in the player panels below. */
+  .watching .watching-banner:not(.spectator-notice) {
+    order: 3;
+    flex: 1 0 100%;
+    padding-block: 0;
+    width: 0; /* adds nothing to the row's own width, so a long name never widens the screen */
+    min-width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .watching .spectator-notice {
+    font-size: 0.66rem;
+    padding-inline: 6px;
   }
 
   /* "Watch another game" is the longest label (U79). At 320px the arrow icon goes, so the words fit on two lines. */

@@ -64,8 +64,21 @@ async function board() {
   };
 }
 
-async function newGameCode(path = "/api/games") {
-  return (await (await fetch(base() + path, { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json()).code as string;
+// A link game is made by the person who plays seat A (R36), so the first player's cookie goes with the request that makes it.
+async function newGameCode(path = "/api/games", creator?: { cookie: string }) {
+  const headers: Record<string, string> = { "fly-client-ip": fakeAddress() };
+  if (creator) headers.cookie = creator.cookie;
+  return (await (await fetch(base() + path, { method: "POST", headers })).json()).code as string;
+}
+
+// Two people paired by Quick match, a game with no reserved seat: for a check whose players have no session at all.
+async function quickCode(): Promise<string> {
+  const ticket = () => `${base()}/api/quick/${crypto.randomUUID()}`;
+  const probe = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
+  if (probe.state === "waiting") await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } });
+  const first = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
+  const second = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
+  return (second.code ?? first.code) as string;
 }
 
 const fakeAddress = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
@@ -74,7 +87,7 @@ describe("B: leaderboard (R37 to R39)", () => {
   it("B2 (R38) and B5 (R17) a win against a person adds one win and records the round count at the win", async () => {
     const one = await guest("Ace" + unique());
     const two = await guest("Bee" + unique());
-    const code = await newGameCode();
+    const code = await newGameCode("/api/games", one);
     const a = await seat(code, one);
     const b = await seat(code, two);
     const result = await playVertical(a, b, code);
@@ -102,7 +115,7 @@ describe("B: leaderboard (R37 to R39)", () => {
   });
 
   it("B2 (R38) a guest with no cookie is never listed", async () => {
-    const code = await newGameCode();
+    const code = await quickCode();
     const open = async () => {
       const socket = new WebSocket(base().replace(/^http/, "ws") + "/ws");
       const next = queue(socket);

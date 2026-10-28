@@ -229,16 +229,6 @@ describe("R71 friend games are never watched (W3)", () => {
     }
   });
 
-  it("W3 (R71) a computer game is watchable, and an exhibition game is not counted", async () => {
-    const s = track(start());
-    s.rt.createComputerGame("CMP001");
-    const human = await seat(s.url, "CMP001", "A");
-    expect(human.player).toBe("A");
-    expect(s.rt.liveCount()).toBe(1);
-    const { first } = await spectate(s.url, "CMP001");
-    expect(first.kind).toBe("computer");
-  });
-
   it("W3 (R70) a game still waiting for its second player, or already over, is not live", async () => {
     const s = track(start());
     s.rt.createQuickGame("SPC021");
@@ -338,7 +328,7 @@ describe("R76 a spectator moves on after a game ends (W6)", () => {
     expect(two.a.raw.length).toBeGreaterThan(0);
   });
 
-  it("W6 (R76) with no other live game, the spectator is moved to an exhibition game", async () => {
+  it("W6 (R76, R70) with no other live game, the spectator who asks for another is told none are live", async () => {
     const s = track(start());
     const one = await quickGame(s, "SPC052");
     const { c } = await spectate(s.url, "SPC052");
@@ -346,8 +336,7 @@ describe("R76 a spectator moves on after a game ends (W6)", () => {
     let last: any;
     while (!last || last.state.status === "playing") last = await c.next("round");
     c.send({ type: "spectate" });
-    const moved = await c.next("spectating");
-    expect(moved.kind).toBe("exhibition");
+    expect(await c.next("none_live")).toEqual({ type: "none_live" }); // nothing is made up to watch (R70)
   });
 });
 
@@ -390,76 +379,6 @@ describe("R77 the caps (W7)", () => {
     one.c.socket.close();
     await one.c.nothing(80);
     expect((await spectate(s.url, "SPC064")).first.type).toBe("spectating");
-  });
-});
-
-describe("R78 the exhibition game (W8)", () => {
-  it("W8 (R78) with nothing live, a spectator is shown an exhibition game of two computers, started on demand", async () => {
-    const s = track(start());
-    expect(s.rt.exhibitionRunning()).toBe(false);
-    const { c, first } = await spectate(s.url);
-    expect(first.kind).toBe("exhibition");
-    expect(first.names).toEqual({ A: "Computer 1", B: "Computer 2" });
-    expect(s.rt.exhibitionRunning()).toBe(true);
-    const round = await c.next("round"); // the computers play by themselves
-    expect(round.state.round).toBeGreaterThanOrEqual(1);
-  });
-
-  it("W8 (R78) it stops and is forgotten when the last spectator leaves, and a new one starts next time", async () => {
-    const s = track(start());
-    const { c, first } = await spectate(s.url);
-    const code = first.code;
-    c.socket.close();
-    await c.nothing(120);
-    expect(s.rt.exhibitionRunning()).toBe(false);
-    expect(s.rt.game.getGame(code)).toBeUndefined();
-    const again = await spectate(s.url);
-    expect(again.first.kind).toBe("exhibition");
-    expect(again.first.code).not.toBe(code);
-  });
-
-  it("W8 (R78, R37) it never touches the database: nothing is saved, so the leaderboard cannot see it", async () => {
-    const s = track(start());
-    const { c, first } = await spectate(s.url);
-    await c.next("round");
-    expect(s.db.loadGames().some((g) => g.code === first.code)).toBe(false);
-    expect(s.rt.liveCount()).toBe(0); // and it is not counted as live (R80)
-  });
-
-  it("W8 (R78) a finished exhibition game stays for the spectators still looking at its result, and a new spectator gets a fresh one", async () => {
-    const s = track(start());
-    const first = await spectate(s.url);
-    const code = first.first.code as string;
-    // Let it play to the end: both computers choose from the public board, so this takes a while.
-    let last: any;
-    while (!last || last.state.status === "playing") last = await first.c.next("round");
-    const second = await spectate(s.url); // asks for "a game" while the first is over but still watched
-    expect(second.first.type).toBe("spectating");
-    expect(second.first.code).not.toBe(code); // a fresh exhibition game, not the finished one
-    expect(s.rt.game.getGame(code)).toBeUndefined(); // exhibition games are never in the game service
-    // The first spectator's game still exists for it: asking for that very game again gets its snapshot back, not "unknown".
-    first.c.send({ type: "spectate", code });
-    const kept = await first.c.next("spectating");
-    expect(kept.code).toBe(code);
-    expect(kept.state.status).not.toBe("playing"); // it is still the finished game, with its result
-    // The first spectator is still counted in its own game, and told when someone else leaves it.
-    expect(s.rt.watchingIn(code)).toBe(1);
-    expect(s.rt.watchingIn(second.first.code)).toBe(1);
-    expect(s.rt.exhibitionRunning()).toBe(true);
-    first.c.send({ type: "leave" });
-    await first.c.nothing(80);
-    expect(s.rt.exhibitionRunning()).toBe(true); // the second spectator still has theirs
-    second.c.send({ type: "leave" });
-    await second.c.nothing(80);
-    expect(s.rt.exhibitionRunning()).toBe(false); // everything is forgotten once nobody watches
-  });
-
-  it("W8 (R78) a real game that becomes live is offered before the exhibition game", async () => {
-    const s = track(start());
-    await quickGame(s, "SPC070");
-    const { first } = await spectate(s.url);
-    expect(first.kind).toBe("quick");
-    expect(s.rt.exhibitionRunning()).toBe(false);
   });
 });
 
@@ -511,22 +430,24 @@ describe("R79 spectators change nothing for the players (W9, W10)", () => {
 });
 
 describe("R71 which games are watchable survives a restart (W11)", () => {
-  it("W11 (R71) a quick game is still watchable, and a friend game still is not, after the server restarts on the same database", async () => {
+  it("W11 (R71) a quick game is still a quick game and a link game still a link game after the server restarts on the same database", async () => {
     const db = openDb(":memory:");
     const first = track(start({ db }));
     first.rt.createQuickGame("SPC090");
-    first.rt.game.createGame("FRN090");
+    first.rt.createLinkGame("LNK090", null);
     first.rt.dispose();
     first.server.close();
     const second = track(start({ db }));
     const a = await seat(second.url, "SPC090", "A");
     await seat(second.url, "SPC090", "B");
     await a.next("opponent_joined");
-    expect((await spectate(second.url, "SPC090")).first.type).toBe("spectating");
-    const f = await seat(second.url, "FRN090", "A");
-    await seat(second.url, "FRN090", "B");
+    const f = await seat(second.url, "LNK090", "A");
+    await seat(second.url, "LNK090", "B");
     await f.next("opponent_joined");
-    expect((await spectate(second.url, "FRN090")).first).toEqual({ type: "not_watchable", reason: "unknown" });
+    // Both are watchable by code once their seats are taken, but only the quick match game is offered by Watch live (R70).
+    expect((await spectate(second.url, "SPC090")).first.kind).toBe("quick");
+    expect((await spectate(second.url, "LNK090")).first.kind).toBe("link");
+    for (let i = 0; i < 4; i++) expect((await spectate(second.url)).first.code).toBe("SPC090");
   });
 });
 
@@ -567,14 +488,16 @@ describe("R76 and R79 a spectator hears how a game ends, including a forfeit or 
   });
 
   it("R76 and R79 a spectator can move on after an ended game and is not offered it again while another is live", async () => {
-    const server = track(start({ roundTimerMs: 80 }));
-    await quickGame(server, "SPC112");
+    // A long round timer, so the second game stays live; the first ends by a forfeit when a player does not come back.
+    const server = track(start({ roundTimerMs: 5000, graceMs: 80 }));
+    const first = await quickGame(server, "SPC112");
     await quickGame(server, "SPC113");
     const { c } = await spectate(server.url, "SPC112");
-    await c.next("ended");
+    first.b.socket.close();
+    expect((await c.next("ended")).result).toBe("forfeit");
     c.send({ type: "spectate" });
     const moved = await c.next("spectating");
-    expect(moved.code).not.toBe("SPC112");
+    expect(moved.code).toBe("SPC113"); // the only game still live, and not the one that just ended
   });
 });
 
@@ -636,11 +559,7 @@ describe("R77 the flood limits cannot be got round (second review)", () => {
     expect(heard.length).toBeLessThanOrEqual(10);
   });
 
-  it("R77 a spectator on an exhibition game, or on a game that has ended, that does not read is closed too", async () => {
-    const s = track(start({ bufferLimit: -1, roundTimerMs: 80 }));
-    const { c } = await spectate(s.url); // the exhibition game
-    await c.nothing(400); // a round of the exhibition game is sent, which trips the limit
-    expect(s.rt.exhibitionRunning()).toBe(false); // nobody left watching, so it stopped
+  it("R77 a spectator on a game that has ended, that does not read, is closed too", async () => {
     // A forfeit ends a game with no round before it, so the ended message is the only thing that can trip the limit.
     const t = track(start({ bufferLimit: -1, roundTimerMs: 5000, graceMs: 60 }));
     const { b } = await quickGame(t, "SPC132");
@@ -653,26 +572,26 @@ describe("R77 the flood limits cannot be got round (second review)", () => {
 
   it("R70 a lone spectator who asks again for the game it is already watching keeps watching it", async () => {
     const s = track(start());
-    const { c, first } = await spectate(s.url); // the exhibition game
-    c.send({ type: "spectate", code: first.code });
+    await quickGame(s, "SPC150");
+    const { c } = await spectate(s.url, "SPC150");
+    c.send({ type: "spectate", code: "SPC150" });
     const again = await c.next("spectating");
-    expect(again.code).toBe(first.code);
-    expect(s.rt.exhibitionRunning()).toBe(true);
-    expect(s.rt.watchingIn(first.code)).toBe(1);
+    expect(again.code).toBe("SPC150");
+    expect(s.rt.watchingIn("SPC150")).toBe(1); // counted once, not twice
   });
 });
 
 describe("Cleanup (final review)", () => {
-  it("R78 and R77 leaving or closing clears everything the spectator left behind", async () => {
+  it("R77 leaving or closing clears everything the spectator left behind", async () => {
     const s = track(start());
-    const { c, first } = await spectate(s.url);
-    expect(s.rt.exhibitionRunning()).toBe(true);
+    await quickGame(s, "SPC151");
+    const { c } = await spectate(s.url, "SPC151");
+    expect(s.rt.watchingIn("SPC151")).toBe(1);
     c.socket.close();
     await c.nothing(120);
-    expect(s.rt.exhibitionRunning()).toBe(false);
-    expect(s.rt.watchingIn(first.code)).toBe(0);
+    expect(s.rt.watchingIn("SPC151")).toBe(0);
     const left = s.rt.spectatorState();
-    expect({ watchers: left.watchers, watching: left.watching, lastGame: left.lastGame, exhibitions: left.exhibitions }).toEqual({ watchers: 0, watching: 0, lastGame: 0, exhibitions: 0 });
+    expect({ watchers: left.watchers, watching: left.watching, lastGame: left.lastGame }).toEqual({ watchers: 0, watching: 0, lastGame: 0 });
     expect(left.addresses, "the address history stays only until it ages out (R77)").toBeLessThanOrEqual(1);
   });
 
@@ -693,13 +612,14 @@ describe("Cleanup (final review)", () => {
     expect(s.rt.spectatorState().addresses).toBeGreaterThanOrEqual(0);
   });
 
-  it("R71 after dispose nothing spectator-related is left: no exhibition game, no watchers", async () => {
+  it("R71 after dispose nothing spectator-related is left: no watchers and no known games", async () => {
     const s = start();
-    const { c } = await spectate(s.url);
-    expect(s.rt.exhibitionRunning()).toBe(true);
+    await quickGame(s, "SPC152");
+    const { c } = await spectate(s.url, "SPC152");
+    expect(s.rt.spectatorState().watchers).toBe(1);
     s.rt.dispose();
-    expect(s.rt.exhibitionRunning()).toBe(false);
     expect(s.rt.spectatorState().watchers).toBe(0);
+    expect(s.rt.kindsKnown()).toEqual([]);
     c.socket.close();
     s.server.close();
   });
@@ -713,6 +633,6 @@ describe("Cleanup (final review)", () => {
     first.rt.dispose();
     first.server.close();
     const second = track(start({ db }));
-    expect(second.rt.watchableKnown()).toEqual(["OLDQ01"]);
+    expect(second.rt.kindsKnown()).toEqual([["OLDQ01", "quick"]]);
   });
 });

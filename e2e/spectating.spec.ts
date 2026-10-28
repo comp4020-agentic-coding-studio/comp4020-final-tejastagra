@@ -1,30 +1,49 @@
-// Browser checks for spectating (docs/design/spectating.md U76 to U84, rules R70 to R80). Run with
-// pnpm test:e2e, never in pnpm check. A computer game is watchable, so each check makes one and watches it.
+// Browser checks for spectating (docs/design/spectating.md U76 to U95, rules R70 to R80). Run with
+// pnpm test:e2e, never in pnpm check. Only quick match games are listed (R70) and a computer game can never be watched (R71),
+// so each check pairs two players through Quick match, or opens a link game, and watches that very game by its code.
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
 import { newPlayer, testid, waitForRound } from "./helpers.ts";
 
-// A player in a game against the computer, and a spectator at the size under test.
-async function watching(browser: Browser, size: { width: number; height: number }, options: { reducedMotion?: boolean; names?: boolean } = {}) {
-  const player = await newPlayer(browser, PHONE, { reducedMotion: options.reducedMotion });
-  const spectator = await newPlayer(browser, size, { reducedMotion: options.reducedMotion });
+type Size = { width: number; height: number };
+
+// Two players paired by Quick match, each in their own context. Any waiting ticket from another check is paired off first.
+async function quickPair(browser: Browser, sizes: [Size, Size] = [PHONE, LAPTOP], options: { names?: boolean } = {}) {
+  const drain = await newPlayer(browser, PHONE);
+  const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
+  if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+  await drain.context.close();
+  const one = await newPlayer(browser, sizes[0], { reducedMotion: true });
+  const two = await newPlayer(browser, sizes[1], { reducedMotion: true });
   if (options.names) {
-    await player.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } });
-    await spectator.page.request.post("/api/guest", { data: { nickname: "WWWWWWWWWWWWWWWW" } });
+    await one.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } });
+    await two.page.request.post("/api/guest", { data: { nickname: "WWWWWWWWWWWWWWWW" } });
   }
-  const res = await player.page.request.post("/api/computer");
-  const code = (await res.json()).code as string;
-  await player.page.goto(`/g/${code}`);
-  await waitForRound(player.page, 1);
-  await spectator.page.goto(`/watch?game=${code}`); // this very game: other checks have games live too
-  await expect(spectator.page.locator(testid("name-a"))).not.toHaveText("Player");
-  return { player, spectator, code };
+  await one.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+  const matched = await (await two.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
+  const code = matched.code as string;
+  await one.page.goto(`/g/${code}`);
+  await two.page.goto(`/g/${code}`);
+  await waitForRound(one.page, 1);
+  await waitForRound(two.page, 1);
+  return { one, two, code };
 }
 
-// The computer is the only one who can be the opposite seat, so the human chooses and the round resolves at once.
-async function playRound(player: Page, spectator: Page, round: number, column: number): Promise<void> {
-  await player.locator(testid(`column-${column}`)).click();
-  await waitForRound(player, round + 1);
+// A quick match pair and a spectator at the size under test, watching this very game (other checks have games live too).
+async function watching(browser: Browser, size: Size, options: { names?: boolean } = {}) {
+  const { one, two, code } = await quickPair(browser, [PHONE, LAPTOP], options);
+  const spectator = await newPlayer(browser, size, { reducedMotion: true });
+  if (options.names) await spectator.page.request.post("/api/guest", { data: { nickname: "WWWWWWWWWWWWWWWW" } });
+  await spectator.page.goto(`/watch?game=${code}`);
+  await expect(spectator.page.locator(testid("name-a"))).not.toHaveText("Player");
+  return { player: one, other: two, spectator, code };
+}
+
+// Both players choose, so the round resolves at once, and the spectator sees the next round.
+async function playRound(a: Page, b: Page, spectator: Page, round: number, columnA: number, columnB: number): Promise<void> {
+  await a.locator(testid(`column-${columnA}`)).click();
+  await b.locator(testid(`column-${columnB}`)).click();
+  await waitForRound(a, round + 1);
   await expect(spectator.locator(testid("round-number"))).toHaveText(String(round + 1), { timeout: 4_000 });
 }
 
@@ -52,7 +71,7 @@ test.describe("The home screen (U76, U77)", () => {
     });
   }
 
-  test("E9 and U76 the count goes up by one while a computer game is live, and says so in words", async ({ browser }) => {
+  test("E9 and U76 the count goes up while a quick match game is live, and says so in words", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE);
     await page.goto("/");
     const read = async () => {
@@ -61,14 +80,12 @@ test.describe("The home screen (U76, U77)", () => {
     };
     await expect.poll(async () => typeof (await read())).toBe("number");
     const before = await read();
-    const other = await newPlayer(browser, PHONE);
-    const code = (await (await other.page.request.post("/api/computer")).json()).code as string;
-    await other.page.goto(`/g/${code}`);
-    await waitForRound(other.page, 1);
+    const pair = await quickPair(browser);
     await page.reload(); // the count is asked for when the screen opens
     await expect.poll(read, { timeout: 5_000 }).toBeGreaterThanOrEqual(before + 1);
     await context.close();
-    await other.context.close();
+    await pair.one.context.close();
+    await pair.two.context.close();
   });
 
   test("E9 and U77 tapping Watch live opens the watching screen", async ({ browser }) => {
@@ -76,7 +93,7 @@ test.describe("The home screen (U76, U77)", () => {
     await page.goto("/");
     await page.locator(testid("watch-live")).click();
     await page.waitForURL(/\/watch$/);
-    await expect(page.locator(testid("watching-banner"))).toBeVisible();
+    await expect(page.locator(`${testid("watching-banner")}:visible, ${testid("no-live-games")}:visible`)).toHaveCount(1);
     await context.close();
   });
 });
@@ -84,12 +101,13 @@ test.describe("The home screen (U76, U77)", () => {
 test.describe("The watching screen (U78 to U83)", () => {
   for (const size of [PHONE, LAPTOP]) {
     test(`E9 and U78 and U80 the banner, both names, the board and the count show at ${size.width} x ${size.height}`, async ({ browser }) => {
-      const { player, spectator } = await watching(browser, size, { reducedMotion: true });
-      await expect(spectator.page.locator(testid("watching-banner"))).toHaveText("Watching live");
+      const { player, other, spectator } = await watching(browser, size);
+      const nameA = await spectator.page.locator(testid("name-a")).innerText();
+      const nameB = await spectator.page.locator(testid("name-b")).innerText();
+      await expect(spectator.page.locator(testid("watching-banner"))).toHaveText(`Watching ${nameA} vs ${nameB}`);
       await expect(spectator.page.locator(testid("watching-count"))).toHaveText("1 watching");
-      await expect(spectator.page.locator(testid("name-b"))).toHaveText("Computer");
-      expect((await spectator.page.locator(testid("name-a")).innerText()).length).toBeGreaterThan(2);
-      await playRound(player.page, spectator.page, 1, 3);
+      expect(nameA.length).toBeGreaterThan(2);
+      await playRound(player.page, other.page, spectator.page, 1, 3, 5);
       // The spectator's board is the player's board: the computer may have chosen column 4 too (a crash leaves rubble),
       // so compare the two screens cell by cell, mirrored (the player's discs are "A" on their own screen, "A" here).
       const cells = async (page: Page) => page.locator('[data-testid^="cell-"]').evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.piece ?? ""));
@@ -98,20 +116,19 @@ test.describe("The watching screen (U78 to U83)", () => {
       expect(theirs.filter((p) => p !== "").length).toBeGreaterThan(0);
       expect(theirs.map((p) => (p === "A" || p === "B" ? "disc" : p))).toEqual(mine.map((p) => (p === "A" || p === "B" ? "disc" : p)));
       await expect(spectator.page.locator(testid("result-line"))).not.toHaveText("");
-      await player.context.close();
-      await spectator.context.close();
+      for (const c of [player, other, spectator]) await c.context.close();
     });
   }
 
   test("E9 and U79 nothing on the watching screen is interactive: no columns, badges, ghost or timer, and only two buttons", async ({ browser }) => {
-    const { player, spectator } = await watching(browser, PHONE, { reducedMotion: true });
+    const { player, other, spectator } = await watching(browser, PHONE);
     const page = spectator.page;
     for (const id of ["column-0", "column-3", "column-6", "shield-badge", "earthquake-badge", "shield-info", "earthquake-info", "ghost-disc", "timer"]) {
       await expect(page.locator(testid(id)), id).toHaveCount(0);
     }
     expect(await page.locator("[data-column]").count()).toBe(0);
     const controls = await page.locator("button, a[href], input, select, textarea, [role=button], [tabindex]:not([tabindex='-1'])").evaluateAll((els) =>
-      els.map((e) => (e as HTMLElement).dataset.testid ?? e.tagName).sort(),
+      els.filter((e) => (e as HTMLElement).getClientRects().length > 0).map((e) => (e as HTMLElement).dataset.testid ?? e.tagName).sort(),
     );
     expect(controls, "the only things you can act on").toEqual(["go-home", "watch-another"]);
     // Tapping and hovering the board does nothing: no ghost disc, no highlight, no message, nothing sent.
@@ -124,12 +141,11 @@ test.describe("The watching screen (U78 to U83)", () => {
     for (const key of ["1", "4", "s", "e"]) await page.keyboard.press(key);
     await expect(player.page.locator(testid("opponent-status"))).toHaveText("Choosing");
     await expect(player.page.locator(testid("round-number"))).toHaveText("1");
-    await player.context.close();
-    await spectator.context.close();
+    for (const c of [player, other, spectator]) await c.context.close();
   });
 
   test("E9 and U79 the player panels never say Choosing or Ready, and show the shield and Earthquake as icons (R72)", async ({ browser }) => {
-    const { player, spectator } = await watching(browser, PHONE, { reducedMotion: true });
+    const { player, other, spectator } = await watching(browser, PHONE);
     const text = await spectator.page.locator(testid("players")).innerText();
     expect(text).not.toMatch(/choosing|ready|chosen/i);
     for (const id of ["shield-a", "shield-b", "quake-a", "quake-b"]) await expect(spectator.page.locator(testid(id))).toBeVisible();
@@ -137,81 +153,81 @@ test.describe("The watching screen (U78 to U83)", () => {
     await player.page.locator(testid("shield-badge")).click();
     await player.page.locator(testid("column-2")).click();
     await expect(spectator.page.locator(testid("shield-a"))).toHaveAttribute("data-shield", "ready"); // not yet: the round is open
+    await other.page.locator(testid("column-5")).click();
     await waitForRound(player.page, 2);
     await expect(spectator.page.locator(testid("shield-a"))).toHaveAttribute("data-shield", "used");
-    await player.context.close();
-    await spectator.context.close();
+    for (const c of [player, other, spectator]) await c.context.close();
   });
 
   test("E9 and U79 and R72 nothing the spectator sees changes until the round resolves", async ({ browser }) => {
-    const { player, spectator } = await watching(browser, PHONE, { reducedMotion: true });
+    const { player, other, spectator } = await watching(browser, PHONE);
     const before = await spectator.page.locator(testid("board-wrap")).innerHTML();
-    await player.page.locator(testid("column-4")).click(); // chosen; the computer thinks for 1 to 3 seconds (R52)
+    await player.page.locator(testid("column-4")).click(); // chosen; the other player has not chosen yet
     await spectator.page.waitForTimeout(400);
     expect(await spectator.page.locator(testid("board-wrap")).innerHTML()).toBe(before);
     expect(await spectator.page.locator(testid("round-number")).innerText()).toBe("1");
+    await other.page.locator(testid("column-5")).click();
     await waitForRound(player.page, 2);
     await expect(spectator.page.locator(testid("round-number"))).toHaveText("2", { timeout: 4_000 });
-    await player.context.close();
-    await spectator.context.close();
+    for (const c of [player, other, spectator]) await c.context.close();
   });
 
   test("E9 and U79 the buttons are 44px or more and Home goes home", async ({ browser }) => {
-    const { player, spectator } = await watching(browser, PHONE, { reducedMotion: true });
+    const { player, other, spectator } = await watching(browser, PHONE);
     for (const id of ["watch-another", "go-home"]) {
-      const box = (await spectator.page.locator(testid(id)).boundingBox())!;
+      const box = (await spectator.page.locator(`${testid(id)}:visible`).boundingBox())!;
       expect(box.width, id).toBeGreaterThanOrEqual(44);
       expect(box.height, id).toBeGreaterThanOrEqual(44);
     }
-    await spectator.page.locator(testid("go-home")).click();
+    await spectator.page.locator(`${testid("go-home")}:visible`).click();
     await spectator.page.waitForURL(/\/$/);
-    await player.context.close();
-    await spectator.context.close();
+    for (const c of [player, other, spectator]) await c.context.close();
   });
 
-  test("E9 and U81 an exhibition game is labelled, between two computers, and the label comes from the game's kind", async ({ browser }) => {
-    // Whether the server offers an exhibition game depends on what else is live in a shared app, so this check does not
-    // wait for one (and never skips). It plays the server's own `spectating` message for an exhibition game into the real
-    // watching page, as the server would send it, and checks what the page shows. The server side (an exhibition game
-    // starts when nothing is live, is never saved and stops with no audience) is W8 in spec/unit-spectating.test.ts.
+  test("E9 and U81 with no quick match game live, Watch live says so and offers Quick match and Home", async ({ browser }) => {
+    // Whether a quick match game is live depends on what else the shared app has going, so the server's answer is played
+    // into the real page, as the server would send it. The server side is W14 in spec/unit-spectating.test.ts.
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.routeWebSocket(/\/ws$/, (ws) => {
-      ws.onMessage(() => {
-        ws.send(JSON.stringify({
-          type: "spectating",
-          code: "EXHABC",
-          kind: "exhibition",
-          watching: 1,
-          names: { A: "Computer 1", B: "Computer 2" },
-          state: { board: [[], [], [], [], [], [], []], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null },
-        }));
-      });
+      ws.onMessage(() => ws.send(JSON.stringify({ type: "none_live" })));
     });
     await page.goto("/watch");
-    await expect(page.locator(testid("watching-banner"))).toHaveText("Exhibition: Computer vs Computer");
-    await expect(page.locator(testid("name-a"))).toHaveText("Computer 1");
-    await expect(page.locator(testid("name-b"))).toHaveText("Computer 2");
-    await expect(page.locator(testid("watching-count"))).toHaveText("1 watching");
+    const card = page.locator(testid("no-live-games"));
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("No live games right now");
+    await expect(card.getByRole("link", { name: "Quick match" })).toBeVisible();
+    await expect(card.getByRole("link", { name: "Home" })).toBeVisible();
     await context.close();
   });
 
-  test("E9 and U81 against the real server, whatever it offers is labelled for what it is", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await page.goto("/watch");
-    await expect(page.locator(testid("name-a"))).not.toHaveText("Player");
-    const banner = await page.locator(testid("watching-banner")).innerText();
-    expect(["Watching live", "Exhibition: Computer vs Computer"]).toContain(banner);
-    if (banner.startsWith("Exhibition")) {
-      await expect(page.locator(testid("name-a"))).toHaveText("Computer 1");
-      await expect(page.locator(testid("round-number"))).not.toHaveText("1", { timeout: 8_000 }); // they play by themselves
-    } else {
-      await expect(page.locator(testid("name-b"))).not.toHaveText("Computer 2"); // a real game, not an exhibition one
-    }
-    await context.close();
+  test("E9 and U92 the third person to open a link becomes a spectator, told why, with Home only", async ({ browser }) => {
+    const one = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const code = (await (await one.page.request.post("/api/games")).json()).code as string;
+    await one.page.goto(`/g/${code}`);
+    const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await two.page.goto(`/g/${code}`);
+    await waitForRound(one.page, 1);
+    await waitForRound(two.page, 1);
+    const three = await newPlayer(browser, NARROW, { reducedMotion: true });
+    await three.page.goto(`/g/${code}`);
+    await three.page.waitForURL(/\/watch\?game=.*via=link/);
+    await expect(three.page.locator(testid("spectator-notice"))).toHaveText("This game already has two players, so you're watching.");
+    await expect(three.page.locator(testid("name-a"))).not.toHaveText("Player");
+    const notice = (await three.page.locator(testid("spectator-notice")).boundingBox())!;
+    expect(notice.height, "the notice is one line at 320 wide").toBeLessThan(30);
+    expect(notice.x).toBeGreaterThanOrEqual(0);
+    expect(notice.x + notice.width, "inside the screen").toBeLessThanOrEqual(320);
+    expect(await three.page.locator(testid("spectator-notice")).evaluate((e) => e.scrollWidth <= e.clientWidth), "not cut off").toBe(true);
+    await expect(three.page.locator(testid("watch-another"))).toBeHidden();
+    await expect(three.page.locator(`${testid("go-home")}:visible`)).toBeVisible();
+    // The players still hold their seats and the spectator cannot choose.
+    await expect(three.page.locator(testid("column-3"))).toHaveCount(0);
+    await expect(one.page.locator(testid("watcher-count-text"))).toHaveText("1");
+    for (const c of [one, two, three]) await c.context.close();
   });
 
   test("E9 and U84 a second spectator makes it 2 for the player and for the first spectator, and 1 again when they leave", async ({ browser }) => {
-    const { player, spectator, code } = await watching(browser, PHONE, { reducedMotion: true });
+    const { player, spectator, code } = await watching(browser, PHONE);
     await expect(player.page.locator(testid("watcher-count-text"))).toHaveText("1");
     expect(await player.page.locator(testid("watcher-count")).evaluate((e) => (e as HTMLElement).textContent!.trim())).toBe("1 watching"); // the accessible name
     const second = await newPlayer(browser, LAPTOP, { reducedMotion: true });
@@ -229,48 +245,25 @@ test.describe("The watching screen (U78 to U83)", () => {
     await player.context.close();
   });
 
-  test("E9 and U84 and R71 a friend game never shows a count, and asking for it by its code is answered like a game that does not exist", async ({ browser }) => {
+  test("E9 and R70 and R71 a link game is never in Watch live, and a computer game cannot be watched even by its code", async ({ browser }) => {
     const one = await newPlayer(browser, PHONE, { reducedMotion: true });
-    const code = (await (await one.page.request.post("/api/games")).json()).code as string;
-    await one.page.goto(`/g/${code}`);
-    const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
-    await two.page.goto(`/g/${code}`);
+    const computer = (await (await one.page.request.post("/api/computer")).json()).code as string;
+    await one.page.goto(`/g/${computer}`);
     await waitForRound(one.page, 1);
     const ask = async (game: string) => {
-      const page = (await newPlayer(browser, PHONE, { reducedMotion: true }));
+      const page = await newPlayer(browser, PHONE, { reducedMotion: true });
       await page.page.goto(`/watch?game=${game}`);
       await expect(page.page.locator(testid("watch-message"))).toHaveText("That game cannot be watched. Try another.");
-      const state = { board: await page.page.locator(testid("board-wrap")).innerText(), banner: await page.page.locator(testid("watching-banner")).innerText(), names: await page.page.locator(testid("name-a")).innerText() };
+      const state = { board: await page.page.locator(testid("board-wrap")).innerText(), names: await page.page.locator(testid("name-a")).innerText() };
       await page.context.close();
       return state;
     };
-    // The same words and the same empty screen as a code that does not exist: nothing reveals that it is a game.
-    expect(await ask(code)).toEqual(await ask("ZZZZZZ"));
+    // The same words and the same empty screen as a code that does not exist.
+    expect(await ask(computer)).toEqual(await ask("ZZZZZZ"));
     await expect(one.page.locator(testid("watcher-count"))).toBeHidden();
-    await expect(two.page.locator(testid("watcher-count"))).toBeHidden();
-    for (const c of [one, two]) await c.context.close();
+    await one.context.close();
   });
 });
-
-// Two players paired by Quick match (a watchable kind of game, R71), each in their own context.
-async function quickPair(browser: Browser) {
-  const drain = await newPlayer(browser, PHONE);
-  const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
-  if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
-  await drain.context.close();
-  const one = await newPlayer(browser, PHONE, { reducedMotion: true });
-  const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
-  const ticketOne = crypto.randomUUID();
-  const ticketTwo = crypto.randomUUID();
-  await one.page.request.post(`/api/quick/${ticketOne}`);
-  const matched = await (await two.page.request.post(`/api/quick/${ticketTwo}`)).json();
-  const code = matched.code as string;
-  await one.page.goto(`/g/${code}`);
-  await two.page.goto(`/g/${code}`);
-  await waitForRound(one.page, 1);
-  await waitForRound(two.page, 1);
-  return { one, two, code };
-}
 
 test.describe("Watching to the end of a game (U82)", () => {
   test("E9 and U82 a game won by four in a row shows its result and a count down, and then the spectator moves on by itself", async ({ browser }) => {
@@ -295,7 +288,8 @@ test.describe("Watching to the end of a game (U82)", () => {
     await expect(spectator.page.locator(testid("cell-0-3"))).toHaveAttribute("data-piece", "A"); // the winning four is on the board
     // After 5 seconds the browser asks for another game by itself, and the card goes.
     await expect(card).toBeHidden({ timeout: 9_000 });
-    await expect(spectator.page.locator(testid("watching-banner"))).toBeVisible();
+    // The answer to "another game" is a live quick match game, or the card that says none is live (R80).
+    await expect(spectator.page.locator(`${testid("watching-banner")}:visible, ${testid("no-live-games")}:visible`)).toHaveCount(1);
     for (const c of [one, two, spectator]) await c.context.close();
   });
 
@@ -326,12 +320,12 @@ test.describe("Watching to the end of a game (U82)", () => {
     await spectator.page.locator(testid("watch-another")).click(); // at once, without waiting the 5 seconds
     // Moving on sends a new spectate (with no code: a random live game) and brings a new snapshot.
     await expect.poll(() => frames.slice(before).some((f) => f.dir === "sent" && f.body.type === "spectate" && f.body.code === undefined), { timeout: 2_000 }).toBe(true);
-    await expect.poll(() => frames.slice(before).some((f) => f.dir === "received" && f.body.type === "spectating"), { timeout: 2_000 }).toBe(true);
+    // The answer is another live quick match game, or "none live" when this was the only one (R70, R80).
+    await expect.poll(() => frames.slice(before).some((f) => f.dir === "received" && (f.body.type === "spectating" || f.body.type === "none_live")), { timeout: 2_000 }).toBe(true);
     await expect(card).toBeHidden({ timeout: 2_000 });
-    // The game that just ended is not offered again while another is live (R76): the exhibition game, or another live game, is shown.
-    const next = frames.slice(before).find((f) => f.dir === "received" && f.body.type === "spectating")!.body;
-    expect(next.code).toMatch(/^[A-Z0-9]{6}$/);
-    expect(next.state.round, "a game in progress, not the finished one").toBeLessThan(20);
+    // The game that just ended is not offered again (R76).
+    const next = frames.slice(before).find((f) => f.dir === "received" && (f.body.type === "spectating" || f.body.type === "none_live"))!.body;
+    if (next.type === "spectating") expect(next.code).not.toBe(code);
     for (const c of [one, two, spectator]) await c.context.close();
   });
 });
@@ -380,7 +374,8 @@ test.describe("Watching fits the phone (promise 4)", () => {
     }
     for (const [name, page] of [["watching", spectator.page], ["player", one.page]] as const) {
       await expect(page.locator(testid("shrink-warning")), name).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `${name}: sideways`).toBeLessThanOrEqual(0);
+      const wide = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")].filter((e) => !e.closest(".bubbles") && e.getBoundingClientRect().right > document.documentElement.clientWidth + 1 && getComputedStyle(e).display !== "none").map((e) => `${e.dataset.testid ?? e.className} ${Math.round(e.getBoundingClientRect().right)}`).slice(0, 8));
+      expect(wide, `${name}: sideways`).toEqual([]);
       const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
       const items = name === "watching" ? ["round-line", "watching-banner", "watching-count", "shrink-warning"] : ["round-line", "watcher-count", "shrink-warning"];
       for (const id of items) {
@@ -399,7 +394,7 @@ test.describe("Watching fits the phone (promise 4)", () => {
       }
     }
     for (const id of ["watch-another", "go-home"]) {
-      const b = (await spectator.page.locator(testid(id)).boundingBox())!;
+      const b = (await spectator.page.locator(`${testid(id)}:visible`).boundingBox())!;
       expect(b.y + b.height, `${id} is on the first screen with everything showing`).toBeLessThanOrEqual(568);
     }
     const timer = (await one.page.locator(testid("timer")).boundingBox())!;
@@ -408,17 +403,19 @@ test.describe("Watching fits the phone (promise 4)", () => {
   });
 
   test("E9 and U78 and U79 with the widest nicknames at 320 x 568 nothing scrolls sideways, the board and both buttons are on screen and nothing overlaps", async ({ browser }) => {
-    const { player, spectator } = await watching(browser, NARROW, { reducedMotion: true, names: true });
+    const { player, other, spectator } = await watching(browser, NARROW, { names: true });
     const page = spectator.page;
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-    const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
+    const box = async (id: string) => (await page.locator(`${testid(id)}:visible`).boundingBox())!;
     const banner = await box("watching-banner");
     const count = await box("watching-count");
     const round = await box("round-line");
     const board = await box("board-wrap");
-    expect(banner.x + banner.width, "the banner and the count do not overlap").toBeLessThanOrEqual(count.x + 1);
-    expect(round.x + round.width, "the round line and the banner share one row without overlapping").toBeLessThanOrEqual(banner.x + 1);
-    expect(Math.abs(round.y + round.height / 2 - (banner.y + banner.height / 2)), "on the same row").toBeLessThan(10);
+    // "Watching <name> vs <name>" has its own line (U94): below the round line and the count, inside the screen, never over them.
+    expect(banner.x, "the banner is inside the screen").toBeGreaterThanOrEqual(0);
+    expect(banner.x + banner.width, "the banner is inside the screen").toBeLessThanOrEqual(320);
+    expect(banner.y, "the banner is below the round line and the count").toBeGreaterThanOrEqual(Math.max(round.y + round.height, count.y + count.height) - 1);
+    expect(round.x + round.width, "the round line and the count do not overlap").toBeLessThanOrEqual(count.x + 1);
     expect(banner.y + banner.height, "the banner does not cover the board").toBeLessThanOrEqual(board.y + 1);
     for (const id of ["watch-another", "go-home"]) {
       const b = await box(id);
@@ -428,18 +425,13 @@ test.describe("Watching fits the phone (promise 4)", () => {
     }
     const lowest = await box("cell-0-0");
     expect(lowest.y + lowest.height).toBeLessThanOrEqual(568);
-    await player.context.close();
-    await spectator.context.close();
+    for (const c of [player, other, spectator]) await c.context.close();
   });
 
   test("E9 and U84 the players' screen at 320 x 568 keeps the watcher count on the round line and the board and timer on the first screen", async ({ browser }) => {
-    const player = await newPlayer(browser, NARROW, { reducedMotion: true });
-    await player.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } });
-    const code = (await (await player.page.request.post("/api/computer")).json()).code as string;
-    await player.page.goto(`/g/${code}`);
-    await waitForRound(player.page, 1);
+    const { one: player, two: other, code } = await quickPair(browser, [NARROW, PHONE], { names: true });
     const spectator = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await spectator.page.goto("/watch");
+    await spectator.page.goto(`/watch?game=${code}`);
     await expect.poll(async () => await player.page.locator(testid("watcher-count")).isVisible(), { timeout: 4_000 }).toBeTruthy();
     const box = async (id: string) => (await player.page.locator(testid(id)).boundingBox())!;
     const round = await box("round-line");
@@ -449,7 +441,6 @@ test.describe("Watching fits the phone (promise 4)", () => {
     const timer = await box("timer");
     expect(timer.y + timer.height, "the timer bar is on the first screen").toBeLessThanOrEqual(568);
     expect(await player.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-    await player.context.close();
-    await spectator.context.close();
+    for (const c of [player, other, spectator]) await c.context.close();
   });
 });

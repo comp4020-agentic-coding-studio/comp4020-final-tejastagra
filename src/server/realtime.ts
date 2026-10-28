@@ -126,10 +126,10 @@ export function attachRealtime(
   createComputerGame: (code: string) => void;
   createQuickGame: (code: string) => void;
   liveCount: () => number;
-  exhibitionRunning: () => boolean;
+  createLinkGame: (code: string, creator: string | null) => void;
   watchingIn: (code: string) => number;
-  spectatorState: () => { watchers: number; watching: number; lastGame: number; addresses: number; exhibitions: number };
-  watchableKnown: () => string[];
+  spectatorState: () => { watchers: number; watching: number; lastGame: number; addresses: number };
+  kindsKnown: () => Array<[string, "quick" | "link" | "computer"]>;
   spectatorMoveMs: number;
 } {
   const roundTimerMs = options.roundTimerMs ?? ROUND_TIMER_MS;
@@ -259,65 +259,53 @@ export function attachRealtime(
     return (typeof fly === "string" ? fly : undefined) ?? request.socket.remoteAddress ?? "unknown";
   }
 
-  // ---- Spectating (ADR 0012, R70 to R80) ----
-  // Which games spectators may watch (R71): quick match games, marked when they are made and saved with the
-  // game, and games against the computer. A friend game is never in this set.
-  const watchable = new Set<string>();
-  // The exhibition game (R78): two computers, in memory only. It is never saved (so the leaderboard cannot
-  // see it, R37), is never in `watchable` and is forgotten when nobody is watching.
-  // Exhibition games, each with its own state and timer. A game stops only when its last spectator leaves, so a
-  // finished one stays for the people still looking at its result (R78); a new spectator is given a game that is
-  // still being played, or a fresh one.
-  const exhibitions = new Map<string, { state: GameState; timer: NodeJS.Timeout | null }>();
-  const exhibitionRng = seededRandom(options.computerSeed ?? Math.floor(Math.random() * 2 ** 32));
+  // ---- Spectating (ADR 0012 amended, R36, R70 to R80) ----
+  // What kind of game each code is (R71), set when the game is made and saved with it. A game against the computer is
+  // never watched, by anyone. A quick match game is offered by Watch live and can be watched by its code. A link game
+  // is watched only through its link or code and is never listed or counted. A code with no kind is not a game.
+  type Kind = "quick" | "link" | "computer";
+  const kinds = new Map<string, Kind>();
+  // The person who made a link game, who is player 1 (R36). Kept with the game, so a restart does not forget them.
+  const creators = new Map<string, string>();
+  // The person each seat belongs to, when the seat was taken by someone we can identify (R28). After a restart nobody is
+  // connected, but these say whose the seats are, so a spectator cannot take one (R36).
+  const holders = new Map<string, { A: string | null; B: string | null }>();
   const spectatorMoveMs = options.spectatorMoveMs ?? SPECTATOR_MOVE_MS;
 
-  function stopExhibition(code: string): void {
-    const game = exhibitions.get(code);
-    if (!game) return;
-    if (game.timer) clearTimeout(game.timer);
-    exhibitions.delete(code);
+  // Both players have taken their seats, so there is a game to watch (R36). A seat stays taken while its player is away.
+  function bothSeatsTaken(code: string): boolean {
+    const seats = roster.get(code);
+    const owned = holders.get(code);
+    return (!!seats?.A || !!owned?.A) && (!!seats?.B || !!owned?.B);
   }
 
-  // One round of an exhibition game: both computers choose from the public board only (R40), the engine resolves
-  // it and every spectator is sent the result. It is never saved (R78), which is the one exception to R25: there is
-  // nothing to lose and nothing for the leaderboard to see. When the game ends it is left for the spectators'
-  // browsers to move on (R76).
-  function exhibitionRound(code: string): void {
-    const game = exhibitions.get(code);
-    if (!game || game.state.status !== "playing" || spectators.watchingCount(code) === 0) return;
-    const state = game.state;
-    const view = { board: state.board, round: state.round, shieldsLeft: state.shieldsLeft, earthquakesLeft: state.earthquakesLeft, rows: state.rows, opponentReady: false };
-    const result = resolveRound(state, { A: chooseMove(view, "A", exhibitionRng), B: chooseMove(view, "B", exhibitionRng) });
-    game.state = result.state;
-    spectators.round(code, result.state);
-    closeSlowSpectators();
-    game.timer = result.state.status === "playing" ? setTimeout(() => exhibitionRound(code), exhibitionPaceMs()) : null;
-  }
-  // The exhibition computers play at a watchable pace (1.5 seconds a round), or twice the injected computer delay in tests.
-  const exhibitionPaceMs = (): number => (options.computerDelayMs !== undefined ? options.computerDelayMs * 2 : 1_500);
-
-  function startExhibition(): string {
-    for (const [code, game] of exhibitions) if (game.state.status === "playing") return code; // one still being played
-    const code = `EXH${randomUUID().slice(0, 3).toUpperCase()}`;
-    exhibitions.set(code, { state: newGame(), timer: setTimeout(() => exhibitionRound(code), exhibitionPaceMs()) });
-    return code;
-  }
-
-  // A game is live when it is watchable, still playing and both seats are present (R70).
-  function isLive(code: string): boolean {
+  // A game that spectators may watch, through its link or code (R71): a quick match or link game, still being played, with
+  // both seats taken. A game against the computer, a game with a seat free, a finished game and a code that is no game are
+  // all the same answer, so a computer game's existence is never revealed.
+  function isWatchable(code: string): boolean {
+    const kind = kinds.get(code);
+    if (kind !== "quick" && kind !== "link") return false;
     const record = game.getGame(code);
-    return !!record && watchable.has(code) && record.state.status === "playing" && !forfeited.has(code) && bothPresentFor(code);
+    return !!record && record.state.status === "playing" && !forfeited.has(code) && bothSeatsTaken(code);
   }
 
-  // The live watchable games, forgetting the ones that are over: a finished game can never be live again, so the set
+  // A game is live when it is a quick match game, still being played and both players are connected (R70). Link games
+  // are never live in this sense: Watch live never offers or counts them.
+  function isLive(code: string): boolean {
+    return kinds.get(code) === "quick" && isWatchable(code) && bothPresentFor(code);
+  }
+
+  // The live quick match games, forgetting the ones that are over: a finished game can never be live again, so the map
   // (and every scan of it) stays proportional to the games still being played.
   function liveWatchable(): string[] {
     const live: string[] = [];
-    for (const code of [...watchable]) {
+    for (const [code, kind] of [...kinds]) {
+      if (kind === "computer") continue;
       const record = game.getGame(code);
       if (!record || record.state.status !== "playing" || forfeited.has(code)) {
-        watchable.delete(code);
+        kinds.delete(code);
+        creators.delete(code);
+        holders.delete(code);
         continue;
       }
       if (isLive(code)) live.push(code);
@@ -334,11 +322,9 @@ export function attachRealtime(
     {
       send: (socket, message) => send(socket, message as never),
       viewOf(code) {
-        const exhibit = exhibitions.get(code);
-        if (exhibit) return { state: exhibit.state, kind: "exhibition", names: { A: "Computer 1", B: "Computer 2" } };
-        if (!isLive(code)) return undefined; // friend, over, waiting or unknown: all the same answer (R71)
+        if (!isWatchable(code)) return undefined; // a computer game, a seat free, over or no such game: all the same answer (R71)
         const record = game.getGame(code)!;
-        return { state: record.state, kind: computerGames.has(code) ? "computer" : "quick", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") } } satisfies WatchableView;
+        return { state: record.state, kind: kinds.get(code) as "quick" | "link", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") } } satisfies WatchableView;
       },
       liveCodes: () => liveWatchable(),
       watchingChanged(code, watching) {
@@ -347,9 +333,6 @@ export function attachRealtime(
           if (socket) send(socket, { type: "watching", watching });
         }
       },
-      startExhibition,
-      stopExhibition,
-      isExhibition: (code) => exhibitions.has(code),
       log: (event, fields) => logEvent(event, fields),
     },
     { perGame: options.spectatorsPerGame, total: options.spectatorsTotal, bufferLimit: options.spectatorBufferLimit },
@@ -357,8 +340,14 @@ export function attachRealtime(
 
   const game = createGameService({ db, broadcast, roundTimerMs });
   const restoredCodes = game.restore();
-  // Games marked watchable in the database stay watchable across a restart (R71).
-  for (const saved of db.loadGames()) if (saved.watchable && saved.state.status === "playing" && !saved.ended) watchable.add(saved.code);
+  // The kind of every game still being played, its creator and the people who hold its seats come back with it, so a restart
+  // changes nothing about who plays and who watches (R36, R71).
+  for (const saved of db.loadGames()) {
+    if (saved.state.status !== "playing" || saved.ended) continue;
+    kinds.set(saved.code, saved.kind);
+    if (saved.creator) creators.set(saved.code, saved.creator);
+    if (saved.playerA || saved.playerB) holders.set(saved.code, { A: saved.playerA, B: saved.playerB });
+  }
 
   const wss = new WebSocketServer({ server, path: "/ws" });
 
@@ -400,16 +389,23 @@ export function attachRealtime(
     if (!seatTokens.has(key(code, "B"))) seatTokens.set(key(code, "B"), randomUUID()); // never given to anyone
   }
 
-  // A quick match game (R35): made watchable and saved as such, so a restart does not change it (R71). A friend
-  // game, made by game.createGame alone, never is.
+  // A quick match game (R35): saved as one, so a restart does not change it (R71).
   function createQuickGame(code: string): void {
-    watchable.add(code);
+    kinds.set(code, "quick");
     db.markWatchable(code, newGame());
     game.createGame(code);
   }
 
+  // A link game (R34): saved as one with the person who made it, who is player 1 (R36).
+  function createLinkGame(code: string, creator: string | null): void {
+    kinds.set(code, "link");
+    if (creator) creators.set(code, creator);
+    db.markLink(code, newGame(), creator);
+    game.createGame(code);
+  }
+
   function createComputerGame(code: string): void {
-    watchable.add(code); // a game against the computer can be watched (R71)
+    kinds.set(code, "computer"); // never watched, by anyone (R71)
     // Mark first: if a later write failed, the game would still be known as
     // a computer game (R37) rather than becoming a human one after a restart.
     db.markComputer(code, newGame());
@@ -635,6 +631,51 @@ export function attachRealtime(
     }
   }
 
+  // What a join becomes: a seat, a place among the spectators, or a refusal (R36). In order:
+  //  1. a game against the computer has one seat, and nobody else may watch it (R71);
+  //  2. a seat goes back to the person it belongs to, or to whoever holds its token (R32);
+  //  3. a new arrival takes the first seat that is not taken and not kept for the game's creator (R36);
+  //  4. with no seat left for them, a new arrival is a spectator, and never takes a seat, however long its player has been
+  //     away (R27). A seat is "taken" once anyone has sat in it, so it stays its player's while they reconnect.
+  function decideSeat(
+    code: string,
+    seats: { A: boolean; B: boolean },
+    wanted: Player | undefined,
+    token: string | undefined,
+    person: string | null,
+  ): Player | "spectator" | "full" {
+    const owned = holders.get(code);
+    const taken = (seat: Player): boolean => seats[seat] || !!owned?.[seat];
+
+    // 1. A game against the computer: the human's seat only.
+    if (kinds.get(code) === "computer" || computerGames.has(code)) {
+      if (wanted === "B") return "full";
+      const mine = !taken("A") || token === seatTokens.get(key(code, "A")) || (!!person && owned?.A === person);
+      return mine ? "A" : "full";
+    }
+
+    // 2. A seat that is already someone's goes back to them, and only them.
+    for (const seat of ["A", "B"] as const) {
+      if (wanted !== undefined && wanted !== seat) continue;
+      const theirs = !!person && owned?.[seat] === person;
+      const holdsToken = token !== undefined && wanted === seat && token === seatTokens.get(key(code, seat));
+      if (theirs || holdsToken) return seat;
+    }
+
+    // 3. A new arrival. Seat A is kept for the person who made a link game until they arrive.
+    const creator = creators.get(code) ?? null;
+    const keptForCreator = (seat: Player): boolean => seat === "A" && creator !== null && person !== creator && !taken("A");
+    const candidates: Player[] = wanted ? [wanted] : ["A", "B"];
+    for (const seat of candidates) {
+      if (!taken(seat) && !keptForCreator(seat)) return seat;
+    }
+
+    // 4. No seat for this arrival. Someone who names a seat they cannot prove is theirs is not a visitor opening a link (the page
+    //    names no seat for a new arrival) but someone guessing, so it is refused and told nothing about the game (R32).
+    //    A new arrival who names none watches (R36).
+    return wanted !== undefined ? "full" : "spectator";
+  }
+
   wss.on("connection", (socket, request) => {
     logEvent("connect", { ua: request.headers["user-agent"]?.includes("Mobile") ? "phone" : "desktop" });
 
@@ -686,30 +727,35 @@ export function attachRealtime(
         seats = { A: false, B: false };
         roster.set(code, seats);
       }
+      const personId = options.identify?.(request) ?? null;
 
-      if (player === undefined) {
-        if (!seats.A) player = "A";
-        else if (!seats.B) player = "B";
-        else {
-          send(socket, { type: "game_full" });
-          return;
-        }
-      } else if (!seats[player]) {
-        if (seats.A && seats.B) {
-          send(socket, { type: "game_full" });
-          return;
-        }
-      } else {
-        // The seat is already assigned. Only the client presenting that
-        // seat's token may take over its live connection (R32); a visitor
-        // who only knows the game code and names a held seat is a stranger
-        // as far as the server can tell, so it is turned away as if the game
-        // were full. Revisit once R28 identity (Phase 6) replaces this.
-        if (seatToken !== seatTokens.get(key(code, player))) {
-          send(socket, { type: "game_full" });
-          return;
-        }
+      // Who sits where, and who watches, is decided here and nowhere else (R36). The first request the server handles
+      // takes a free seat, so two people arriving at the same moment for the last seat give one player and one spectator.
+      const decision = decideSeat(code, seats, player, seatToken, personId);
+      if (decision === "full") {
+        send(socket, { type: "game_full" });
+        return;
       }
+      if (decision === "spectator") {
+        // Both seats are taken. A seat is never given to a spectator, even while its player is away (R36, R27).
+        const record = game.getGame(code);
+        const ended = forfeited.get(code);
+        if (ended) {
+          // The game is over: the visitor is shown how it ended, and given nothing else (R36).
+          send(socket, ended.result === "forfeit" ? ({ type: "ended", result: "forfeit", winner: ended.winner } as never) : ({ type: "ended", result: "abandoned" } as never));
+          return;
+        }
+        if (record && record.state.status !== "playing" && kinds.get(code) !== "computer") {
+          send(socket, { type: "spectating", code, kind: kinds.get(code) ?? "link", state: record.state, watching: spectators.watchingCount(code), names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") }, because: "two_players" } as never);
+          return;
+        }
+        if (typeof code === "string" && !spectators.watchLink(socket, addressOf(request), code)) {
+          // Not placed: the game is full of spectators (R77), or it is not a game that can be watched.
+          send(socket, { type: "not_watchable", reason: spectators.watchingCount(code) > 0 ? "full" : "unknown" } as never);
+        }
+        return;
+      }
+      player = decision;
 
       const existing = connections.get(key(code, player));
       if (existing && existing !== socket) {
@@ -739,7 +785,6 @@ export function attachRealtime(
 
       seats[player] = true;
       if (!seatTokens.has(key(code, player))) seatTokens.set(key(code, player), randomUUID());
-      const personId = options.identify?.(request) ?? null;
       const name = personId ? (options.nameFor?.(personId) ?? null) : null;
       if (name) seatNames.set(key(code, player), name);
       if (personId && !computerGames.has(code)) {
@@ -789,8 +834,10 @@ export function attachRealtime(
     graceTimers.clear();
     for (const timer of computerTimers.values()) clearTimeout(timer);
     computerTimers.clear();
-    for (const code of [...exhibitions.keys()]) stopExhibition(code);
     spectators.clear();
+    kinds.clear();
+    creators.clear();
+    holders.clear();
   }
 
   return {
@@ -799,10 +846,10 @@ export function attachRealtime(
     dispose,
     createComputerGame,
     createQuickGame,
-    liveCount: () => liveWatchable().length, // R80: live watchable games, never the exhibition game
-    exhibitionRunning: () => exhibitions.size > 0,
-    spectatorState: () => ({ ...spectators.sizes(), exhibitions: exhibitions.size }),
-    watchableKnown: () => [...watchable].sort(),
+    createLinkGame,
+    liveCount: () => liveWatchable().length, // R80: live quick match games, never link games or computer games
+    spectatorState: () => spectators.sizes(),
+    kindsKnown: () => [...kinds].sort(),
     watchingIn: (code: string) => spectators.watchingCount(code),
     spectatorMoveMs,
   };

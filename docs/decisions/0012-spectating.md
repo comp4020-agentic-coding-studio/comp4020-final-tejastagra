@@ -20,6 +20,8 @@ What this costs, and what follows from it:
 - **Load:** link games add spectators to the same caps as before (50 a game, 300 on the machine). The exhibition game's timer and memory are gone, which makes the machine's worst case smaller than before.
 - **Players of a link game see "N watching" like players of a quick match game** (U84), and a friend game that has spectators is no longer "private" in the sense of R71's first version.
 
+**Who holds a seat is a session, so every link-game visitor gets one.** Opening `/g/CODE` or making a link game gives a visitor with no session a nameless guest session (the same rate limit as other guests), so the creator and each seat holder can always be named, saved with the game and remembered across a restart. Residual risk, chosen over adding a seat-token column: a raw client that connects with no cookie at all holds a seat only in memory, so after a restart its seat looks free until the real player returns. Every browser gets the cookie from the page it opens, so this concerns only hand-made clients.
+
 ## Context
 
 D3 said there is no spectating, and a third visitor to a game sees "game full" (R36). The course brief asks the opposite of that for the showcase: "Design for co-presence: the app should be more interesting because other people are using it at the same time. The capstone showcase, a room full of people using it at once, is the situation to design for." A two-player game with no audience is exactly the case where a room full of people cannot take part: everyone who is not in a pair is left looking at a home screen. Spectating lets everyone in the room take part, and it makes the app more interesting when other people are using it, which is what the brief asks for.
