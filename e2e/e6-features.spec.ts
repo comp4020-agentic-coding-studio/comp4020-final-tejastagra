@@ -40,7 +40,7 @@ test("E6 code entry shows a clear error for a bad code, in view", async ({ brows
   await page.tap(testid("join-toggle"));
   await page.fill(testid("code-input"), "AB1");
   await page.keyboard.press("Enter");
-  const message = page.locator(testid("home-message"));
+  const message = page.locator(`${testid("code-dialog")} .dialog-error:visible`); // inside the popup, under its field (U88)
   await expect(message).toContainText("6 letters or numbers");
   const box = (await message.boundingBox())!;
   expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height); // the message is on the first screen

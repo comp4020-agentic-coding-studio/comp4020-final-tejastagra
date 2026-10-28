@@ -218,12 +218,12 @@ test.describe("Home", () => {
     await context.close();
   });
 
-  test("U33 Join with a code opens the code input in place and joins the game", async ({ browser }) => {
+  test("U33b Join with a code opens the code popup and joins the game", async ({ browser }) => {
     const host = await newPlayer(browser, PHONE);
     const code = await makeGameCode(host.page);
     const { context, page } = await newPlayer(browser, PHONE);
     await page.goto("/");
-    await expect(page.locator(testid("code-input"))).toBeHidden();
+    await expect(page.locator(testid("code-input"))).toHaveCount(0);
     await page.tap(testid("join-toggle"));
     await expect(page.locator(testid("code-input"))).toBeVisible();
     await page.fill(testid("code-input"), code);
@@ -569,8 +569,10 @@ test.describe("Contrast", () => {
     expect(await axeViolations(page), "tutorial open").toEqual([]);
     await page.click(testid("tutorial-skip"));
     await page.click(testid("join-toggle"));
+    expect(await axeViolations(page), "home with the code popup open").toEqual([]);
+    await page.keyboard.press("Escape");
     await page.click(testid("rename"));
-    expect(await axeViolations(page), "home with forms open").toEqual([]);
+    expect(await axeViolations(page), "home with the nickname popup open").toEqual([]);
     await context.close();
   });
 });
@@ -797,6 +799,7 @@ test.describe("Forms and lists stay narrow and centred (U60)", () => {
       await page.waitForLoadState("networkidle");
       if (path === "/") {
         await page.click(testid("join-toggle"));
+        await page.keyboard.press("Escape");
         await page.click(testid("rename"));
       }
       const wide = await page.evaluate(() => {

@@ -40,22 +40,24 @@ export function homeScreen(ctx: ScreenContext): string {
           </button>
           <p id="home-message" class="message card-message" role="status" data-testid="home-message"></p>
         </div>
-        <form id="nick-form" class="panel nick-form" data-testid="nick-form" hidden novalidate>
-          <label for="home-nickname">Your nickname</label>
-          <input id="home-nickname" data-testid="nickname-input" autocomplete="nickname" maxlength="16" />
-          <button type="submit" class="btn btn-blue">Save</button>
-        </form>
-        <div class="stack" data-testid="menu">
-          ${button({ label: "Play the computer", iconName: "computer", kind: "red", block: true, testid: "play-computer" })}
-          ${button({ label: "Play a friend", iconName: "friends", kind: "blue", block: true, testid: "play-friend" })}
-          ${button({ label: "Quick match", iconName: "bolt", kind: "blue", block: true, testid: "quick-match", href: "/play/quick" })}
-          ${button({ label: "Join with a code", iconName: "key", kind: "yellow", block: true, testid: "join-toggle" })}
+        <div class="stack menu" data-testid="menu">
+          <div class="menu-item">
+            ${button({ label: "Play the computer", iconName: "computer", kind: "red", block: true, testid: "play-computer" })}
+            <p class="menu-hint" data-testid="hint-play-computer">Practise against the computer</p>
+          </div>
+          <div class="menu-item">
+            ${button({ label: "Play a friend", iconName: "friends", kind: "blue", block: true, testid: "play-friend" })}
+            <p class="menu-hint" data-testid="hint-play-friend">Send a link to someone you know</p>
+          </div>
+          <div class="menu-item">
+            ${button({ label: "Quick match", iconName: "bolt", kind: "blue", block: true, testid: "quick-match", href: "/play/quick" })}
+            <p class="menu-hint" data-testid="hint-quick-match">Play a random person online</p>
+          </div>
+          <div class="menu-item">
+            ${button({ label: "Join with a code", iconName: "key", kind: "yellow", block: true, testid: "join-toggle" })}
+            <p class="menu-hint" data-testid="hint-join">Enter a friend's 6-letter code</p>
+          </div>
         </div>
-        <form id="join-form" class="panel join-form" data-testid="join-form" hidden novalidate>
-          <label for="code-input">Game code</label>
-          <input id="code-input" data-testid="code-input" autocomplete="off" autocapitalize="characters" maxlength="6" />
-          <button type="submit" class="btn btn-yellow">Join</button>
-        </form>
         <div class="round-row" data-testid="icon-row">
           <a class="round-item watch-live" href="/watch" data-testid="watch-live"><span class="round">${icon("eye")}</span><span>Watch live</span><span class="live-count" data-testid="live-count" data-live="0" role="status" aria-live="polite">No games live</span></a>
           ${roundButton({ label: "Leaderboard", iconName: "podium", href: "/leaderboard", testid: "open-leaderboard" })}

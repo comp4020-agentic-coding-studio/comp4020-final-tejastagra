@@ -65,7 +65,7 @@ describe("R28 and R31 sessions and tags", () => {
   it("I5 (R31) a guest is shown with a short tag from their id, an account by username", () => {
     const id = "a7f3c1d2-0000-4000-8000-000000000000";
     expect(shortTag(id)).toBe("a7f3");
-    expect(publicPlayer({ id, nickname: "Tejas", username: null })).toEqual({ displayName: "Tejas #a7f3", kind: "guest" });
-    expect(publicPlayer({ id, nickname: "Tejas", username: "tj" })).toEqual({ displayName: "tj", kind: "account" });
+    expect(publicPlayer({ id, nickname: "Tejas", username: null })).toEqual({ displayName: "Tejas #a7f3", nickname: "Tejas", kind: "guest" });
+    expect(publicPlayer({ id, nickname: "Tejas", username: "tj" })).toEqual({ displayName: "tj", nickname: "Tejas", kind: "account" });
   });
 });

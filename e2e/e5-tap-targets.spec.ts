@@ -51,16 +51,19 @@ test("E5 and U15 each column of the board is a hit area at least 44 px wide at 3
   await context.close();
 });
 
-test("E5 the tutorial's controls and the Home forms are 44 px at 320 px", async ({ browser }) => {
+test("E5 the tutorial's controls and the Home popups are 44 px at 320 px", async ({ browser }) => {
   const { context, page } = await newPlayer(browser, NARROW, { tutorial: "new" });
   await page.goto("/");
   await expect(page.locator(testid("tutorial"))).toBeVisible();
   expect(await tooSmall(page), "tutorial open").toEqual([]);
   await page.click(testid("tutorial-skip"));
+  expect(await tooSmall(page), "Home").toEqual([]);
   await page.click(testid("join-toggle"));
+  await expect(page.locator(testid("code-dialog"))).toBeVisible();
+  expect(await tooSmall(page), "the code popup open").toEqual([]);
+  await page.keyboard.press("Escape");
   await page.click(testid("rename"));
-  await expect(page.locator(testid("join-form"))).toBeVisible();
-  await expect(page.locator(testid("nick-form"))).toBeVisible();
-  expect(await tooSmall(page), "Home with the code and nickname forms open").toEqual([]);
+  await expect(page.locator(testid("nickname-dialog"))).toBeVisible();
+  expect(await tooSmall(page), "the nickname popup open").toEqual([]);
   await context.close();
 });

@@ -46,7 +46,7 @@ export async function loadBoard(limit: number): Promise<{ wins: BoardRow[]; roun
   }
 }
 
-export async function currentPlayer(): Promise<{ displayName: string; kind: "guest" | "account" } | null> {
+export async function currentPlayer(): Promise<{ displayName: string; nickname: string; kind: "guest" | "account" } | null> {
   try {
     const res = await fetch("/api/me");
     return res.ok ? (await res.json()).player : null;

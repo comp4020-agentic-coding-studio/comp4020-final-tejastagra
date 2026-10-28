@@ -3,11 +3,13 @@
 // comes from the server (R20).
 import { avatar, buildBoard, confettiBurst, reducedMotion, themeNumber } from "./arcade.ts";
 import { $, currentPlayer } from "./common.ts";
+import { dialogButton, openDialog } from "./dialog.ts";
 import { replayTutorial, showTutorial } from "./tutorial.ts";
 
 const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
 const message = $("home-message");
 
+let currentName = ""; // the nickname the popup opens prefilled with (Q7)
 let fadeTimer: ReturnType<typeof setTimeout> | undefined;
 
 // A confirmation fades after 3 seconds (U35a); an error stays until the next action.
@@ -44,25 +46,26 @@ async function start(endpoint: string): Promise<void> {
 $("play-friend").addEventListener("click", () => start("/api/games"));
 $("play-computer").addEventListener("click", () => start("/api/computer"));
 
-// "Join with a code" opens the code box in place (U33).
-const joinForm = $("join-form") as HTMLFormElement;
-$("join-toggle").addEventListener("click", () => {
-  joinForm.hidden = !joinForm.hidden;
-  if (!joinForm.hidden) ($("code-input") as HTMLInputElement).focus();
-});
-joinForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const code = ($("code-input") as HTMLInputElement).value.trim().toUpperCase();
-  if (!CODE_PATTERN.test(code)) {
-    say("A game code is 6 letters or numbers, for example K7QM2X.", "error");
-    return;
-  }
-  location.href = `/g/${code}`;
-});
+// "Join with a code" opens the code popup (U33b): nothing on the screen moves.
+function openCodeDialog(): void {
+  const dialog = openDialog({
+    testid: "code-dialog",
+    title: "Join with a code",
+    onSubmit: (d) => {
+      const code = (d.form.elements.namedItem("code") as HTMLInputElement).value.trim().toUpperCase();
+      if (!CODE_PATTERN.test(code)) {
+        d.error("code", "A game code is 6 letters or numbers, for example K7QM2X.");
+        return;
+      }
+      location.href = `/g/${code}`;
+    },
+  });
+  dialog.field("Game code", "code", { maxlength: 6, capitalize: true });
+  dialog.actions(dialogButton("Join", "yellow", "code-join", { type: "submit" }), dialogButton("Cancel", "blue", "dialog-cancel", { onClick: () => dialog.close() }));
+}
+$("join-toggle").addEventListener("click", openCodeDialog);
 
 // ---- The player card (U32) ----
-const nickForm = $("nick-form") as HTMLFormElement;
-const nickInput = $("nickname-input") as HTMLInputElement;
 
 async function showPlayer(): Promise<void> {
   let player = await currentPlayer();
@@ -78,28 +81,34 @@ async function showPlayer(): Promise<void> {
   const fresh = avatar(player?.displayName ?? "guest");
   fresh.dataset.testid = "player-avatar";
   $("player-avatar").replaceWith(fresh);
+  currentName = player?.nickname ?? "";
   $("player-name").textContent = player ? player.displayName : "Guest";
   $("player-kind").textContent = player ? (player.kind === "account" ? "Account" : "Guest") : "";
 }
 
+// The pencil opens the nickname popup, prefilled with the current nickname (U32, Q7).
 $("rename").addEventListener("click", () => {
-  nickForm.hidden = !nickForm.hidden;
-  if (!nickForm.hidden) nickInput.focus();
-});
-nickForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try {
-    const res = await fetch("/api/guest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: nickInput.value.trim() }) });
-    if (!res.ok) {
-      say((await res.json().catch(() => ({}))).error ?? "Could not save the nickname.", "error");
-      return;
-    }
-    say("Nickname saved.", "ok");
-    nickForm.hidden = true;
-    await showPlayer();
-  } catch {
-    say("Could not reach the server. Check your connection.", "error");
-  }
+  const dialog = openDialog({
+    testid: "nickname-dialog",
+    title: "Your nickname",
+    onSubmit: async (d) => {
+      const value = (d.form.elements.namedItem("nickname") as HTMLInputElement).value.trim();
+      try {
+        const res = await fetch("/api/guest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: value }) });
+        if (!res.ok) {
+          d.error("nickname", (await res.json().catch(() => ({}))).error ?? "Could not save the nickname.");
+          return;
+        }
+        d.close();
+        say("Nickname saved.", "ok");
+        await showPlayer();
+      } catch {
+        d.error("nickname", "Could not reach the server. Check your connection.");
+      }
+    },
+  });
+  dialog.field("Your nickname", "nickname", { value: currentName, maxlength: 16, autocomplete: "nickname" });
+  dialog.actions(dialogButton("Save", "blue", "nickname-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => dialog.close() }));
 });
 
 // ---- Top players (U35) ----

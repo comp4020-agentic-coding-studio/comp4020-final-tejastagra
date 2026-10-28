@@ -13,7 +13,7 @@ describe("screens (docs/design.md)", () => {
     expect(status).toBe(200);
     expect(type).toMatch(/text\/html/);
     for (const hook of [
-      "play-computer", "play-friend", "quick-match", "join-toggle", "code-input", "nickname-input", "player-card",
+      "play-computer", "play-friend", "quick-match", "join-toggle", "rename", "player-card",
       "icon-row", "open-leaderboard", "how-to-play", "open-account", "open-about", "top-players", "leaderboard-wins",
       "demo-board", "tutorial", "tutorial-next", "tutorial-skip",
     ]) {
@@ -22,6 +22,12 @@ describe("screens (docs/design.md)", () => {
     expect(html).toContain('href="/readme/"');
     expect(html).toContain('href="/leaderboard"');
     expect(html).toContain('href="/account"');
+    // U33 and U33b: one line of subtext under each button, and the code and nickname fields are in popups (Q1), not in the page.
+    for (const words of ["Practise against the computer", "Send a link to someone you know", "Play a random person online", "Enter a friend&#39;s 6-letter code", "Enter a friend's 6-letter code"].slice(0, 3)) expect(html, words).toContain(words);
+    expect(html).toMatch(/Enter a friend(&#39;|')s 6-letter code/);
+    expect(html).not.toContain('data-testid="code-input"');
+    expect(html).not.toContain('data-testid="nickname-input"');
+    expect(html).toContain("Four in a row, with a twist.");
     // U37 (the menu above the demo board on a phone) is about how the page is drawn, not its source
     // order, so it is checked in a real browser (e2e/design.spec.ts).
   });
