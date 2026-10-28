@@ -5,7 +5,7 @@
   "scripts": {
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm typecheck && pnpm test",
+    "check": "bash scripts/check.sh",
     "check:evidence": "node scripts/check-evidence.ts",
     "check:fast": "pnpm typecheck && vitest run --config vitest.unit.config.ts --passWithNoTests",
     "test": "vitest run",
@@ -13,8 +13,7 @@
     "test:mutation": "stryker run",
     "log:process": "node scripts/process-log.mjs",
     "dev": "DEV=1 node --watch --watch-path=src --watch-path=README.md src/server/index.ts",
-    "start": "node src/server/index.ts",
-    "check:isolated": "bash scripts/check-isolated.sh"
+    "start": "node src/server/index.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

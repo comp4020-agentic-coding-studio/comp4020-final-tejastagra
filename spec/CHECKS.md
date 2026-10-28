@@ -17,8 +17,8 @@ Status: **todo** (stub only), **written**, **passing**.
 
 | ID | Claim | Status |
 | --- | --- | --- |
-| H1 | A test run never writes to `data-dev/`: `scripts/check.sh` points the test server at a temporary folder and removes it afterwards, and a check fails if the dev database's size or modified time changes during a run | todo |
-| H2 | `scripts/check.sh` uses `APP_URL` as it is when one is given, so CI is unchanged | todo |
+| H1 | A test run never writes to `data-dev/`: `scripts/check.sh` points the test server at a temporary folder and removes it afterwards, and a check fails if the dev database's size or modified time changes during a run | passing |
+| H2 | `scripts/check.sh` uses `APP_URL` as it is when one is given, so CI is unchanged | passing |
 
 ## Course
 
