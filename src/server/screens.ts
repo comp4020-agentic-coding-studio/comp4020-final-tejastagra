@@ -21,7 +21,7 @@ export function homeScreen(ctx: ScreenContext): string {
     <main class="arena home" data-testid="home-screen">
       <div class="home-left">
         ${title()}
-        <p class="tagline" data-testid="tagline">Four in a row, but you both move at once.</p>
+        <p class="tagline" data-testid="tagline">Four in a row, with a twist.</p>
         <div class="demo" data-testid="demo-board" aria-label="A demonstration round: both players choose, then both discs drop at once">
           <div class="board-wrap" data-testid="demo-board-wrap">
           </div>

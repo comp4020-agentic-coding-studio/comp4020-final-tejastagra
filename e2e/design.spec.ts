@@ -208,7 +208,7 @@ test.describe("Home", () => {
   test("U31 to U36 the home screen shows the title, player card, four menu buttons, the round icon row, top players and the demo board", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, LAPTOP);
     await page.goto("/");
-    await expect(page.locator(testid("tagline"))).toHaveText("Four in a row, but you both move at once.");
+    await expect(page.locator(testid("tagline"))).toHaveText("Four in a row, with a twist.");
     await expect(page.locator(testid("player-card"))).toBeVisible();
     await expect(page.locator(testid("player-name"))).not.toHaveText("Choosing a name...");
     for (const id of ["play-computer", "play-friend", "quick-match", "join-toggle"]) await expect(page.locator(testid(id))).toBeVisible();

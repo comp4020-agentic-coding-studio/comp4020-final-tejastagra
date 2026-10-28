@@ -4,7 +4,7 @@ The home screen is a stacked button menu with a round icon row underneath, dress
 
 ## The menu
 
-- **U31** At the top, the cracked yellow "RUBBLE" title (U5) with the tagline "Four in a row, but you both move at once." (The name of the toy is never used.) The bubbles (U3) rise behind everything.
+- **U31** At the top, the cracked yellow "RUBBLE" title (U5) with the tagline "Four in a row, with a twist." (The name of the toy is never used.) The bubbles (U3) rise behind everything.
 - **U32** The player card, a small `--panel` pill under the title: the player's avatar, nickname and tag, and a pencil icon to change the nickname. A first-time visitor gets a generated nickname (for example "Brave Wombat") so they can play straight away.
 - **U33** A stack of large, full-width buttons with icons, in this order:
   - "Play the computer" (`--red`, computer icon), the main action.
