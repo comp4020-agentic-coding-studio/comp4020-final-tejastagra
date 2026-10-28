@@ -734,3 +734,18 @@ test("Q11 the tutorial's shield and Earthquake badges are outlined pills", async
   expect(style.shadow, "a hard shadow").not.toBe("none");
   await context.close();
 });
+
+// Q4: page sections are 32px apart. The "Top players" strip is a section under the icon row, and was crowded against its labels.
+test("Q4 the Top players section is at least 32px under the icon row on the home screen, at every width", async ({ browser }) => {
+  for (const viewport of VIEWPORTS) {
+    const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+    await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: [], rounds: [], you: null } }));
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => document.fonts.ready);
+    const row = (await page.locator(testid("icon-row")).boundingBox())!;
+    const top = (await page.locator(testid("top-players")).boundingBox())!;
+    expect(top.y - (row.y + row.height), `at ${viewport.width}: space between the icon row and Top players`).toBeGreaterThanOrEqual(31);
+    await context.close();
+  }
+});

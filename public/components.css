@@ -1182,7 +1182,7 @@ input {
 
 .top {
   max-width: var(--stack-width);
-  margin: 0 auto;
+  margin: 32px auto 0; /* a section: 32px under the icon row (Q4), where the two margins collapse into one */
 }
 
 .demo {
