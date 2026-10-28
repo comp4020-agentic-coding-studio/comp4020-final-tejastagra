@@ -585,6 +585,21 @@ socket.addEventListener("message", (event) => {
       say("This game already has two players. Start your own from Home.", "error");
       renderChoice();
       break;
+    case "rematch_offer":
+      if (over && rematch !== "waiting") {
+        rematch = "offered";
+        renderRematch();
+      }
+      break;
+    case "rematch_ended":
+      if (over) {
+        rematch = "gone";
+        renderRematch();
+      }
+      break;
+    case "rematch_started":
+      clearForRematch();
+      break;
     case "tab_replaced":
       over = true;
       say("This game is open in another tab.", "error");
@@ -614,26 +629,71 @@ $("share").addEventListener("click", () => {
   else label.textContent = "Copy failed";
 });
 
-$("play-again").addEventListener("click", async () => {
-  // Play again starts a fresh game of the same kind: a friend game gets a new link to share,
-  // and a game against the computer starts at once.
-  try {
-    const res = await fetch(playedComputer ? "/api/computer" : "/api/games", { method: "POST" });
-    if (!res.ok) {
-      say("Could not start a new game. Try again.", "error");
-      return;
-    }
-    const next = (await res.json()).code;
-    try {
-      if (playedComputer) sessionStorage.setItem(`rubble-computer-${next}`, "1");
-    } catch {
-      // Play again then starts a friend game, which is harmless
-    }
-    location.href = `/g/${next}`;
-  } catch {
-    say("Could not reach the server. Check your connection.", "error");
+// ---- Play again is a rematch (R82 to R85, docs/design/rematch.md) ----
+// Against the computer a new game starts at once. Against a person nothing starts until both have asked: the button says
+// "Waiting for <opponent>", the other player's popup says they want one, and an offer that runs out or is left is over.
+type RematchState = "idle" | "waiting" | "offered" | "gone";
+let rematch: RematchState = "idle";
+
+function opponentLabel(): string {
+  return ($("name-opponent").textContent ?? "").trim() || "your opponent";
+}
+
+function renderRematch(): void {
+  const status = $("rematch-status");
+  const again = $("play-again") as HTMLButtonElement;
+  const label = again.querySelector("span")!;
+  status.hidden = rematch === "idle";
+  again.hidden = rematch === "gone";
+  again.disabled = rematch === "waiting";
+  label.textContent = rematch === "waiting" ? "Waiting" : "Play again";
+  status.textContent =
+    rematch === "waiting" ? `Waiting for ${opponentLabel()}` : rematch === "offered" ? `${opponentLabel()} wants a rematch` : rematch === "gone" ? `${opponentLabel()} left` : "";
+}
+
+// If the connection is lost while waiting (the server restarted, R26), the offer is gone with it: say so, instead of waiting
+// for ever. The player starts a new game from Home.
+socket.addEventListener("close", () => {
+  if (over && (rematch === "waiting" || rematch === "offered")) {
+    rematch = "gone";
+    renderRematch();
   }
 });
+
+$("play-again").addEventListener("click", () => {
+  if (!you || !seatToken || rematch === "waiting") return;
+  rematch = playedComputer || $("name-opponent").textContent === "Computer" ? "idle" : "waiting";
+  renderRematch();
+  socket.send(JSON.stringify({ type: "rematch", code, player: you, seatToken }));
+});
+
+// Home and Leave from the end popup tell the server first, so the other player is not left waiting (R83).
+$("end-popup").querySelector<HTMLAnchorElement>('[data-testid="go-home"]')!.addEventListener("click", (event) => {
+  event.preventDefault();
+  sendLeave();
+  goHome();
+});
+
+// A rematch started (R85): everything about the old game is forgotten, and the fresh snapshot that follows draws the new one.
+function clearForRematch(): void {
+  rematch = "idle";
+  renderRematch();
+  $("end-popup").hidden = true;
+  over = false;
+  locked = false;
+  armed = false;
+  quakeChosen = false;
+  selectedColumn = null;
+  opponentChosen = false;
+  first = true;
+  drawn = null;
+  gotReady = false;
+  board.clear();
+  for (let c = 0; c < 7; c++) for (let r = 0; r < 6; r++) board.setClosed(c, r, false);
+  $("result-line").textContent = "";
+  say("");
+  setText("shield-label", "Arm shield");
+}
 
 // ---- The timer bar (U25, U56) ----
 // A slim bar that drains over the round. It turns orange at 5 seconds left and red at 3, and is

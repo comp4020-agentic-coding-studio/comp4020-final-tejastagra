@@ -24,6 +24,8 @@ export interface GameService {
   resolve(code: string, choices: { A: Choice | null; B: Choice | null }): Promise<void>;
   restore(): string[]; // codes of the games restored, so callers can restart their timers (R26)
   getGame(code: string): GameRecord | undefined;
+  // A rematch (R84): the game under `code` is replaced by a fresh one. The caller has already archived and saved it.
+  restart(code: string): GameRecord;
   timeRemainingMs(code: string): number;
 }
 
@@ -62,6 +64,7 @@ export function createGameService(options: GameServiceOptions): GameService {
       const restored: string[] = [];
       for (const saved of db.loadGames()) {
         if (saved.state.status !== "playing") continue;
+        if (saved.code.includes("#")) continue; // an archived game from a rematch (R84): over, never resumed
         games.set(saved.code, { state: saved.state, roundStartedAt: now() });
         restored.push(saved.code);
       }
@@ -70,6 +73,12 @@ export function createGameService(options: GameServiceOptions): GameService {
 
     getGame(code: string): GameRecord | undefined {
       return games.get(code);
+    },
+
+    restart(code: string): GameRecord {
+      const record: GameRecord = { state: newGame(), roundStartedAt: now() };
+      games.set(code, record);
+      return record;
     },
 
     timeRemainingMs(code: string): number {

@@ -29,5 +29,7 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Computer** | The built-in opponent | AI, bot, CPU |
 | **Forfeit** | A game ended because a player left and did not return | abandon (see below) |
 | **Abandoned** | A game ended because both players missed 3 rounds in a row | |
+| **Rematch** | A new game with the same people on the same link, started when both tap Play again | play again as a new link, replay |
+| **Leave game** | Ending a game on purpose, which counts as a forfeit | quit, resign |
 
 Player A and Player B are code-only names. On screen, a player is "You" or the opponent's nickname.

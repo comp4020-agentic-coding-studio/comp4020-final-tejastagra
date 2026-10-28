@@ -32,7 +32,8 @@ export type SpectatorMessage =
   | { type: "ended"; result: "forfeit"; winner: "A" | "B" }
   | { type: "ended"; result: "abandoned" }
   | { type: "not_watchable"; reason: "full" | "room_full" | "unknown" }
-  | { type: "rejected"; reason: "spectator" };
+  | { type: "rejected"; reason: "spectator" }
+  | { type: "rematch_started" };
 
 export interface SpectatorHooks {
   send(socket: WebSocket, message: SpectatorMessage): void;
@@ -191,6 +192,11 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
     // A game ended by a forfeit or abandonment, which are server-side state and not an engine status (R27, R19):
     // tell every spectator, after it is saved (R25). Their browsers then move on after 5 seconds (R76).
     ended(code: string, message: { type: "ended"; result: "forfeit"; winner: "A" | "B" } | { type: "ended"; result: "abandoned" }): void {
+      for (const socket of watchers.get(code) ?? []) hooks.send(socket, message);
+    },
+
+    // A rematch started (R85): every spectator is told, after the new game is saved, then sees its first round as a `round`.
+    announce(code: string, message: { type: "rematch_started" }): void {
       for (const socket of watchers.get(code) ?? []) hooks.send(socket, message);
     },
 

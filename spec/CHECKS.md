@@ -85,6 +85,17 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | E9 | Watching works at both viewports, nothing on the watching screen is interactive, the home count and the players' watcher count update, the exhibition label shows (each browser check names E9) | passing (`e2e/spectating.spec.ts`) |
 | U76 to U84 | Watch live button and count, the watching screen, the exhibition label, the result card and the watcher count | `e2e/spectating.spec.ts` | passing |
 
+## Rematch and leaving (`spec/unit-realtime-rematch.test.ts`, `spec/unit-realtime-leave.test.ts`, `e2e/rematch.spec.ts`)
+
+| ID | Claim | Rule | Status |
+| --- | --- | --- | --- |
+| RM1 | Leaving a game being played forfeits it at once, saved first; a game that never started or is against the computer is abandoned; a wrong token does nothing; a failed save leaves the game as it was | R81, R25, R32 | passing |
+| RM2 | A rematch against a person starts only when both have asked; a request about a game still being played, without the token, or twice, changes nothing | R82, R32 | passing |
+| RM3 | An offer expires after 30 seconds and is withdrawn when either leaves or drops; nothing starts into an empty seat; a failed archive tells both | R83, R25 | passing |
+| RM4 | A rematch keeps the code, the seats and the spectators, is archived as `<code>#<n>`, counts as a separate game for the leaderboard, and starts fresh (all rows open, power-ups unspent) | R84, R85, R38 | passing |
+| RM5 | A computer game rematches at once under the same code and never touches the leaderboard | R82, R37 | passing |
+| RM6 | Browser: both players tap Play again and a new game starts on the same link; the other leaving shows "<opponent> left"; a spectator stays and sees the new game | U109 to U113 | passing |
+
 ## No peeking (`spec/app-no-peek.test.ts`)
 
 N1 to N4. See the file. N6 adds: the ceiling warning carries only public information, the same on both screens (R21, R22), passing (`spec/unit-realtime-earthquake.test.ts` and the warning check in `e2e/shrinking-board.spec.ts`). N5 adds: an Earthquake choice is never revealed to the opponent before the round resolves (R21, R22, R54), passing (also `spec/unit-realtime-earthquake.test.ts`).

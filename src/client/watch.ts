@@ -73,10 +73,8 @@ function paint(state: GameState): void {
     for (let r = 0; r < 6; r++) {
       const kindOf = pieceFor(state.board[c][r] ?? "");
       if (kindOf) board.place(c, r, kindOf);
-      if (r >= state.rows) {
-        board.remove(c, r);
-        board.setClosed(c, r, true);
-      }
+      board.setClosed(c, r, r >= state.rows); // a rematch starts with every row open again (R85)
+      if (r >= state.rows) board.remove(c, r);
     }
   }
 }
@@ -141,7 +139,15 @@ let nameOf: Names = { A: null, B: null };
 const name = (seat: "A" | "B"): string => nameOf[seat] ?? (seat === "A" ? "Player 1" : "Player 2");
 
 async function show(state: GameState, first: boolean): Promise<void> {
-  const previous = drawn;
+  // A rematch (R85) starts the same code over at round 0: the old board and result are cleared, and the new game is
+  // painted from scratch like a first sight of a game.
+  const restarted = !!drawn && state.round < drawn.round;
+  if (restarted) {
+    $("watch-result").hidden = true;
+    setText("result-line", "");
+    clearInterval(moveTimer);
+  }
+  const previous = restarted ? null : drawn;
   drawn = state;
   setText("round-number", String(state.status === "playing" ? state.round + 1 : state.round));
   powerUps(state);
@@ -239,6 +245,8 @@ socket.addEventListener("message", (event) => {
       busy = busy.then(() => show(message.state, true));
       break;
     }
+    case "rematch_started":
+      break; // the first round of the new game follows as a `round`, which repaints the board (R85)
     case "round":
       setText("watching-count-text", watchingText(message.watching));
       busy = busy.then(() => show(message.state, false));

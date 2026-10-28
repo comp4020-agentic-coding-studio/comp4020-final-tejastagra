@@ -63,6 +63,9 @@ export interface Db {
   markWatchable(code: string, state: GameState): void;
   // Marks a game as a link game and records who made it (R34, R36). The first creator wins. An upsert.
   markLink(code: string, state: GameState, creator: string | null): void;
+  // A rematch (R84): copies the finished game under `<code>#<n>` (the first n not used) and resets the game under `code` to
+  // `fresh`, keeping its kind, creator and seats, in one transaction. Returns the archive's code.
+  archiveGame(code: string, fresh: GameState): string;
   loadGames(): SavedGame[];
   close(): void;
 }
@@ -150,6 +153,12 @@ export function openDb(path: string): Db {
   const saveRoundRow = db.prepare(`
     UPDATE games SET state = ?, updated_at = ?, missed_a = missed_a + ?, missed_b = missed_b + ? WHERE code = ?
   `);
+  const copyRow = db.prepare(`
+    INSERT INTO games (code, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b)
+    SELECT ?, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b FROM games WHERE code = ?
+  `);
+  const resetRow = db.prepare(`UPDATE games SET state = ?, updated_at = ?, ended = NULL, missed_a = 0, missed_b = 0 WHERE code = ?`);
+  const codeTaken = db.prepare(`SELECT 1 AS taken FROM games WHERE code = ?`);
   const seatA = db.prepare(`UPDATE games SET player_a = ? WHERE code = ? AND player_a IS NULL`);
   const seatB = db.prepare(`UPDATE games SET player_b = ? WHERE code = ? AND player_b IS NULL`);
   const selectById = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen FROM players WHERE id = ?`);
@@ -234,6 +243,21 @@ export function openDb(path: string): Db {
     },
     markLink(code: string, state: GameState, creator: string | null): void {
       markLinkRow.run(code, JSON.stringify(state), Date.now(), creator);
+    },
+    archiveGame(code: string, fresh: GameState): string {
+      let n = 1;
+      while (codeTaken.get(`${code}#${n}`)) n++;
+      const archive = `${code}#${n}`;
+      db.exec("BEGIN");
+      try {
+        copyRow.run(archive, code);
+        resetRow.run(JSON.stringify(fresh), Date.now(), code);
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+      return archive;
     },
     loadGames(): SavedGame[] {
       const saved: SavedGame[] = [];

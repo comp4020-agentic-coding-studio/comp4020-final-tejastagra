@@ -324,6 +324,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
               <div class="panel popup-card">
                 <h2 class="popup-title" id="end-title" data-testid="end-title"></h2>
                 <p data-testid="end-detail"></p>
+                <p class="rematch-status" data-testid="rematch-status" role="status" hidden></p>
                 <div class="popup-actions">
                   ${button({ label: "Play again", iconName: "computer", kind: "red", testid: "play-again" })}
                   ${button({ label: "Home", iconName: "join", kind: "blue", testid: "go-home", href: "/" })}

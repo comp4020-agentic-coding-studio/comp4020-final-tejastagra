@@ -245,11 +245,15 @@ describe("R27: a player who disconnects and does not return forfeits", () => {
 
     // Wait past the disconnect grace period: it must not also send a forfeit
     // game_over now that the game has already ended normally.
+    // R83 adds one message for the player still there once the grace period passes on a finished game: `rematch_ended`
+    // with reason `left`. It is never a `game_over`, which is what this test protects.
     const raceResult = await Promise.race([
       b.next().then((message) => ({ arrived: true, message })),
       new Promise((resolve) => setTimeout(() => resolve({ arrived: false }), DISCONNECT_GRACE_MS * 1.5)),
     ]);
-    expect((raceResult as { arrived: boolean }).arrived).toBe(false);
+    const arrived = raceResult as { arrived: boolean; message?: { type: string; reason?: string } };
+    expect(arrived.arrived && arrived.message?.type === "game_over").toBe(false);
+    if (arrived.arrived) expect(arrived.message).toEqual({ type: "rematch_ended", reason: "left" });
 
     b.socket.close();
   });

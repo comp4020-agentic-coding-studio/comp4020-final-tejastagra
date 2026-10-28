@@ -1,0 +1,9 @@
+# Rematch
+
+Added on 28 October 2026 (Part 5 of the fix list). It changes what "Play again" does (`motion-and-endings.md` U29) and follows rules R82 to R85.
+
+- **U109** On the end popup, **Play again** (`play-again`) against the **computer** starts a new computer game at once, in the same page and on the same link, with no waiting.
+- **U110** Against a **person**, tapping Play again does not start anything: the button becomes disabled and reads **"Waiting"** and a status line above it (`rematch-status`) says **"Waiting for <opponent>"** (their nickname and tag, which may wrap onto two or three lines at 320px: it is text, U113). The way out is **Home**, which withdraws the offer (R83), so there is no separate Cancel. The opponent's popup says **"<opponent> wants a rematch"** (`rematch-status`) above their own **Play again**. When the opponent taps it too, both screens clear and the new game starts with "Get ready" (U55).
+- **U111** The offer **expires after 30 seconds**. If it expires, or the other player taps Home or Leave or has gone, the player who is still there sees **"<opponent> left"** (`rematch-status`) and only **Home** (`go-home`); Play again is gone, because nobody is there to play. A countdown is never shown, so nothing about timing leaks a choice.
+- **U112** Spectators stay on the link and see the new game start (`spectating.md` U82 does not move them on from a link game, and a quick match spectator is moved on as before when the game ends, unless a rematch starts first, which they see as the board clearing).
+- **U113** The status line, the buttons and the opponent's name all sit inside the end popup, which keeps its width (at most 300px) and its centring (U27a), so nothing behind it moves (Q1), and every label is one line (Q2), down to 320px, where the status may wrap onto a second line because it is text and not a button label.

@@ -2740,3 +2740,19 @@ input {
     line-height: 1;
   }
 }
+
+/* The rematch line inside the end popup (docs/design/rematch.md U110, U111, U113). It is text, so it may wrap at 320px. */
+.rematch-status {
+  margin: 0 0 8px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.rematch-status[hidden],
+.popup-actions .btn[hidden] {
+  display: none;
+}
+
+.popup-actions:has(.btn[hidden]) {
+  grid-template-columns: 1fr;
+}

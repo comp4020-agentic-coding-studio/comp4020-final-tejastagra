@@ -108,9 +108,13 @@ export interface RealtimeOptions {
   spectatorsPerGame?: number; // R77
   spectatorsTotal?: number; // R77
   spectatorBufferLimit?: number; // R77: bytes waiting to be sent to a spectator before it is closed
+  rematchOfferMs?: number; // how long a rematch offer stands (R83); 30 seconds by default
+  finishedRetainMs?: number; // how long a finished game stays known in memory for a rematch or a late visitor (R84); 30 minutes by default
 }
 
 export const DISCONNECT_GRACE_MS = 30_000;
+export const REMATCH_OFFER_MS = 30_000; // R83
+export const FINISHED_RETAIN_MS = 30 * 60_000; // R84: a finished game is remembered this long, so memory cannot grow without bound
 export const COMPUTER_THINK_MIN_MS = 1_000; // R52
 export const COMPUTER_THINK_MAX_MS = 3_000;
 export const ABANDON_AFTER_IDLE_ROUNDS = 3; // R19
@@ -129,6 +133,7 @@ export function attachRealtime(
   createLinkGame: (code: string, creator: string | null) => void;
   watchingIn: (code: string) => number;
   spectatorState: () => { watchers: number; watching: number; lastGame: number; addresses: number };
+  retained: () => { kinds: number; creators: number; holders: number; rematchGone: number; rematchAsked: number; rematchTimers: number };
   kindsKnown: () => Array<[string, "quick" | "link" | "computer"]>;
   spectatorMoveMs: number;
 } {
@@ -289,6 +294,12 @@ export function attachRealtime(
     return !!record && record.state.status === "playing" && !forfeited.has(code) && bothSeatsTaken(code);
   }
 
+  // A finished game is shown to a visitor who opens its link, and they stay on it for a rematch (R84).
+  function isShowable(code: string): boolean {
+    const kind = kinds.get(code);
+    return (kind === "quick" || kind === "link") && !!game.getGame(code) && bothSeatsTaken(code);
+  }
+
   // A game is live when it is a quick match game, still being played and both players are connected (R70). Link games
   // are never live in this sense: Watch live never offers or counts them.
   function isLive(code: string): boolean {
@@ -297,32 +308,62 @@ export function attachRealtime(
 
   // The live quick match games, forgetting the ones that are over: a finished game can never be live again, so the map
   // (and every scan of it) stays proportional to the games still being played.
+  const rematchAsked = new Map<string, { A: boolean; B: boolean }>();
+  const rematchTimers = new Map<string, NodeJS.Timeout>();
+  const rematchGone = new Map<string, "left" | "expired">();
+
   function liveWatchable(): string[] {
+    sweepFinished();
     const live: string[] = [];
     for (const [code, kind] of [...kinds]) {
       if (kind === "computer") continue;
       const record = game.getGame(code);
-      if (!record || record.state.status !== "playing" || forfeited.has(code)) {
-        kinds.delete(code);
-        creators.delete(code);
-        holders.delete(code);
-        continue;
-      }
+      if (!record || record.state.status !== "playing" || forfeited.has(code)) continue; // never live
       if (isLive(code)) live.push(code);
     }
     return live;
   }
+
+  // A finished game stays known while a rematch may still start or a late visitor opens its link (R84), and is then forgotten,
+  // so the maps stay proportional to the games of the last half hour and not to every game ever played.
+  const finishedAt = new Map<string, number>();
+  const finishedRetainMs = options.finishedRetainMs ?? FINISHED_RETAIN_MS;
+  function sweepFinished(): void {
+    const t = Date.now();
+    for (const code of [...kinds.keys(), ...rematchGone.keys(), ...rematchAsked.keys()]) {
+      const record = game.getGame(code);
+      const over = !record || record.state.status !== "playing" || forfeited.has(code);
+      if (!over) {
+        finishedAt.delete(code);
+        continue;
+      }
+      const since = finishedAt.get(code) ?? t;
+      finishedAt.set(code, since);
+      if (t - since < finishedRetainMs) continue;
+      kinds.delete(code);
+      creators.delete(code);
+      holders.delete(code);
+      clearRematch(code);
+      rematchGone.delete(code);
+      finishedAt.delete(code);
+    }
+  }
+  const sweepTimer = setInterval(sweepFinished, Math.max(1000, Math.min(60_000, finishedRetainMs / 2)));
+  sweepTimer.unref();
 
   // Both seats are taken by someone connected, the computer counting as always connected (R51).
   function bothPresentFor(code: string): boolean {
     return connections.has(key(code, "A")) && presentFor(code, "A");
   }
 
+  // Codes a visitor has just been sent to by their link (R36): a finished game among them may be shown, not only a live one.
+  const viaLinkVisit = new Set<string>();
+
   const spectators = createSpectators(
     {
       send: (socket, message) => send(socket, message as never),
       viewOf(code) {
-        if (!isWatchable(code)) return undefined; // a computer game, a seat free, over or no such game: all the same answer (R71)
+        if (!isWatchable(code) && !(viaLinkVisit.has(code) && isShowable(code))) return undefined; // a computer game, a seat free, or no such game: all the same answer (R71)
         const record = game.getGame(code)!;
         return { state: record.state, kind: kinds.get(code) as "quick" | "link", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") } } satisfies WatchableView;
       },
@@ -442,6 +483,112 @@ export function attachRealtime(
     }
   }
 
+  // ---- Rematch (R82 to R85) ----
+  // Who has asked for a rematch of a finished game, and the timer that ends the offer. Memory only: an offer is a thing of
+  // the moment, and a restart simply withdraws it (the players see "left" and start a new game from Home).
+  const rematchOfferMs = options.rematchOfferMs ?? REMATCH_OFFER_MS;
+
+  const isOver = (code: string): boolean => {
+    const record = game.getGame(code);
+    return !!record && (record.state.status !== "playing" || forfeited.has(code));
+  };
+
+  function clearRematch(code: string): void {
+    rematchAsked.delete(code);
+    const timer = rematchTimers.get(code);
+    if (timer) clearTimeout(timer);
+    rematchTimers.delete(code);
+  }
+
+  // The offer is over because it ran out or someone left (R83): whoever is still connected is told, and a later request is
+  // answered the same way, so nobody waits for a player who is not coming.
+  function endRematchOffer(code: string, reason: "left" | "expired"): void {
+    if (!isOver(code)) return;
+    clearRematch(code);
+    rematchGone.set(code, reason);
+    for (const player of ["A", "B"] as const) {
+      const socket = connections.get(key(code, player));
+      if (socket) send(socket, { type: "rematch_ended", reason } as never);
+    }
+  }
+
+  // Someone left a finished game on purpose or did not come back (R83).
+  function playerLeftFinished(code: string): void {
+    if (!isOver(code) || computerGames.has(code)) return;
+    endRematchOffer(code, "left");
+  }
+
+  function handleRematch(message: { code?: unknown; player?: unknown; seatToken?: unknown }): void {
+    const { code, player, seatToken } = message;
+    if (typeof code !== "string" || (player !== "A" && player !== "B")) return;
+    const expected = seatTokens.get(key(code, player));
+    if (typeof seatToken !== "string" || typeof expected !== "string" || seatToken !== expected) return; // R32
+    if (!game.getGame(code) || !kinds.has(code)) {
+      // After a restart a finished game is not in memory any more (R26), and a game left long enough is forgotten (R84): there is
+      // nothing to start again, so the one who asks is told at once and starts a new game from Home (R83).
+      const gone = connections.get(key(code, player));
+      if (gone) send(gone, { type: "rematch_ended", reason: "left" } as never);
+      return;
+    }
+    if (!isOver(code)) return; // R82: only about a game that is over
+    const socket = connections.get(key(code, player));
+    if (computerGames.has(code)) {
+      startRematch(code); // R82: against the computer it starts at once
+      return;
+    }
+    const gone = rematchGone.get(code);
+    if (gone) {
+      if (socket) send(socket, { type: "rematch_ended", reason: gone } as never);
+      return;
+    }
+    const asked = rematchAsked.get(code) ?? { A: false, B: false };
+    if (asked[player]) return; // asking twice changes nothing
+    asked[player] = true;
+    rematchAsked.set(code, asked);
+    if (asked.A && asked.B) {
+      // A player who asked and then dropped is not there to play: the rematch does not start into an empty seat (R82, R83).
+      if (!connections.has(key(code, "A")) || !connections.has(key(code, "B"))) {
+        endRematchOffer(code, "left");
+        return;
+      }
+      startRematch(code);
+      return;
+    }
+    if (!rematchTimers.has(code)) rematchTimers.set(code, setTimeout(() => endRematchOffer(code, "expired"), rematchOfferMs));
+    const other = connections.get(key(code, opponentOf(player)));
+    if (other) send(other, { type: "rematch_offer", from: "opponent" } as never);
+  }
+
+  // Both asked (or the computer's human did): the finished game is archived under `<code>#<n>` and the code starts a new game
+  // with the same people in the same seats (R84). Saved before anyone is told (R25).
+  function startRematch(code: string): void {
+    try {
+      db.archiveGame(code, newGame());
+    } catch (error) {
+      logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+      endRematchOffer(code, "left"); // nothing changed in the database; both are told, and start a new game from Home
+      return;
+    }
+    clearRematch(code);
+    rematchGone.delete(code);
+    clearTimerFor(code);
+    for (const seat of ["A", "B"] as const) clearGraceTimer(code, seat);
+    forfeited.delete(code);
+    idleRounds.delete(code);
+    pending.set(code, { A: null, B: null });
+    game.restart(code);
+    logEvent("rematch", { game: code });
+    for (const player of ["A", "B"] as const) {
+      const socket = connections.get(key(code, player));
+      if (socket) send(socket, { type: "rematch_started" } as never);
+    }
+    spectators.announce(code, { type: "rematch_started" });
+    // The fresh state goes to the players as a snapshot and to the spectators as a round, as for any new game.
+    const record = game.getGame(code)!;
+    broadcast(code, record.state);
+    if (bothPresent(code)) scheduleTimerFor(code);
+  }
+
   function resolveNow(code: string, choices: { A: Choice | null; B: Choice | null }): void {
     clearTimerFor(code);
     pending.set(code, { A: null, B: null });
@@ -556,6 +703,10 @@ export function attachRealtime(
     const expected = seatTokens.get(key(code, player));
     if (typeof seatToken !== "string" || typeof expected !== "string" || seatToken !== expected) return;
     const record = game.getGame(code);
+    if (record && isOver(code)) {
+      playerLeftFinished(code); // R83: leaving from the end popup withdraws a rematch offer
+      return;
+    }
     if (!record || record.state.status !== "playing" || forfeited.has(code)) return;
     const started = !computerGames.has(code) && bothSeatsTaken(code);
     logEvent("leave_game", { game: code, started });
@@ -580,7 +731,18 @@ export function attachRealtime(
 
   function startGraceTimer(code: string, player: Player): void {
     const record = game.getGame(code);
-    if (!record || record.state.status !== "playing" || forfeited.has(code)) return;
+    if (!record) return;
+    // A finished game has nothing left to forfeit, but a player who does not come back from it withdraws a rematch (R83).
+    if (record.state.status !== "playing" || forfeited.has(code)) {
+      if (!computerGames.has(code)) {
+        clearGraceTimer(code, player);
+        graceTimers.set(key(code, player), setTimeout(() => {
+          graceTimers.delete(key(code, player));
+          playerLeftFinished(code);
+        }, disconnectGraceMs));
+      }
+      return;
+    }
     clearGraceTimer(code, player);
     const timer = setTimeout(() => {
       graceTimers.delete(key(code, player));
@@ -590,7 +752,10 @@ export function attachRealtime(
       // already over on its own terms and must not also be forfeited, or the
       // winner the opponent is told would contradict the real result.
       const current = game.getGame(code);
-      if (!current || current.state.status !== "playing") return;
+      if (!current || current.state.status !== "playing" || forfeited.has(code)) {
+        playerLeftFinished(code); // R83: the game was already over, so this is a player who did not come back for a rematch
+        return;
+      }
       // The disconnected player did not return in time: the game ends as a
       // forfeit (R27), the other player wins. This is server-side state, not
       // an engine Status value (docs/rules.md R27): the engine's GameState is
@@ -755,6 +920,10 @@ export function attachRealtime(
         spectators.leave(socket);
         return;
       }
+      if (parsed.type === "rematch") {
+        handleRematch(parsed as { code?: unknown; player?: unknown; seatToken?: unknown });
+        return;
+      }
       if (parsed.type === "leave_game") {
         leaveGame(parsed as { code?: unknown; player?: unknown; seatToken?: unknown });
         return;
@@ -795,6 +964,13 @@ export function attachRealtime(
           return;
         }
         if (record && record.state.status !== "playing" && kinds.get(code) !== "computer") {
+          // A finished game is shown with its result, and the visitor stays on it as a spectator, so a rematch reaches them (R84).
+          if (typeof code === "string") {
+            viaLinkVisit.add(code);
+            const placed = spectators.watchLink(socket, addressOf(request), code);
+            viaLinkVisit.delete(code);
+            if (placed) return;
+          }
           send(socket, { type: "spectating", code, kind: kinds.get(code) ?? "link", state: record.state, watching: spectators.watchingCount(code), names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") }, because: "two_players" } as never);
           return;
         }
@@ -883,6 +1059,10 @@ export function attachRealtime(
     graceTimers.clear();
     for (const timer of computerTimers.values()) clearTimeout(timer);
     computerTimers.clear();
+    for (const timer of rematchTimers.values()) clearTimeout(timer);
+    rematchTimers.clear();
+    clearInterval(sweepTimer);
+    finishedAt.clear();
     spectators.clear();
     kinds.clear();
     creators.clear();
@@ -898,6 +1078,7 @@ export function attachRealtime(
     createLinkGame,
     liveCount: () => liveWatchable().length, // R80: live quick match games, never link games or computer games
     spectatorState: () => spectators.sizes(),
+    retained: () => ({ kinds: kinds.size, creators: creators.size, holders: holders.size, rematchGone: rematchGone.size, rematchAsked: rematchAsked.size, rematchTimers: rematchTimers.size }), // for tests: every map empties as games are forgotten (R84)
     kindsKnown: () => [...kinds].sort(),
     watchingIn: (code: string) => spectators.watchingCount(code),
     spectatorMoveMs,

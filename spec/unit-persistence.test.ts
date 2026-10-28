@@ -529,3 +529,40 @@ describe("R36 and R71 the kind of a game and its creator are saved", () => {
     }
   });
 });
+
+describe("R84 archiving a finished game for a rematch (no schema change: it uses the existing columns)", () => {
+  it("S9 (R84) archiveGame copies the finished game under <code>#<n>, resets the code's row and keeps kind, creator and seats", () => {
+    const db = openDb(":memory:");
+    db.createPlayer("p1", "Alpha");
+    db.createPlayer("p2", "Beta");
+    db.markLink("ARC001", newGame(), "p1");
+    db.seatPlayer("ARC001", "A", "p1");
+    db.seatPlayer("ARC001", "B", "p2");
+    db.saveRound("ARC001", { ...newGame(), round: 4, status: "won", winner: "A" }, false, true);
+    expect(db.archiveGame("ARC001", newGame())).toBe("ARC001#1");
+    expect(db.archiveGame("ARC001", newGame())).toBe("ARC001#2");
+    const rows = Object.fromEntries(db.loadGames().map((g) => [g.code, g]));
+    expect(rows["ARC001#1"].state.status).toBe("won");
+    expect(rows["ARC001#1"].missedB).toBe(1);
+    expect(rows["ARC001"].state.status).toBe("playing");
+    expect(rows["ARC001"].state.round).toBe(0);
+    expect(rows["ARC001"].missedB).toBe(0);
+    for (const code of ["ARC001", "ARC001#1"]) {
+      expect(rows[code].kind).toBe("link");
+      expect(rows[code].creator).toBe("p1");
+      expect(rows[code].playerA).toBe("p1");
+      expect(rows[code].playerB).toBe("p2");
+    }
+  });
+
+  it("S9 (R84) archived games are never resumed after a restart, and the fresh game under the code is", () => {
+    const db = openDb(":memory:");
+    db.markLink("ARC002", newGame(), "p1");
+    db.saveRound("ARC002", { ...newGame(), round: 4, status: "won", winner: "A" }, false, false);
+    db.archiveGame("ARC002", newGame());
+    const service = createGameService({ db, broadcast: () => {} });
+    expect(service.restore()).toEqual(["ARC002"]);
+    expect(service.getGame("ARC002#1")).toBeUndefined();
+    expect(service.getGame("ARC002")!.state.round).toBe(0);
+  });
+});

@@ -167,7 +167,7 @@ test.describe("Motion and endings", () => {
     await two.context.close();
   });
 
-  test("U29 Play again starts a new game and Home returns to the home screen", async ({ browser }) => {
+  test("U29 and R82 Play again is a rematch on the same link, and Home returns to the home screen", async ({ browser }) => {
     const { one, two, code } = await twoPlayers(browser);
     for (let i = 0; i < 4; i++) {
       await chooseColumn(one.page, 0);
@@ -175,10 +175,17 @@ test.describe("Motion and endings", () => {
       if (i < 3) await waitForRound(one.page, i + 2);
     }
     await expect(one.page.locator(testid("end-popup"))).toBeVisible({ timeout: 4_000 });
+    // R82 and R84: Play again is a rematch with the same people on the same link, and starts only when both have asked.
     await one.page.click(testid("play-again"));
-    await one.page.waitForURL((url) => /\/g\/[A-Z2-9]{6}$/.test(url.pathname) && !url.pathname.endsWith(code));
-    await expect(one.page.locator(testid("game-code"))).not.toHaveText(code);
-    await two.page.click(testid("go-home"));
+    await expect(one.page.locator(testid("rematch-status"))).toContainText("Waiting for");
+    expect(one.page.url()).toContain(`/g/${code}`);
+    await two.page.click(testid("play-again"));
+    await expect(one.page.locator(testid("end-popup"))).toBeHidden({ timeout: 3_000 });
+    await expect(one.page.locator(testid("round-number"))).toHaveText("1");
+    expect(one.page.url()).toContain(`/g/${code}`);
+    await two.page.goto("/");
+    await two.page.waitForURL((url) => url.pathname === "/");
+    await expect(two.page.locator(testid("home-screen"))).toBeVisible();
     await two.page.waitForURL((url) => url.pathname === "/");
     await expect(two.page.locator(testid("home-screen"))).toBeVisible();
     await one.context.close();
