@@ -13,7 +13,7 @@ This folder is the source of truth for how Rubble looks, moves and teaches itsel
 | `shrinking-board.md` | The warning, the ceiling dropping to rock, the result line and the tutorial step (U68 to U74) |
 | `spectating.md` | Watching a live game: the Watch live button, the watching screen, the watcher count and the exhibition game (U76 to U84) |
 | `popups.md` | The one popup component and every dialog (U85 to U90) |
-| `qa-checklist.md` | The layout and polish rules every screen must pass, Q1 to Q11 (no layout shift, no wrapped buttons, boxes that fit, spacing, alignment, one centred column, prefilled forms, sensible controls, a way to leave, empty states, no plain pages) |
+| `qa-checklist.md` | The layout and polish rules every screen must pass, Q1 to Q14 (no layout shift, no wrapped buttons, boxes that fit, spacing, alignment, one centred column, prefilled forms, sensible controls, a way to leave, empty states, no plain pages, Home always visible in a header bar, the main thing centred, players looking the same to everyone) |
 | `quick-match.md` | The Quick match waiting card, its live count and the computer offer (U96 to U101) |
 | `leaderboard.md` | The leaderboard: tabs, a podium for the top three, compact rows, your row highlighted, "Your best:" and an empty state that explains itself (U123 to U130) |
 | `account.md` | The account page: one card, popups for every form, match history and stats (U114 to U122) |

@@ -16,7 +16,14 @@ Added on 28 October 2026. These are the layout and polish rules every screen mus
 | **Q8** | **Controls only appear when they make sense.** Never "Sign out" for a guest, never sign-in or sign-up forms for a signed-in player. | A guest's page has no Sign out; a signed-in player's page has no sign-in or sign-up control. |
 | **Q9** | **Every screen except home has a visible way to leave:** Home, Cancel or Leave game. | Every screen but `/` has a button or link named Home, Cancel, Cancel game or Leave game, on screen without scrolling at 320 x 568 where the screen fits, and reachable by tab. |
 | **Q10** | **Empty states explain themselves.** An empty list says why it is empty and what to do next, in words; it is never blank or "Loading..." for ever. | Every list has text when empty. |
+| **Q12** | **The way home is always visible.** Every screen except home has a **header bar** at the top (`topbar`) with a **Home** button (`header-home`) on its left, visible on load at both viewports without scrolling. No page relies on a Home button at the bottom. On the game screen Home asks to confirm leaving, because it is a forfeit (U107). | `e2e/layout.spec.ts`: on every screen but `/`, `header-home` lies inside the viewport when the page loads, at 320 x 568, 390 x 844 and 1366 x 768, and is at least 44 by 44px. |
+| **Q13** | **Visual centring.** The main thing on a screen (the board, a card or a list) is centred on the page, and nothing sits beside it in a way that pushes it off centre. | `e2e/layout.spec.ts`: the board's centre is within 16px of the page's centre on the game screen and the friend waiting screen, at every viewport; Q6 covers the column on every other screen. |
+| **Q14** | **Players always look the same to everyone.** A player's colour and marker are the same on both players' screens and every spectator's screen. | `e2e/player-colours.spec.ts`: in one friend game the same seat's discs have the same colour and marker on both players' screens and a spectator's. |
 | **Q11** | **No page looks plain.** Every page has a header with the Rubble title and a short subtitle, and uses the toy style of `look-and-feel.md` (icons, outlined cards, hard shadows), not bare text boxes. | Every page has the title element and a subtitle line; its cards use `--outline` and `--shadow` from the theme. |
+
+## The header bar (Q12)
+
+Every screen except home starts with one header bar (`topbar`). It holds, from left to right: the **Home** button (`header-home`, a `--blue` button with the home icon and the word "Home", at least 44px tall, one line), an optional **middle** line (`topbar-title`, for example "Playing with Pip #4F2A", cut with an ellipsis when too long) and an optional **right** item (`topbar-right`, for example "Round 3"). It is as wide as the page's content column (at most 560px on single-column pages, the board group's width on the game screen) and centred with it. The Rubble title and the page's subtitle (Q11) sit under it. Because it is the first thing on the page, it is always on the first screen on load.
 
 ## Popups (Q1)
 
@@ -24,4 +31,4 @@ One popup component serves every dialog (`src/client/dialog.ts`, styled in `publ
 
 ## Checks that are measured and checks that are looked at
 
-Q1 to Q9 are measured by `e2e/layout.spec.ts`. Q10 and Q11 are judged by `/visual-qa`, which also looks at every other Q and at things a measurement cannot see (is anything cramped, does the page look finished, is any text cut off). `/visual-qa` writes its screenshots to `reports/visual-qa/` (not tracked by git) and fixes what it finds.
+Q1 to Q9, Q12 and Q13 are measured by `e2e/layout.spec.ts`, and Q14 by `e2e/player-colours.spec.ts`. Q10 and Q11 are judged by `/visual-qa`, which also looks at every other Q and at things a measurement cannot see (is anything cramped, does the page look finished, is any text cut off). `/visual-qa` writes its screenshots to `reports/visual-qa/` (not tracked by git) and fixes what it finds.
