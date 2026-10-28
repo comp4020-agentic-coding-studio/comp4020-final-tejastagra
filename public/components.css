@@ -483,11 +483,11 @@ button.round-item {
 }
 
 .player-you {
-  border-top: var(--accent-you);
+  border-top: var(--accent-red);
 }
 
 .player-opponent {
-  border-top: var(--accent-opponent);
+  border-top: var(--accent-yellow);
 }
 
 .avatar {
@@ -696,11 +696,16 @@ button.round-item {
   box-shadow: var(--shadow-small);
 }
 
-.piece[data-piece="you"] {
+/* A disc's colour and marker follow its seat's colour (R93, R94, U134): red with a ring, yellow with a cross, the same on every
+   screen. A piece with no colour (the home demo, the tutorial) is red with a ring for "you" and yellow with a cross for the
+   opponent, the practice look. */
+.piece[data-colour="red"],
+.piece[data-piece="you"]:not([data-colour]) {
   background: var(--red);
 }
 
-.piece[data-piece="opponent"] {
+.piece[data-colour="yellow"],
+.piece[data-piece="opponent"]:not([data-colour]) {
   background: var(--yellow);
 }
 
@@ -708,12 +713,14 @@ button.round-item {
   background: repeating-linear-gradient(45deg, var(--rubble) 0 5px, var(--rubble-hatch) 5px 10px);
 }
 
-.piece.recent[data-piece="you"] {
-  box-shadow: var(--shadow-small), 0 0 14px 3px var(--disc-glow-you);
+.piece.recent[data-colour="red"],
+.piece.recent[data-piece="you"]:not([data-colour]) {
+  box-shadow: var(--shadow-small), 0 0 14px 3px var(--disc-glow-red);
 }
 
-.piece.recent[data-piece="opponent"] {
-  box-shadow: var(--shadow-small), 0 0 14px 3px var(--disc-glow-opponent);
+.piece.recent[data-colour="yellow"],
+.piece.recent[data-piece="opponent"]:not([data-colour]) {
+  box-shadow: var(--shadow-small), 0 0 14px 3px var(--disc-glow-yellow);
 }
 
 .piece.win {
@@ -721,8 +728,11 @@ button.round-item {
   z-index: 1;
 }
 
-/* Markers: a ring on your discs, a cross on the opponent's, so colour is never the only difference. */
-.piece[data-piece="you"]::after {
+/* Markers: a ring on red discs, a cross on yellow ones, so colour is never the only difference. */
+.piece[data-colour="red"]::after,
+.piece[data-piece="you"]:not([data-colour])::after,
+.mini-disc[data-colour="red"]::after,
+.mini-disc[data-piece="you"]:not([data-colour])::after {
   content: "";
   position: absolute;
   inset: 26%;
@@ -730,8 +740,16 @@ button.round-item {
   border: var(--outline-marker);
 }
 
-.piece[data-piece="opponent"]::before,
-.piece[data-piece="opponent"]::after {
+.mini-disc[data-colour="red"]::after,
+.mini-disc[data-piece="you"]:not([data-colour])::after {
+  inset: 2px;
+  border: var(--outline-marker-small);
+}
+
+.piece[data-colour="yellow"]::before,
+.piece[data-colour="yellow"]::after,
+.piece[data-piece="opponent"]:not([data-colour])::before,
+.piece[data-piece="opponent"]:not([data-colour])::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -739,36 +757,38 @@ button.round-item {
   width: 52%;
   height: 3px;
   margin-top: -1.5px;
-  background: var(--marker-opponent);
+  background: var(--marker-yellow);
   border-radius: var(--radius-chip);
 }
 
-.piece[data-piece="opponent"]::before {
+.piece[data-colour="yellow"]::before,
+.piece[data-piece="opponent"]:not([data-colour])::before,
+.mini-disc[data-colour="yellow"]::before,
+.mini-disc[data-piece="opponent"]:not([data-colour])::before {
   transform: rotate(45deg);
 }
 
-.piece[data-piece="opponent"]::after {
+.piece[data-colour="yellow"]::after,
+.piece[data-piece="opponent"]:not([data-colour])::after,
+.mini-disc[data-colour="yellow"]::after,
+.mini-disc[data-piece="opponent"]:not([data-colour])::after {
   transform: rotate(-45deg);
 }
 
-.mini-disc[data-piece="you"] {
+.mini-disc[data-colour="red"],
+.mini-disc[data-piece="you"]:not([data-colour]) {
   background: var(--red);
 }
 
-.mini-disc[data-piece="opponent"] {
+.mini-disc[data-colour="yellow"],
+.mini-disc[data-piece="opponent"]:not([data-colour]) {
   background: var(--yellow);
 }
 
-.mini-disc[data-piece="you"]::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border-radius: var(--radius-pill);
-  border: var(--outline-marker-small);
-}
-
-.mini-disc[data-piece="opponent"]::before,
-.mini-disc[data-piece="opponent"]::after {
+.mini-disc[data-colour="yellow"]::before,
+.mini-disc[data-colour="yellow"]::after,
+.mini-disc[data-piece="opponent"]:not([data-colour])::before,
+.mini-disc[data-piece="opponent"]:not([data-colour])::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -776,19 +796,20 @@ button.round-item {
   right: 2px;
   height: 2px;
   margin-top: -1px;
-  background: var(--marker-opponent);
-}
-
-.mini-disc[data-piece="opponent"]::before {
-  transform: rotate(45deg);
-}
-
-.mini-disc[data-piece="opponent"]::after {
-  transform: rotate(-45deg);
+  background: var(--marker-yellow);
 }
 
 .mini-disc[data-piece="rubble"] {
   background: repeating-linear-gradient(45deg, var(--rubble) 0 3px, var(--rubble-hatch) 3px 6px);
+}
+
+/* A player's panel takes the accent of their seat's colour (U134). */
+.player[data-colour="red"] {
+  border-top: var(--accent-red);
+}
+
+.player[data-colour="yellow"] {
+  border-top: var(--accent-yellow);
 }
 
 /* ---- The reveal: discs drop at once, with no countdown (U19) ---- */
@@ -1502,6 +1523,11 @@ input {
   z-index: 4;
 }
 
+/* The ghost disc is drawn in your own colour (U11, U134). */
+.ghost[data-colour="yellow"] {
+  background: var(--yellow);
+}
+
 .ghost[data-chosen="true"] {
   opacity: 1;
   animation: ghost-lock var(--dur-lock) ease-out both; /* lifts a little, then locks (U12) */
@@ -1620,22 +1646,51 @@ input {
 }
 
 /* "Get ready" shows once, when a game first starts (U55). */
+/* The start countdown (U133, R97): a card over the board for the 3 seconds before round 1, saying the player's colour with
+   their disc shown large, so the colour is told by shape too. */
 .get-ready {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: fit-content;
+  width: min(100%, 300px);
   height: fit-content;
-  padding: 0.1em 0.5em 0.15em;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 16px 20px 18px;
+  text-align: center;
   pointer-events: none;
-  font: 700 clamp(32px, 9vw, 52px) / 1.1 var(--font-display);
-  color: var(--yellow);
-  background: var(--panel);
-  border: var(--outline);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow);
   z-index: 6;
   animation: pop var(--dur-pop) ease-out both;
+}
+
+.get-ready p {
+  margin: 0;
+}
+
+.get-ready-lead {
+  font: 700 1rem/1.2 var(--font-display);
+  color: var(--text-muted);
+}
+
+.you-are {
+  font: 700 1.8rem/1.1 var(--font-display);
+  white-space: nowrap;
+}
+
+/* The real disc, large: the piece's own colour and marker rules draw it. */
+.you-are-disc.piece {
+  position: relative;
+  inset: auto;
+  display: block;
+  width: 72px;
+  height: 72px;
+  box-shadow: var(--shadow);
+}
+
+.countdown-number {
+  font: 700 2.4rem/1 var(--font-display);
+  color: var(--yellow);
 }
 
 .get-ready[hidden] {
@@ -2615,7 +2670,7 @@ input {
 
 .quick-disc-you {
   background: var(--red);
-  box-shadow: inset 0 0 0 6px var(--red), inset 0 0 0 9px var(--marker-you);
+  box-shadow: inset 0 0 0 6px var(--red), inset 0 0 0 9px var(--marker-red);
 }
 
 .quick-disc-opponent {
@@ -2632,7 +2687,7 @@ input {
   left: 50%;
   width: 24px;
   height: 4px;
-  background: var(--marker-opponent);
+  background: var(--marker-yellow);
   border-radius: var(--radius-chip);
   transform: translate(-50%, -50%) rotate(45deg);
 }

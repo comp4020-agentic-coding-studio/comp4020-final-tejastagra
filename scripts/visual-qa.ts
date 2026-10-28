@@ -56,6 +56,7 @@ async function twoPlayers(browser: Browser, v: Viewport, first: Page) {
   await first.goto(`/g/${code}`);
   await second.page.goto(`/g/${code}`);
   await first.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+  await first.waitForFunction(() => document.querySelector('[data-testid="game-screen"]')?.getAttribute("data-started") === "true", null, { timeout: 8_000 }); // after the start countdown (R97)
   return { code, second };
 }
 
@@ -235,6 +236,7 @@ const STATES: State[] = [
       run: async ({ page, shot }) => {
         await openGame(page);
         await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+        await page.waitForFunction(() => document.querySelector('[data-testid="game-screen"]')?.getAttribute("data-started") === "true", null, { timeout: 8_000 }); // after the start countdown (R97)
         await settle(page, 600);
         await page.locator(testid(opener)).click();
         await page.locator(testid(dialog)).waitFor();
@@ -426,6 +428,7 @@ const STATES: State[] = [
     run: async ({ page, shot }) => {
       await openGame(page);
       await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+      await page.waitForFunction(() => document.querySelector('[data-testid="game-screen"]')?.getAttribute("data-started") === "true", null, { timeout: 8_000 }); // after the start countdown (R97)
       await settle(page, 1500);
       await shot();
     },

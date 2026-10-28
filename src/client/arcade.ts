@@ -52,6 +52,13 @@ export function shieldIcon(): SVGElement {
 }
 
 export type Piece = "you" | "opponent" | "rubble";
+export type Colour = "red" | "yellow";
+// R93, R94: which seat is "you" on this screen and what colour each seat is, as the server sent it. With it a disc is drawn
+// in its seat's colour and marker, the same on every screen (U134); without it (the home demo, the tutorial) "you" is red.
+export interface Seats {
+  you: "A" | "B";
+  colours: Record<"A" | "B", Colour>;
+}
 type Kinds = Array<Array<Piece | null>>; // kinds[column][row], null when empty
 
 export interface BoardView {
@@ -63,6 +70,17 @@ export interface BoardView {
   setDoomed(column: number, row: number, doomed: boolean): void;
   setClosed(column: number, row: number, closed: boolean): void;
   clear(): void;
+  // Sets which seat is "you" and each seat's colour (U134). Pieces already on the board are recoloured.
+  setSeats(seats: Seats | null): void;
+}
+
+// The colour of a piece on this screen: its seat's colour when the seats are known (U134), otherwise "you" red and "opponent"
+// yellow, the practice look.
+export function colourOf(piece: Piece, seats: Seats | null): Colour | null {
+  if (piece === "rubble") return null;
+  if (!seats) return piece === "you" ? "red" : "yellow";
+  const seat = piece === "you" ? seats.you : seats.you === "A" ? "B" : "A";
+  return seats.colours[seat];
 }
 
 // Builds the 7 by 6 board. Row 0 is the bottom row, so it is drawn last, as in
@@ -83,16 +101,38 @@ export function buildBoard(): BoardView {
       root.append(cell);
     }
   }
+  let seats: Seats | null = null;
+  // The seat a piece belongs to: the real seat when the seats are known, so every screen marks a cell the same (U134).
+  const seatOf = (piece: Piece): string => (piece === "rubble" ? "R" : !seats ? (piece === "you" ? "A" : "B") : piece === "you" ? seats.you : seats.you === "A" ? "B" : "A");
   return {
     root,
     cell: (column, row) => cells[column][row],
+    setSeats(next) {
+      seats = next;
+      for (const column of cells) {
+        for (const cell of column) {
+          const node = cell.querySelector<HTMLElement>(".piece");
+          if (!node) continue;
+          const piece = node.dataset.piece as Piece;
+          const colour = colourOf(piece, seats);
+          if (colour) node.dataset.colour = colour;
+          cell.dataset.piece = seatOf(piece);
+          if (colour) cell.dataset.colour = colour;
+        }
+      }
+    },
     place(column, row, piece, animation) {
       const cell = cells[column][row];
       cell.querySelector(".piece")?.remove();
       const node = document.createElement("span");
       node.className = "piece";
       node.dataset.piece = piece;
-      cell.dataset.piece = piece === "you" ? "A" : piece === "opponent" ? "B" : "R";
+      const colour = colourOf(piece, seats);
+      if (colour) {
+        node.dataset.colour = colour;
+        cell.dataset.colour = colour;
+      } else delete cell.dataset.colour;
+      cell.dataset.piece = seatOf(piece);
       if (animation && !reducedMotion()) {
         node.classList.add(animation);
         node.style.setProperty("--fall", animation === "sliding" ? "1" : String(6 - row)); // a slide is one row
@@ -103,6 +143,7 @@ export function buildBoard(): BoardView {
     remove(column, row) {
       cells[column][row].querySelector(".piece")?.remove();
       cells[column][row].dataset.piece = "";
+      delete cells[column][row].dataset.colour;
     },
     setDoomed(column, row, doomed) {
       const cell = cells[column][row];
@@ -119,6 +160,7 @@ export function buildBoard(): BoardView {
         for (const cell of column) {
           cell.querySelector(".piece")?.remove();
           cell.dataset.piece = "";
+          delete cell.dataset.colour;
           delete cell.dataset.closed;
           delete cell.dataset.doomed;
         }

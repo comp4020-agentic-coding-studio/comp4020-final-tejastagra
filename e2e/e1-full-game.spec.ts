@@ -56,10 +56,13 @@ test("E1 a phone and a laptop play a full game through a friend link", async ({ 
   await expect(phone.page.locator(testid("end-title"))).toHaveText("YOU WIN!", { timeout: 3_000 });
   await expect(laptop.page.locator(testid("end-title"))).toHaveText("SO CLOSE!", { timeout: 3_000 });
   for (const row of [0, 1, 2, 3]) {
-    // Each screen marks its own player's pieces "A" and the opponent's "B", so the two screens
-    // must show the same cell as mirror images: the phone's piece in every row is the laptop's opposite.
+    // Both screens mark a cell with the seat it belongs to, and draw it in that seat's colour (U134, Q14, changed 29 October
+    // 2026; the screens used to mark cells relative to the viewer, as mirror images). The phone joined first, so it is seat A.
     await expect(who.locator(testid(`cell-0-${row}`))).toHaveAttribute("data-piece", "A");
-    await expect(laptop.page.locator(testid(`cell-0-${row}`))).toHaveAttribute("data-piece", "B");
+    await expect(laptop.page.locator(testid(`cell-0-${row}`))).toHaveAttribute("data-piece", "A");
+    const colour = await who.locator(testid(`cell-0-${row}`)).getAttribute("data-colour");
+    expect(colour).toMatch(/^(red|yellow)$/);
+    await expect(laptop.page.locator(testid(`cell-0-${row}`))).toHaveAttribute("data-colour", colour!);
   }
   await phone.context.close();
   await laptop.context.close();

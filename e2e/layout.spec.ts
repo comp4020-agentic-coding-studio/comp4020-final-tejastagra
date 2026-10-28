@@ -2,7 +2,7 @@
 // 1366 wide. Q10 and Q11 are judged by looking, in /visual-qa. Run with pnpm test:e2e, never in pnpm check.
 import { expect, test, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
-import { makeGameCode, newPlayer, testid } from "./helpers.ts";
+import { makeGameCode, newPlayer, testid, waitForStart } from "./helpers.ts";
 
 // A failing check should fail in seconds, not wait a minute for a dialog that is not there.
 test.use({ actionTimeout: 5_000 });
@@ -243,6 +243,7 @@ const SCREENS: Screen[] = [
       const code = (await (await p.request.post("/api/computer")).json()).code as string;
       await p.goto(`/g/${code}`);
       await p.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+      await waitForStart(p); // the start countdown has ended (R97)
     },
     exit: true,
   },
@@ -561,6 +562,7 @@ test.describe("Keyboard hint (U18, U46)", () => {
     const code = (await (await page.request.post("/api/computer")).json()).code as string;
     await page.goto(`/g/${code}`);
     await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+    await waitForStart(page); // the start countdown has ended (R97)
     await expect(page.locator(testid("keys-hint"))).toHaveCount(0);
     expect(await page.locator("main").innerText()).not.toMatch(/Keys 1 to 7/);
     await page.keyboard.press("4");
@@ -577,6 +579,7 @@ test.describe("Power-up rows (U102 to U105)", () => {
       const code = (await (await page.request.post("/api/computer")).json()).code as string;
       await page.goto(`/g/${code}`);
       await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+      await waitForStart(page); // the start countdown has ended (R97)
       const card = (await page.locator(testid("powerups")).boundingBox())!;
       for (const [row, info, label, words] of [
         ["shield-badge", "shield-info", "shield-label", "Arm shield"],
@@ -607,6 +610,7 @@ test.describe("Power-up rows (U102 to U105)", () => {
     const code = (await (await page.request.post("/api/computer")).json()).code as string;
     await page.goto(`/g/${code}`);
     await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+    await waitForStart(page); // the start countdown has ended (R97)
     await expect(page.locator(testid("opponent-shield"))).toHaveText("Shield available");
     await expect(page.locator(testid("opponent-earthquake"))).toHaveText("Earthquake available");
     await expect(page.locator(testid("opponent-shield-state"))).toBeVisible();
@@ -622,6 +626,7 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () 
     const code = (await (await page.request.post("/api/computer")).json()).code as string;
     await page.goto(`/g/${code}`);
     await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+    await waitForStart(page); // the start countdown has ended (R97)
     await expect(page.locator(testid("opponent-heading"))).toHaveText("Playing the computer");
     const leave = page.locator(testid("leave-game"));
     await expect(leave).toBeVisible();
@@ -663,6 +668,7 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () 
     const code = (await (await page.request.post("/api/computer")).json()).code as string;
     await page.goto(`/g/${code}`);
     await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+    await waitForStart(page); // the start countdown has ended (R97)
     await page.locator(testid("leave-game")).click();
     await page.locator(testid("leave-confirm")).click();
     await page.waitForURL(/\/$/);
@@ -704,6 +710,7 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () 
       const code = (await (await page.request.post("/api/computer")).json()).code as string;
       await page.goto(`/g/${code}`);
       await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+      await waitForStart(page); // the start countdown has ended (R97)
       await page.evaluate(() => {
         // Show the popup as the game's end would: only its layout is under test here.
         (document.querySelector('[data-testid="end-popup"]') as HTMLElement).hidden = false;

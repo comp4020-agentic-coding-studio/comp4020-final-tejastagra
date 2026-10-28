@@ -4,7 +4,7 @@
 // sends (R20): it never works out a result itself. Discs drop the moment the result
 // arrives, with no countdown (U19), so nothing can show a choice early (R22) or hold a
 // result back past the one second promise (U23).
-import { avatar, buildBoard, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
+import { avatar, buildBoard, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView, type Colour } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 import { dialogButton, openDialog } from "./dialog.ts";
 
@@ -38,7 +38,9 @@ let drawn: State | null = null;
 let opponentPresent = false;
 let opponentChosen = false; // only "chosen or not", never which column (R21)
 let locked = false; // the choice for this round is final (R4, U13)
-let gotReady = false; // "Get ready" shows once, when the game first starts (U55)
+let started = false; // round 1 has opened (R97): until then the board is locked and no timer runs
+let colours: Record<Player, Colour> = { A: "red", B: "yellow" }; // each seat's colour, as the server sent it (R93, R94)
+let countdownTimer: ReturnType<typeof setInterval> | undefined;
 // U84: how many people are watching, a number only (R75). Hidden while nobody is.
 function showWatching(n: number): void {
   const el = $("watcher-count");
@@ -129,13 +131,13 @@ function renderChoice(): void {
   if (over) $("leave-game").hidden = true;
   columns.forEach((hit, c) => {
     hit.setAttribute("aria-pressed", String(c === selectedColumn));
-    hit.setAttribute("aria-disabled", String(over || locked || columnFull(c)));
+    hit.setAttribute("aria-disabled", String(over || locked || !started || columnFull(c)));
   });
   const badge = $("shield-badge") as HTMLButtonElement;
   const spent = !!(you && drawn && !drawn.shieldsLeft[you]);
   badge.dataset.state = spent ? "spent" : "ready";
   badge.setAttribute("aria-pressed", String(armed && !spent));
-  badge.disabled = spent || over || locked;
+  badge.disabled = spent || over || locked || !started;
   const label = spent ? "Shield used" : armed ? "Shield armed" : "Arm shield";
   if (!over) setText("shield-label", label); // after the game both rows keep their last words (U103)
   badge.setAttribute("aria-label", spent ? "Shield, used" : over ? "Game over" : armed ? "Shield, armed" : "Shield, ready. Tap to arm it");
@@ -144,7 +146,7 @@ function renderChoice(): void {
   const nothingToShake = !!drawn && drawn.board.every((column) => column.length === 0);
   quake.dataset.state = quakeSpent ? "spent" : "ready";
   quake.setAttribute("aria-pressed", String(quakeChosen && !quakeSpent));
-  quake.disabled = quakeSpent || nothingToShake || over || locked;
+  quake.disabled = quakeSpent || nothingToShake || over || locked || !started;
   const quakeLabel = quakeSpent ? "Earthquake used" : quakeChosen ? "Earthquake armed" : nothingToShake ? "Nothing to shake yet" : "Use Earthquake";
   if (!over) setText("earthquake-label", quakeLabel);
   quake.setAttribute("aria-label", quakeSpent ? "Earthquake, used" : quakeChosen ? "Earthquake, armed" : nothingToShake ? "Earthquake, nothing to shake yet" : "Earthquake, ready. Tap to use it");
@@ -156,7 +158,7 @@ function renderChoice(): void {
 // U62: tapping the badge chooses Earthquake for this round, final like a column (R4). It cannot be
 // combined with the shield (R53), so an armed shield is put down first and never sent with it.
 function chooseQuake(): void {
-  if (over || !you || !seatToken || !opponentPresent) return;
+  if (over || !you || !seatToken || !opponentPresent || !started) return;
   if (locked) {
     say("Your choice is locked in.");
     return;
@@ -172,7 +174,7 @@ function chooseQuake(): void {
 }
 
 function choose(column: number): void {
-  if (over || !you || !seatToken || !opponentPresent) return;
+  if (over || !you || !seatToken || !opponentPresent || !started) return;
   if (locked) {
     say("Your choice is locked in.");
     return;
@@ -197,7 +199,7 @@ function choose(column: number): void {
 columns.forEach((hit, c) => {
   hit.addEventListener("click", () => choose(c));
   hit.addEventListener("mouseenter", () => {
-    if (!locked && opponentPresent) showGhost(c, false);
+    if (!locked && opponentPresent && started) showGhost(c, false);
   });
   hit.addEventListener("mouseleave", () => {
     if (!locked) {
@@ -206,12 +208,12 @@ columns.forEach((hit, c) => {
     }
   });
   hit.addEventListener("focus", () => {
-    if (!locked && opponentPresent) showGhost(c, false);
+    if (!locked && opponentPresent && started) showGhost(c, false);
   });
 });
 
 $("shield-badge").addEventListener("click", () => {
-  if (locked || over) return;
+  if (locked || over || !started) return;
   armed = !armed; // the shield flag is sent with the column, once, when the choice is made
   renderChoice();
 });
@@ -338,14 +340,46 @@ function showWarning(state: State): void {
   markDoomed(board, state.rows, due, rowsAt(state.round + 1));
 }
 
-// "Get ready" shows once, over the board, when a game first starts (U55). It is only a greeting:
-// it says nothing about any choice, and choices are accepted while it shows.
-function getReady(): void {
-  if (gotReady) return;
-  gotReady = true;
+// The start countdown (U133, R97): the server says how long is left; the card tells the player their colour, with their disc shown
+// large, and counts 3, 2, 1. Round 1 opens when the server says `started`, never on this page's own clock.
+function showCountdown(ms: number): void {
+  if (!you) return;
   const el = $("get-ready");
+  const mine = colours[you];
+  setText("you-are", mine === "red" ? "You are Red" : "You are Yellow");
+  $("you-are-disc").dataset.colour = mine;
+  const endsAt = Date.now() + ms;
+  const tick = () => setText("countdown-number", String(Math.max(1, Math.ceil((endsAt - Date.now()) / 1000))));
+  tick();
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(tick, 200);
   el.hidden = false;
-  setTimeout(() => (el.hidden = true), themeNumber("--ms-get-ready"));
+  drawTimer();
+}
+
+function hideCountdown(): void {
+  clearInterval(countdownTimer);
+  $("get-ready").hidden = true;
+}
+
+// Whether round 1 is open, on the screen's root, so the page and its checks agree on it (R97).
+function markStarted(value: boolean): void {
+  started = value;
+  gameRoot.dataset.started = String(value);
+}
+
+// Each seat's colour on this screen (U134): the board, the ghost disc and both panels.
+function applyColours(): void {
+  if (!you) return;
+  board.setSeats({ you, colours });
+  ghost.dataset.colour = colours[you];
+  $("panel-you").dataset.colour = colours[you];
+  $("panel-opponent").dataset.colour = colours[other(you)];
+  for (const [selector, seat] of [['[data-testid="panel-you"] .mini-disc', you], ['[data-testid="panel-opponent"] .mini-disc', other(you)]] as const) {
+    const disc = document.querySelector<HTMLElement>(selector);
+    if (disc) disc.dataset.colour = colours[seat];
+  }
+  setText("my-colour", colours[you] === "red" ? "Red" : "Yellow");
 }
 
 let busy = Promise.resolve(); // results are shown one at a time, in order
@@ -432,7 +466,7 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
 
 // The timer runs only while a round is open and both players are here (R51, U56).
 function startRound(state: State): void {
-  deadline = state.status === "playing" && opponentPresent ? Date.now() + ROUND_SECONDS * 1000 : null;
+  deadline = state.status === "playing" && opponentPresent && started ? Date.now() + ROUND_SECONDS * 1000 : null;
   drawTimer();
 }
 
@@ -442,7 +476,6 @@ function syncWaiting(state: State): void {
   const waiting = !opponentPresent && state.round === 0 && state.status === "playing";
   $("waiting-panel").hidden = !waiting;
   gameRoot.dataset.waiting = String(waiting);
-  if (!waiting && state.status === "playing") getReady();
   showHeading(waiting);
   showLeave(waiting);
 }
@@ -518,7 +551,11 @@ socket.addEventListener("message", (event) => {
       if (typeof message.watching === "number") showWatching(message.watching);
       if (typeof message.yourName === "string") setText("name-you", message.yourName);
       if (typeof message.opponentName === "string") setText("name-opponent", message.opponentName);
+      if (message.colours && (message.colours.A === "red" || message.colours.A === "yellow")) colours = message.colours;
+      markStarted(message.started !== false);
+      if (started) hideCountdown();
       saveSeat();
+      applyColours();
       if (firstTime && you) {
         const mine = avatar(`${code}-${you}`);
         mine.dataset.testid = "avatar-you";
@@ -534,10 +571,19 @@ socket.addEventListener("message", (event) => {
       opponentPresent = true;
       if (typeof message.name === "string") setText("name-opponent", message.name);
       showHeading(false);
-      if (drawn) {
-        syncWaiting(drawn);
-        startRound(drawn); // round 1 starts now that both are here (R51)
-      }
+      if (drawn) syncWaiting(drawn); // round 1 starts after the countdown the server sends next (R51, R97)
+      break;
+    case "countdown":
+      markStarted(false);
+      if (typeof message.ms === "number") showCountdown(message.ms);
+      renderChoice();
+      break;
+    case "started":
+      // Round 1 is open (R97): the board unlocks and the round's timer starts.
+      markStarted(true);
+      hideCountdown();
+      if (drawn) startRound(drawn);
+      renderChoice();
       break;
     case "watching":
       if (typeof message.watching === "number") showWatching(message.watching);
@@ -548,6 +594,14 @@ socket.addEventListener("message", (event) => {
       setText("opponent-status", "Ready");
       break;
     case "rejected":
+      if (message.reason === "not_started") {
+        // The countdown is still running (R97): nothing was chosen, so the board stays open for the first round.
+        locked = false;
+        selectedColumn = null;
+        quakeChosen = false;
+        renderChoice();
+        break;
+      }
       if (message.reason === "already_chosen") {
         // The server already holds this round's choice (for instance after a reload): it stands (R4).
         locked = true;
@@ -687,7 +741,7 @@ function clearForRematch(): void {
   opponentChosen = false;
   first = true;
   drawn = null;
-  gotReady = false;
+  markStarted(false); // a rematch has its own countdown (R97)
   board.clear();
   for (let c = 0; c < 7; c++) for (let r = 0; r < 6; r++) board.setClosed(c, r, false);
   $("result-line").textContent = "";
@@ -700,7 +754,7 @@ function clearForRematch(): void {
 // hidden once both players have chosen (the round then resolves at once) and while waiting.
 function drawTimer(): void {
   const track = $("timer");
-  const resolving = deadline === null || (locked && opponentChosen);
+  const resolving = deadline === null || !started || (locked && opponentChosen);
   track.hidden = resolving;
   if (resolving) return;
   const leftMs = Math.max(0, (deadline as number) - Date.now());

@@ -1,7 +1,7 @@
 // Browser checks for rematches (docs/design/rematch.md U109 to U113, rules R82 to R85). Run with pnpm test:e2e, never in pnpm check.
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
-import { makeGameCode, newPlayer, testid, waitForRound } from "./helpers.ts";
+import { makeGameCode, newPlayer, testid, waitForRound, waitForStart } from "./helpers.ts";
 
 // Two people in a link game, who play it to a win for player one: stacking column 0 while player two plays columns 1 and 2.
 async function finishedGame(browser: Browser, sizes: [{ width: number; height: number }, { width: number; height: number }] = [PHONE, LAPTOP]) {
@@ -71,6 +71,7 @@ test.describe("Rematch (R82 to R85)", () => {
     const code = (await (await page.request.post("/api/computer")).json()).code as string;
     await page.goto(`/g/${code}`);
     await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+    await waitForStart(page); // the start countdown has ended (R97)
     // End the game the quick way: leave it, which ends it as abandoned, from a second page on the same seat is not possible,
     // so the end popup is shown by the server with a real result: take three idle rounds is too slow, so play to a win instead.
     await page.evaluate(() => (document.querySelector('[data-testid="end-popup"]') as HTMLElement).removeAttribute("hidden"));

@@ -35,13 +35,19 @@ export async function chooseColumn(page: Page, column: number): Promise<void> {
   await page.locator(testid(`column-${column}`)).click();
 }
 
-// Waits until the round counter shows `round`.
+// Waits until round 1 is open: the start countdown (R97) has ended and the board takes a choice.
+export async function waitForStart(page: Page): Promise<void> {
+  await page.waitForFunction(() => document.querySelector('[data-testid="game-screen"]')?.getAttribute("data-started") === "true", null, { timeout: 8_000 });
+}
+
+// Waits until the round counter shows `round`. Round 1 means round 1 is open for choices, after the start countdown (R97).
 export async function waitForRound(page: Page, round: number): Promise<void> {
   await page.waitForFunction(
     (n) => document.querySelector('[data-testid="round-number"]')?.textContent === String(n),
     round,
     { timeout: 6_000 },
   );
+  if (round === 1) await waitForStart(page);
 }
 
 export const testid = (id: string) => `[data-testid="${id}"]`;

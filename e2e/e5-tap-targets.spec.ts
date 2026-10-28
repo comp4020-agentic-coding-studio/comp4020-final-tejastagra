@@ -1,7 +1,7 @@
 // E5: every tap target is at least 44 x 44 CSS px at the phone viewport (and at 320 px).
 import { expect, test, type Page } from "@playwright/test";
 import { NARROW, PHONE } from "../playwright.config.ts";
-import { STATIC_SCREENS, makeGameCode, newPlayer, testid } from "./helpers.ts";
+import { STATIC_SCREENS, makeGameCode, newPlayer, testid, waitForStart } from "./helpers.ts";
 
 async function tooSmall(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -49,6 +49,7 @@ test("E5 and U15 each column of the board is a hit area at least 44 px wide at 3
   const code = (await (await page.request.post("/api/computer")).json()).code as string;
   await page.goto(`/g/${code}`);
   await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+  await waitForStart(page); // the start countdown has ended (R97)
   for (let c = 0; c < 7; c++) {
     const box = (await page.locator(testid(`column-${c}`)).boundingBox())!;
     expect(box.width, `column-${c} width`).toBeGreaterThanOrEqual(43.5);

@@ -56,6 +56,19 @@ function watchingText(n: number): string {
   return `${n} watching`;
 }
 
+// Each seat's colour as the server decided it (R93, R94): the spectator sees exactly what both players see (U134). Seat A is drawn
+// as this screen's "you" and seat B as "opponent", so a cell's mark is its real seat.
+function colourSeats(colours: { A: "red" | "yellow"; B: "red" | "yellow" } | undefined): void {
+  const c = colours && (colours.A === "red" || colours.A === "yellow") ? colours : ({ A: "red", B: "yellow" } as const);
+  board.setSeats({ you: "A", colours: { A: c.A, B: c.B } });
+  $("panel-a").dataset.colour = c.A;
+  $("panel-b").dataset.colour = c.B;
+  for (const [slot, seat] of [["a", "A"], ["b", "B"]] as const) {
+    const disc = document.querySelector<HTMLElement>(`[data-testid="panel-${slot}"] .mini-disc`);
+    if (disc) disc.dataset.colour = c[seat];
+  }
+}
+
 function names(n: Names): void {
   setText("name-a", n.A ?? "Player 1");
   setText("name-b", n.B ?? "Player 2");
@@ -246,6 +259,7 @@ socket.addEventListener("message", (event) => {
       $("watch-result").hidden = true;
       drawn = null;
       names(message.names);
+      colourSeats(message.colours);
       banner();
       setText("watching-count-text", watchingText(message.watching));
       setText("watch-message", "");
@@ -253,6 +267,7 @@ socket.addEventListener("message", (event) => {
       break;
     }
     case "rematch_started":
+      if (message.colours) colourSeats(message.colours); // R96: the new game's swapped colours
       break; // the first round of the new game follows as a `round`, which repaints the board (R85)
     case "round":
       setText("watching-count-text", watchingText(message.watching));

@@ -48,8 +48,8 @@
   --rock-dark: #4a3a2c;
 
   /* Markers: a ring on your discs, a cross on the opponent's. */
-  --marker-you: #ffffff;
-  --marker-opponent: var(--ink);
+  --marker-red: #ffffff;
+  --marker-yellow: var(--ink);
 
   /* Avatars: picked by a hash of the player's id. Each takes --ink on top. */
   --avatar-1: #ff6b73;
@@ -72,8 +72,8 @@
   --shield-on: #7ce3a1;
   --shield-off: #8a94a8;
   --win-glow: rgba(255, 199, 44, 0.9);
-  --disc-glow-you: rgba(210, 31, 39, 0.85);
-  --disc-glow-opponent: rgba(255, 199, 44, 0.85);
+  --disc-glow-red: rgba(210, 31, 39, 0.85);
+  --disc-glow-yellow: rgba(255, 199, 44, 0.85);
 
   /* Bubbles: faint, translucent disc shapes rising behind everything (U3).
      Their opacity never goes above 0.22, so text over them keeps its contrast. */
@@ -92,12 +92,12 @@
   --outline: 3px solid var(--ink);
   --outline-thin: 2px solid var(--ink);
   --outline-thick: 4px solid var(--ink);
-  --outline-marker: 3px solid var(--marker-you);
-  --outline-marker-small: 2px solid var(--marker-you);
+  --outline-marker: 3px solid var(--marker-red);
+  --outline-marker-small: 2px solid var(--marker-red);
   --outline-bubble: 2px solid var(--bubble-rim);
   --outline-bubble-marker: 3px solid var(--bubble-rim);
-  --accent-you: 7px solid var(--red);
-  --accent-opponent: 7px solid var(--yellow);
+  --accent-red: 7px solid var(--red);
+  --accent-yellow: 7px solid var(--yellow);
   --shadow: 0 5px 0 var(--ink);
   --shadow-raised: 0 7px 0 var(--ink);
   --shadow-pressed: 0 0 0 var(--ink);
