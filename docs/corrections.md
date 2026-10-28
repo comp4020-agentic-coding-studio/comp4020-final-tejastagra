@@ -243,3 +243,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** this entry and a line in `docs/handover.md` ("How to work here"): never start a second Playwright run, screenshot script or `/visual-qa` while `pnpm test:e2e` is running; run them one after the other.
 - **Rule for the future:** a check that fails on a missing file under `test-results/` is a sign of two runs sharing it, not of the app; run it alone before reading anything into it.
 - **Commits:** the commit that follows this entry.
+
+### C31. Three phone-width defects that the checks did not reach
+- **Date:** 29 October 2026
+- **What went wrong:** after the game screen redesign every browser check passed, but the phone-tester, measuring screens the suite does not open, found: (1) a link game's spectator at 320 x 568 scrolled sideways by 54px with the board 30px off centre, because the one-line notice and the watcher count shared a row and widened the column; (2) "Watch another game" wrapped onto two lines at 320 and 390 on a live quick match game's watching screen; (3) at 320 x 568, with the widest names R28 allows, the shield and Earthquake buttons were 20px below the first screen, which `docs/design.md` forbids ("both shields ... visible without scrolling").
+- **How it was caught:** the phone-tester, measuring each screen in a real browser at each width (correction C9).
+- **Harness fix:** `e2e/layout.spec.ts` gains checks for each: a link spectator at 320 (no sideways scroll, board centred and whole), Watch another game on one line at 320 and 390, and the first-screen rule at 320 with the widest names; each was seen to fail before the fix. The fixes: the notice takes its own line with the count under it (U92), the watching screen's buttons stack and never wrap below 600px, and a game panel's name is at most two lines at 320 (U132).
+- **Rule for the future:** a check for a screen's fit must use the worst case the rules allow (the widest names, every banner showing), and a screen with variants (a link spectator, a quick match spectator) needs each variant measured at the narrowest width.
+- **Commits:** the commit that follows this entry.

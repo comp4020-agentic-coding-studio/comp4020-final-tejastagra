@@ -3682,3 +3682,45 @@ input {
     min-height: 0;
   }
 }
+
+/* Phone-width fixes found by the phone-tester on 29 October 2026.
+   1. A link spectator's notice keeps a whole line of its own, and the watcher count goes under it, so the row never widens the
+      page (E4, Q13, U92: the notice is one line and never cut off). */
+.game.watching .status-row:has(.spectator-notice:not([hidden])) {
+  flex-wrap: wrap !important;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.game.watching .status-row:has(.spectator-notice:not([hidden])) > .spectator-notice {
+  flex: 1 0 100%;
+  text-align: center;
+}
+
+/* 2. "Watch another game" is one line at every width (Q2): its button takes the width it needs. */
+.watch-actions .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 599px) {
+  .watch-actions {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .watch-actions .btn {
+    min-width: min(100%, 260px);
+  }
+}
+
+/* 3. At 320px a game panel's name is at most two lines, so the widest names leave the power-ups on the first screen. */
+@media (max-width: 359px) {
+  .game:not(.watching) .player-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+}

@@ -834,3 +834,59 @@ test("Q4 the Top players section is at least 32px under the icon row on the home
     await context.close();
   }
 });
+
+// Found by the phone-tester on 29 October 2026: three phone-width defects the checks above did not reach.
+test.describe("Phone width: the watching screen and the game screen's first screen (E4, Q2, Q13, docs/design.md)", () => {
+  test("E4 Q13 a link spectator at 320 x 568: no sideways scroll, and the board is centred", async ({ browser }) => {
+    const one = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const two = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const code = await makeGameCode(one.page);
+    await one.page.goto(`/g/${code}`);
+    await two.page.goto(`/g/${code}`);
+    await waitForStart(one.page);
+    const { context, page } = await newPlayer(browser, NARROW, { reducedMotion: true });
+    await page.goto(`/g/${code}`); // both seats taken: a spectator of this link game (R36, U92)
+    await page.waitForURL(/\/watch\?game=.*via=link/);
+    await expect(page.locator(testid("spectator-notice"))).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), "no sideways scroll").toBeLessThanOrEqual(0);
+    const board = (await page.locator(`${testid("board-wrap")} .board`).boundingBox())!;
+    expect(Math.abs(board.x + board.width / 2 - NARROW.width / 2), "the board is centred").toBeLessThanOrEqual(16);
+    expect(board.x + board.width, "the whole board is on screen").toBeLessThanOrEqual(NARROW.width);
+    for (const c of [one, two, { context }]) await c.context.close();
+  });
+
+  for (const viewport of [NARROW, PHONE]) {
+    test(`Q2 Watch another game is one line on a live quick match game's watching screen at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      // The watching screen as the server would send it for a quick match game, so no other check's game is needed.
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.routeWebSocket(/\/ws$/, (ws) => {
+        ws.onMessage(() =>
+          ws.send(JSON.stringify({ type: "spectating", code: "QQQQQQ", kind: "quick", watching: 1, names: { A: "Pip Squeak #4f2a", B: "Sam Wombat #c0de" }, colours: { A: "red", B: "yellow" }, state: { board: [[], [], [], [], [], [], []], round: 3, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null } })),
+        );
+      });
+      await page.goto("/watch");
+      const button = page.locator(testid("watch-another"));
+      await expect(button).toBeVisible();
+      expect(await wrappedButtons(page), "no button label wraps").toEqual([]);
+      expect(await overflowingLabels(page), "every label fits inside its button").toEqual([]);
+      await context.close();
+    });
+  }
+
+  test("docs/design.md at 320 x 568 with the widest names, the board, timer, both names and your power-ups are on the first screen", async ({ browser }) => {
+    const one = await newPlayer(browser, NARROW, { reducedMotion: true });
+    const two = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await one.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } }); // R28 allows 16: the worst case
+    await two.page.request.post("/api/guest", { data: { nickname: "WWWWWWWWWWWWWWWW" } });
+    const code = await makeGameCode(one.page);
+    await one.page.goto(`/g/${code}`);
+    await two.page.goto(`/g/${code}`);
+    await waitForStart(one.page);
+    for (const id of ["board-wrap", "timer", "name-you", "name-opponent", "shield-badge", "earthquake-badge", "opponent-shield-state"]) {
+      const b = (await one.page.locator(testid(id)).boundingBox())!;
+      expect(b.y + b.height, `${id} is on the first screen`).toBeLessThanOrEqual(NARROW.height);
+    }
+    await one.context.close();
+    await two.context.close();
+  });
+});
