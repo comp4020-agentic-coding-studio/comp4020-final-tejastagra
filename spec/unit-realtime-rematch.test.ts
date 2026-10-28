@@ -364,7 +364,7 @@ describe("R83 edge cases found in review", () => {
     expect(s.rt.retained().rematchGone).toBe(1);
     await new Promise((r) => setTimeout(r, 1300)); // the sweep runs at least once a second
     s.rt.liveCount(); // a sweep also runs whenever the live games are asked for
-    expect(s.rt.retained()).toEqual({ kinds: 0, creators: 0, holders: 0, rematchGone: 0, rematchAsked: 0, rematchTimers: 0 });
+    expect(s.rt.retained()).toEqual({ kinds: 0, creators: 0, holders: 0, rematchGone: 0, rematchAsked: 0, rematchTimers: 0, colours: 0, started: 0 });
     // and a request about a forgotten game is answered, not ignored
     ask(b, "RMT033", "B", b.token);
     expect(await b.next("rematch_ended")).toEqual({ type: "rematch_ended", reason: "left" });

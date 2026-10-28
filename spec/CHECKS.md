@@ -30,7 +30,7 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q10, Q11 | Empty states explain themselves; no page looks plain | `/visual-qa` (judged by looking) | judged |
 | Q12 | On every screen except home, the header bar's Home button is inside the viewport on load at 320, 390 and 1366 wide, and the bar is the first thing on the page | `docs/design/qa-checklist.md` Q12 | passing |
 | Q13 | On the game screen and the friend waiting screen the board's centre is within 16px of the page's centre at 320, 390 and 1366 wide | Q13 | passing |
-| Q14 | A player's colour and marker are the same on both players' screens and a spectator's (`e2e/player-colours.spec.ts`) | Q14 | todo |
+| Q14 | A player's colour and marker are the same on both players' screens and a spectator's (`e2e/player-colours.spec.ts`) | Q14 | passing |
 
 ## Hygiene (`spec/unit-check-isolation.test.ts`)
 
@@ -162,7 +162,7 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only op
 | R4, R51, R52 | Locked choices, nothing starts until both are present, the computer thinks | `spec/unit-realtime-timer.test.ts`, `spec/unit-realtime-computer.test.ts` | passing |
 | R93 to R96 | The server decides colours at random and saves them; both players and spectators are sent the same colours; colours vary across many games; a computer game's too; a rematch swaps them; migrations 19 and 20 give old games A red and B yellow | `spec/unit-player-colours.test.ts`, `spec/unit-persistence.test.ts` | passing |
 | R97 | A 3 second countdown starts when both are present; no round, timer or computer choice runs during it; a choice in it is refused with `not_started`; round 1 starts when it ends with `started`; a reconnect is told the time left; again after a rematch; spectators are never sent it | `spec/unit-realtime-countdown.test.ts` | passing |
-| Q14, U133, U134 | In a friend game both screens and a spectator's show the same seat in the same colour and marker, and each player is told "You are Red" or "You are Yellow" | `e2e/player-colours.spec.ts` | todo |
+| Q14, U133, U134 | In a friend game both screens and a spectator's show the same seat in the same colour and marker, and each player is told "You are Red" or "You are Yellow" | `e2e/player-colours.spec.ts` | passing |
 | U10 to U13, U54 to U60 | Column highlight, waiting card, names, centred game, 560px limit | `e2e/design.spec.ts` | todo |
 | Screenshots | Approved look at both viewports | `e2e/design.spec.ts` | passing |
 | Judged | It feels like a cheerful navy toy game and is clearly its own; a newcomer understands crashes and the shield after the tutorial; the reveal is exciting | `/style-preview` approval by Tejas (given 27 October 2026), then playtests in `docs/playtests.md` | judged |

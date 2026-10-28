@@ -158,7 +158,7 @@ export function attachRealtime(
   movePerson: (from: string, to: string) => void;
   watchingIn: (code: string) => number;
   spectatorState: () => { watchers: number; watching: number; lastGame: number; addresses: number };
-  retained: () => { kinds: number; creators: number; holders: number; rematchGone: number; rematchAsked: number; rematchTimers: number };
+  retained: () => { kinds: number; creators: number; holders: number; rematchGone: number; rematchAsked: number; rematchTimers: number; colours: number; started: number };
   kindsKnown: () => Array<[string, "quick" | "link" | "computer"]>;
   spectatorMoveMs: number;
 } {
@@ -441,7 +441,8 @@ export function attachRealtime(
   const finishedRetainMs = options.finishedRetainMs ?? FINISHED_RETAIN_MS;
   function sweepFinished(): void {
     const t = Date.now();
-    for (const code of [...kinds.keys(), ...rematchGone.keys(), ...rematchAsked.keys()]) {
+    // Every map keyed by game: a game made by its first join has colours and a started mark but no kind, and is forgotten too.
+    for (const code of new Set([...kinds.keys(), ...rematchGone.keys(), ...rematchAsked.keys(), ...colours.keys(), ...startedGames.keys()])) {
       const record = game.getGame(code);
       const over = !record || record.state.status !== "playing" || forfeited.has(code);
       if (!over) {
@@ -1248,7 +1249,7 @@ export function attachRealtime(
     movePerson,
     liveCount: () => liveWatchable().length, // R80: live quick match games, never link games or computer games
     spectatorState: () => spectators.sizes(),
-    retained: () => ({ kinds: kinds.size, creators: creators.size, holders: holders.size, rematchGone: rematchGone.size, rematchAsked: rematchAsked.size, rematchTimers: rematchTimers.size }), // for tests: every map empties as games are forgotten (R84)
+    retained: () => ({ kinds: kinds.size, creators: creators.size, holders: holders.size, rematchGone: rematchGone.size, rematchAsked: rematchAsked.size, rematchTimers: rematchTimers.size, colours: colours.size, started: startedGames.size }), // for tests: every map empties as games are forgotten (R84)
     kindsKnown: () => [...kinds].sort(),
     watchingIn: (code: string) => spectators.watchingCount(code),
     spectatorMoveMs,

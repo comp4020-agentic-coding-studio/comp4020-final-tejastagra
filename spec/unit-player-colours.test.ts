@@ -8,7 +8,7 @@ import { attachRealtime } from "../src/server/realtime.ts";
 type Colour = "red" | "yellow";
 type Colours = { A: Colour; B: Colour };
 
-function start(options: { db?: Db; countdownMs?: number } = {}) {
+function start(options: { db?: Db; countdownMs?: number; retainMs?: number } = {}) {
   const server = createServer((_req, res) => res.end());
   const db = options.db ?? openDb(":memory:");
   const rt = attachRealtime(server, db, {
@@ -17,6 +17,7 @@ function start(options: { db?: Db; countdownMs?: number } = {}) {
     computerDelayMs: 20,
     computerSeed: 3,
     countdownMs: options.countdownMs ?? 0,
+    finishedRetainMs: options.retainMs,
     identify: (request) => (typeof request.headers["x-person"] === "string" ? (request.headers["x-person"] as string) : null),
     nameFor: (id) => `Person ${id}`,
   });
@@ -173,5 +174,23 @@ describe("R96 a rematch swaps the colours", () => {
     await a.next("rematch_started");
     const fresh = await a.next("snapshot");
     expect(fresh.colours).toEqual({ A: before.B, B: before.A });
+  });
+});
+
+describe("R93 colours are kept in memory only while a game may still need them", () => {
+  it("R93 a game made by its first join gets colours, and they are forgotten with the game once it is over (memory bounds)", async () => {
+    const s = start({ retainMs: 100 });
+    const a = await seat(s.url, "COL020", "p1"); // no kind: the game is made by this join
+    expect(isColours(a.snap.colours)).toBe(true);
+    expect(s.db.loadGames().find((g) => g.code === "COL020")!.colours).toEqual(a.snap.colours); // saved (R93)
+    const b = await seat(s.url, "COL020", "p2");
+    await a.next("opponent_joined");
+    expect(s.rt.retained().colours).toBe(1);
+    expect(s.rt.retained().started).toBe(1);
+    a.send({ type: "leave_game", code: "COL020", player: "A", seatToken: a.token }); // a forfeit ends it (R81)
+    await b.next("game_over");
+    await new Promise((r) => setTimeout(r, 2300)); // the sweep runs once a second: the first notes the game is over, a later one forgets it
+    expect(s.rt.retained().colours).toBe(0);
+    expect(s.rt.retained().started).toBe(0);
   });
 });
