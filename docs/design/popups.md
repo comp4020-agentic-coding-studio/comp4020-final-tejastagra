@@ -24,6 +24,6 @@ Added on 28 October 2026 for the layout rule Q1 (`qa-checklist.md`): nothing ope
 | Forced password change (`must-change-dialog`) | Signing in with a temporary password (it cannot be closed or skipped: no close button, no Escape, no dim tap) | "Choose a new password", new password | Set password |
 | Shield help (`shield-help`) | The info button on the shield row (U104) | The shield rule | Close |
 | Earthquake help (`earthquake-help`) | The info button on the Earthquake row (U104) | The Earthquake rule, and "Available once the bottom row has a piece" when nothing can be shaken | Close |
-| Leave game (`leave-dialog`) | "Leave game" on a game that is being played (U107) | "Leave this game? It counts as a forfeit." | Leave (`leave-confirm`), Stay (`dialog-cancel`) |
+| Leave game (`leave-dialog`) | The header bar's Home on a game that is being played (U107, U132) | "Leave this game? It counts as a forfeit." | Leave (`leave-confirm`), Stay (`dialog-cancel`) |
 
 The end-of-game popup, the tutorial and the watching screen's result card are older popups with their own wording (`motion-and-endings.md` U27, `tutorial.md`, `spectating.md` U82); they follow the same look, Escape rule and spacing, and are moved onto this component when they are next changed.
