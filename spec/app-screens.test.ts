@@ -52,6 +52,11 @@ describe("screens (docs/design.md)", () => {
     expect(status).toBe(200);
     expect(html).toContain('data-testid="quick-status"');
     expect(html).toContain('data-testid="computer-offer"');
+    // U96 to U98: a header, one card with the discs, the line, the subtext and the live count, and Cancel under it.
+    expect(html).toContain("Finding you a random opponent");
+    expect(html).toContain("Quick match pairs you with another person who is looking for a game right now");
+    for (const hook of ["quick-discs", "quick-hint", "quick-live", "quick-cancel"]) expect(html, hook).toContain(`data-testid="${hook}"`);
+    expect(html).toContain('class="title"');
   });
 
   it("Game has every hook the browser checks need, and no column buttons or Drop button (U10 to U18)", async () => {

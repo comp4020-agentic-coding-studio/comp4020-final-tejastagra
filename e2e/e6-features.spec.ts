@@ -60,7 +60,7 @@ test("E6 quick match: two phones are paired into one game", async ({ browser }) 
   const two = await newPlayer(browser, PHONE);
   await one.page.goto("/");
   await one.page.tap(testid("quick-match"));
-  await expect(one.page.locator(testid("quick-status"))).toContainText("Looking for another player");
+  await expect(one.page.locator(testid("quick-status"))).toContainText("Finding you a random opponent");
   await two.page.goto("/");
   await two.page.tap(testid("quick-match"));
   await one.page.waitForURL(/\/g\/[A-Z2-9]{6}$/, { timeout: 8_000 });

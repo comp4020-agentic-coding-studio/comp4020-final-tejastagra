@@ -78,7 +78,27 @@ async function quickPair(browser: Browser, v: Viewport) {
 const STATES: State[] = [
   { name: "home", run: async ({ page, shot }) => { await page.goto("/"); await settle(page, 1200); await shot(); } },
   { name: "tutorial-step-1", tutorial: true, run: async ({ page, shot }) => { await page.goto("/"); await page.locator(testid("tutorial")).waitFor(); await settle(page); await shot(); } },
-  { name: "quick-match-waiting", run: async ({ page, shot }) => { await page.goto("/play/quick"); await settle(page); await shot(); } },
+  {
+    name: "quick-match-waiting",
+    run: async ({ page, shot }) => {
+      await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } })); // never pair with another run's player
+      await page.goto("/play/quick");
+      await settle(page);
+      await shot();
+    },
+  },
+  {
+    name: "quick-match-computer-offer",
+    run: async ({ page, shot }) => {
+      await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } }));
+      await page.clock.install();
+      await page.goto("/play/quick");
+      await page.locator(testid("quick-status")).waitFor();
+      await page.clock.fastForward(20_500);
+      await page.locator(testid("computer-offer")).waitFor();
+      await shot();
+    },
+  },
   { name: "leaderboard", run: async ({ page, shot }) => { await page.goto("/leaderboard"); await settle(page); await shot(); } },
   { name: "account-guest", nickname: "Pip Squeak", run: async ({ page, shot }) => { await page.goto("/account"); await settle(page); await shot(); } },
   {

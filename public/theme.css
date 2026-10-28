@@ -134,6 +134,7 @@
   --dur-chip: 5s;
   --dur-spin: 0.9s;
   --dur-popup: 0.45s;
+  --dur-meet: 1.6s; /* the pair of discs on the Quick match card swing together and part (U97) */
   --dur-ghost: 1.1s;
   --chip-fall: 0.42em;
   --dur-confetti-clear: 2.4s;

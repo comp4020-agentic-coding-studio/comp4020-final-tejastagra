@@ -3,4 +3,4 @@
 # viewport into reports/visual-qa/ (git-ignored). Prints the list of files. Never touches data-dev/.
 set -uo pipefail
 rm -rf reports/visual-qa && mkdir -p reports/visual-qa
-CHECK_SKIP_TYPECHECK=1 CHECK_COMMAND="node scripts/visual-qa.ts" exec bash scripts/check.sh
+CHECK_SKIP_TYPECHECK=1 CHECK_COMMAND="node scripts/visual-qa.ts $*" exec bash scripts/check.sh

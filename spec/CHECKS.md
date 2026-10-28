@@ -79,9 +79,9 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | W9 | A spectator gets each round's result within one second of the players, and the players' result is sent first | R79, R23 | passing |
 | W10 | Spectators never change round timers, abandonment, presence or forfeits | R79 | passing |
 | W11 | Watchable games stay watchable across a restart (migration 14) | R71 | passing |
-| W12 | The first two arrivals at a link game play and every later arrival watches; two simultaneous arrivals for the last seat give exactly one player and one spectator | R36 | todo |
-| W13 | A spectator cannot take a seat during the 30 second reconnection window, nor after a restart | R36, R27 | todo |
-| W14 | A browser check: the third person to open a link becomes a spectator and sees the notice | R36, U92 | todo |
+| W12 | The first two arrivals at a link game play and every later arrival watches; two simultaneous arrivals for the last seat give exactly one player and one spectator | R36 | passing |
+| W13 | A spectator cannot take a seat during the 30 second reconnection window, nor after a restart | R36, R27 | passing |
+| W14 | A browser check: the third person to open a link becomes a spectator and sees the notice, on one line at 320 | R36, U92 | passing |
 | E9 | Watching works at both viewports, nothing on the watching screen is interactive, the home count and the players' watcher count update, the exhibition label shows (each browser check names E9) | passing (`e2e/spectating.spec.ts`) |
 | U76 to U84 | Watch live button and count, the watching screen, the exhibition label, the result card and the watcher count | `e2e/spectating.spec.ts` | passing |
 

@@ -5,6 +5,7 @@ const $ = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${i
 const ticket = crypto.randomUUID();
 const status = $("quick-status");
 const OFFER_AFTER_MS = 20_000;
+const LIVE_EVERY_MS = 10_000;
 let finished = false;
 
 async function call(method: string): Promise<{ state: string; code?: string } | null> {
@@ -65,6 +66,23 @@ $("quick-cancel").addEventListener("click", async () => {
   await call("DELETE");
   location.href = "/";
 });
+
+// The live count (U98): twice the number of live quick match games, asked for now and every 10 seconds while open (R77).
+async function showLive(): Promise<void> {
+  try {
+    const res = await fetch("/api/live");
+    if (!res.ok) return;
+    const { live } = await res.json();
+    if (typeof live !== "number") return;
+    $("quick-live").textContent = live === 0 ? "Be the first to play" : `${live * 2} people playing now`;
+  } catch {
+    // keep the last words
+  }
+}
+void showLive();
+setInterval(() => {
+  if (!document.hidden && !finished) void showLive();
+}, LIVE_EVERY_MS);
 
 // A closed tab simply stops polling; the server drops stale tickets itself.
 start();

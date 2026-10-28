@@ -14,6 +14,7 @@ This folder is the source of truth for how Rubble looks, moves and teaches itsel
 | `spectating.md` | Watching a live game: the Watch live button, the watching screen, the watcher count and the exhibition game (U76 to U84) |
 | `popups.md` | The one popup component and every dialog (U85 to U90) |
 | `qa-checklist.md` | The layout and polish rules every screen must pass, Q1 to Q11 (no layout shift, no wrapped buttons, boxes that fit, spacing, alignment, one centred column, prefilled forms, sensible controls, a way to leave, empty states, no plain pages) |
+| `quick-match.md` | The Quick match waiting card, its live count and the computer offer (U96 to U101) |
 | `game-screen.md` | The waiting card, timer bar, names and layout (U54 to U60) |
 | `plan.md` | The order of work, the commits and where to stop for Tejas |
 

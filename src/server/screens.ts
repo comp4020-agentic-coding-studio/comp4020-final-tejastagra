@@ -90,20 +90,20 @@ export function homeScreen(ctx: ScreenContext): string {
 
 export function quickScreen(ctx: ScreenContext): string {
   const body = `
-    <main class="arena narrow" data-testid="quick-screen">
+    <main class="arena narrow quick" data-testid="quick-screen">
       ${title()}
-      <h2>Quick match</h2>
-      <div class="panel waiting" data-testid="quick-panel">
-        <span class="spinner" aria-hidden="true"></span>
-        <p data-testid="quick-status" role="status">Looking for another player...</p>
-      </div>
-      <div class="panel" data-testid="computer-offer" hidden>
-        <p>Nobody has arrived yet. You can play the computer now, or keep waiting.</p>
-        <div class="stack">
+      <h2 class="subtitle">Quick match</h2>
+      <section class="panel quick-card" data-testid="quick-panel" aria-live="polite">
+        <div class="quick-discs" data-testid="quick-discs" aria-hidden="true"><span class="quick-disc quick-disc-you"></span><span class="quick-disc quick-disc-opponent"></span></div>
+        <h3 class="quick-status" data-testid="quick-status" role="status">Finding you a random opponent</h3>
+        <p class="quick-hint" data-testid="quick-hint">Quick match pairs you with another person who is looking for a game right now</p>
+        <p class="quick-live" data-testid="quick-live" role="status"></p>
+        <div class="quick-offer" data-testid="computer-offer" hidden>
+          <p>Nobody has arrived yet. Play the computer while you wait?</p>
           ${button({ label: "Play the computer", iconName: "computer", kind: "red", block: true, testid: "computer-offer-play" })}
         </div>
-      </div>
-      <div class="stack">
+      </section>
+      <div class="quick-actions">
         ${button({ label: "Cancel", iconName: "join", kind: "blue", block: true, testid: "quick-cancel" })}
       </div>
     </main>
