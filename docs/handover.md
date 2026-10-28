@@ -2,6 +2,25 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## Where things stand at the end of 29 October 2026 (read this first)
+
+**Finished:** every item of the large fix list (Parts 1 to 7 and the finish) is built, tested and committed; the details, hashes and decisions are in the next section. The last commits are `c6d7e45` (home spacing), `b3d5cc3` (the handover) and this one. The working tree is clean. **Nothing is pushed or deployed.**
+
+**Half done:** nothing. No branch, stash, scratch file or uncommitted edit is left. The reports in `reports/visual-qa/` and `test-results/` are git-ignored output.
+
+**Tests now:** `pnpm check:fast` 368 passed; `pnpm check` 456 passed and 3 todo (re-run just now, clean); `pnpm test:e2e` 243 passed, none skipped (last full run before the handover commit, no code changed since); `pnpm check:evidence` fails only for PROCESS.md and the missing reflections, as expected. Mutation score not re-measured (97.11% on the engine, which was not changed).
+
+**Known bugs and gaps** (none block a deploy):
+- Load-sensitive checks: `spectating` "a player leaves and does not return" takes 31 real seconds; one `pnpm check` run in about thirty once failed on a Quick match check, and one back-to-back run had the server not up in time. Both were before the Quick match locks; none since. If you see either, run it alone before suspecting the code.
+- At 320 x 568 the Leave game button is below the first screen. 360 x 640 is not on one screen for the game, watching or home screens (not a marking viewport).
+- A raw client with no cookie holds a seat only in memory (a browser always gets the cookie).
+- A forfeit before any round shows "0 rounds" in the history. The end popup's two side-by-side buttons are 8px apart.
+- Parts 6 and 7 share one commit (`0c89c93`), because the files interleave.
+
+**How to work here:** read `CLAUDE.md` first. Harness before tests before code; one logical commit; the reviewer on server changes and the design-reviewer and phone-tester on screen changes; run `scripts/visual-qa.sh` (or `bash scripts/visual-qa.sh <state>`) and look at the pictures before calling a screen done. A test that exercises a fix is only done when it has been seen to fail without the fix. Anything touching Quick match in a test uses `withQuickQueue` (`spec/quick-lock.ts`, `e2e/quick-lock.ts`). Use `fix the cause in the harness` for every mistake and add it to `docs/corrections.md` (last entry C28).
+
+**Next, if you want more:** deploy (see "What still needs you" below), run the multi-user test session (`docs/testing/multi-user-test-plan.md`), and write PROCESS.md and the reflections yourself.
+
 ## The large fix list of 28 and 29 October 2026 (done, ready to deploy)
 
 Seven parts and a finish, each change as harness first (rules, design, ADR, `spec/CHECKS.md`), then tests, then code, one logical commit at a time. **Never pushed or deployed.** I never touched your dev server on port 8080 (`pnpm check`, `pnpm test:e2e` and `/visual-qa` each start their own server on a free port with a temporary data folder, and delete it). The reviewer ran on every server change, and the design-reviewer and phone-tester on every screen change; each finding they made has a test that I saw fail without its fix.
