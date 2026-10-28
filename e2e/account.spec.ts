@@ -218,6 +218,11 @@ test.describe("Long names (U114, U118)", () => {
       await one.page.goto(`/g/${code}`);
       await two.page.goto(`/g/${code}`);
       await waitForRound(one.page, 1);
+      await waitForRound(two.page, 1);
+      // One round first: a game with no round played is never recorded (R98).
+      await one.page.locator(testid("column-0")).click();
+      await two.page.locator(testid("column-1")).click();
+      await waitForRound(one.page, 2);
       await one.page.locator(testid("header-home")).click() /* U132: Home asks to confirm leaving */;
       await one.page.locator(testid("leave-confirm")).click();
       await one.page.waitForURL(/\/$/);

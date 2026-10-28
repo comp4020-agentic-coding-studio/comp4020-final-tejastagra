@@ -235,3 +235,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** `forfeit()` in `src/server/realtime.ts` records the rematch as gone ("left") whatever caused it; `spec/unit-realtime-rematch.test.ts` checks a quick match rematch after a win (both ask, same code, same two people), after a deliberate leave and after a timeout forfeit (both answered "left" at once, nothing archived or created), each seen to fail without the fix; `e2e/rematch.spec.ts` plays a full quick match rematch through the real Quick match page in two browser contexts.
 - **Rule for the future:** a feature that ends in several ways (a line, a draw, a leave, a timeout, abandonment) needs a check for each ending, not only the one a happy test reaches.
 - **Commits:** the commit that follows this entry.
+
+### C30. A screenshot script run beside the browser suite deleted its trace files
+- **Date:** 29 October 2026
+- **What went wrong:** while `pnpm test:e2e` was running, I ran a one-off Playwright screenshot script through `scripts/check.sh`. Both wrote to `test-results/`, and the script's run cleared it, so two checks in the suite failed with "ENOENT ... .trace" and a third could not find its own player. None was a fault in the app: run alone, all passed.
+- **How it was caught:** the failures named missing trace files, not assertions; re-running the same checks alone passed.
+- **Harness fix:** this entry and a line in `docs/handover.md` ("How to work here"): never start a second Playwright run, screenshot script or `/visual-qa` while `pnpm test:e2e` is running; run them one after the other.
+- **Rule for the future:** a check that fails on a missing file under `test-results/` is a sign of two runs sharing it, not of the app; run it alone before reading anything into it.
+- **Commits:** the commit that follows this entry.
