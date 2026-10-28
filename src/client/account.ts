@@ -145,7 +145,7 @@ function nicknameDialog(): void {
       await refresh();
     },
   });
-  d.field("Your nickname", "nickname", { value: me?.nickname ?? "", maxlength: 16, autocomplete: "nickname" });
+  d.field("Nickname", "nickname", { value: me?.nickname ?? "", maxlength: 16, autocomplete: "nickname" });
   d.actions(dialogButton("Save", "blue", "nickname-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => d.close() }));
 }
 
@@ -163,7 +163,7 @@ function signUpDialog(): void {
   });
   d.field("Username", "username", { maxlength: 20, autocomplete: "username" });
   d.field("Password", "password", { type: "password", autocomplete: "new-password", hint: "At least 8 characters." });
-  d.actions(dialogButton("Save my progress", "red", "signup-save", { type: "submit" }), dialogButton("Cancel", "blue", "dialog-cancel", { onClick: () => d.close() }));
+  d.actions(dialogButton("Save", "red", "signup-save", { type: "submit" }), dialogButton("Cancel", "blue", "dialog-cancel", { onClick: () => d.close() }));
 }
 
 function forgotDialog(): Dialog {

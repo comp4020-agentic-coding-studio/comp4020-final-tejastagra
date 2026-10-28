@@ -956,7 +956,8 @@ button.round-item {
 
   .chip {
     animation: none;
-    transform: translateY(1em) rotate(60deg);
+    /* The still picture rests where a falling chip ends (--chip-fall), inside the title's own box (U5a), never on the line below. */
+    transform: translateY(var(--chip-fall)) rotate(60deg);
     opacity: 1;
   }
 
@@ -2186,6 +2187,23 @@ input {
 .tutorial-shield {
   margin: 4px auto;
   max-width: var(--stack-width);
+  /* The practice badges are free-standing pills, as the game's were before the power-up card (U102): the game's rows are borderless
+     because they sit inside a card, and these do not. */
+  justify-content: center;
+  background: var(--panel);
+  border: var(--outline);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-small);
+}
+
+.tutorial-shield[aria-pressed="true"] {
+  background: var(--yellow);
+  color: var(--ink);
+}
+
+.tutorial-shield[data-state="spent"] {
+  background: var(--disabled);
+  color: var(--disabled-text);
 }
 
 .tutorial-status[hidden],
@@ -3241,4 +3259,82 @@ input {
   .round-item {
     font-size: 0.72rem;
   }
+}
+
+/* The "No live games" card is not part of the game's two column layout: on a laptop it is centred on the page, not squeezed into
+   the column of the player panels (U93). */
+@media (min-width: 900px) {
+  .watching .no-live {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    justify-self: center;
+    margin-top: 48px;
+  }
+
+  .watching:has(.no-live:not([hidden])) .stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+    justify-items: center;
+  }
+}
+
+/* Two buttons side by side in a narrow card: the icon goes at 320px so each label fits inside its button (Q2). */
+@media (max-width: 359px) {
+  .no-live-actions .btn svg {
+    display: none;
+  }
+}
+
+.no-live-header {
+  display: grid;
+  justify-items: center;
+  gap: 24px;
+  width: 100%;
+}
+
+.no-live-header[hidden] {
+  display: none;
+}
+
+.no-live-header .subtitle {
+  margin: 0;
+  text-align: center;
+}
+
+.watching:has(.no-live:not([hidden])) .no-live {
+  margin-top: 16px;
+}
+
+@media (min-width: 900px) {
+  .watching .no-live-header {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+}
+
+/* Leave game is a quiet button, not the biggest thing under the board (U107). */
+.leave-game {
+  width: min(320px, 100%);
+  justify-self: center;
+  margin-inline: auto;
+  display: flex;
+}
+
+
+/* At 320px the word "Watching" gives way so both names show whole on one line (U94); it is still read out. */
+@media (max-width: 359px) {
+  .watching-lead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* The watching screen's status row is as wide as the board, so the banner under the round line has the board's width to use
+   and not only the width of the round number and the count beside it (U94). */
+.watching .status-row {
+  width: 100%;
 }

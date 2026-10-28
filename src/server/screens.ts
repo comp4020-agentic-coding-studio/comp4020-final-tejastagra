@@ -219,6 +219,11 @@ export function watchScreen(ctx: ScreenContext): string {
           <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 1 5 13h5l-3 10 12-14h-6z"/></svg><span data-testid="shrink-warning-text"></span></p>
         </div>
 
+        <header class="no-live-header" data-testid="no-live-header" hidden>
+          ${title()}
+          <h2 class="subtitle">Watch live</h2>
+        </header>
+
         <section class="panel no-live" data-testid="no-live-games" hidden>
           <span class="no-live-icon" aria-hidden="true">${EYE_ICON}</span>
           <h2>No live games right now</h2>

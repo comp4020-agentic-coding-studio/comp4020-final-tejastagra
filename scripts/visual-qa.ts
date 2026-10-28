@@ -75,9 +75,62 @@ async function quickPair(browser: Browser, v: Viewport) {
   return { code, one, two };
 }
 
+
+// A link game played to a win for the first player (column 0 stacked, the other alternating), returning both pages.
+async function playedGame(browser: Browser, v: Viewport, first: Page, options: { firstWins?: boolean } = {}) {
+  const { code, second } = await twoPlayers(browser, v, first);
+  const win = options.firstWins !== false;
+  const [winner, loser] = win ? [first, second.page] : [second.page, first];
+  for (let round = 1; round <= 4; round++) {
+    await winner.locator(testid("column-0")).click();
+    await loser.locator(testid(`column-${1 + (round % 2)}`)).click();
+    if (round < 4) await winner.waitForFunction((n) => document.querySelector('[data-testid="round-number"]')?.textContent === String(n), round + 1, { timeout: 6000 });
+  }
+  await first.locator(testid("end-popup")).waitFor({ state: "visible", timeout: 6000 });
+  return { code, second };
+}
+
+// The server's own end message played into the real page, for the endings that take too long to reach (a draw, 30 seconds of
+// abandonment): the page's code runs on a message shaped as the server sends it.
+async function serverSays(page: Page, messages: object[]): Promise<void> {
+  await page.routeWebSocket(/\/ws$/, (ws) => {
+    ws.onMessage((raw) => {
+      if (String(raw).includes('"join"')) for (const m of messages) ws.send(JSON.stringify(m));
+    });
+  });
+}
+const emptyBoard = { board: [[], [], [], [], [], [], []], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null };
+const snapshot = (state: object, extra: object = {}) => ({ type: "snapshot", you: "A", seatToken: "visual", state, opponentReady: false, opponentPresent: true, yourName: "Pip Squeak #4f2a", opponentName: "Sam Wombat #c0de", watching: 0, ...extra });
+
 const STATES: State[] = [
   { name: "home", run: async ({ page, shot }) => { await page.goto("/"); await settle(page, 1200); await shot(); } },
   { name: "tutorial-step-1", tutorial: true, run: async ({ page, shot }) => { await page.goto("/"); await page.locator(testid("tutorial")).waitFor(); await settle(page); await shot(); } },
+  ...[2, 3, 4, 5, 6, 7, 8].map((step): State => ({
+    name: `tutorial-step-${step}`,
+    tutorial: true,
+    run: async ({ page, shot }) => {
+      await page.goto("/");
+      await page.locator(testid("tutorial")).waitFor();
+      await settle(page, 400);
+      // Each earlier step is played with its own taps, as a player does, and then Next.
+      for (let done = 1; done < step; done++) {
+        const tap = (c: number) => page.locator(testid(`tutorial-column-${c}`)).click();
+        if (done <= 3) await tap(3);
+        if (done === 4) {
+          await page.locator(testid("tutorial-shield")).click();
+          await tap(3);
+        }
+        if (done === 5) await page.locator(testid("tutorial-earthquake")).click();
+        if (done === 6) await tap(2);
+        if (done === 7) await tap(4);
+        await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8000 });
+        await page.locator(testid("tutorial-next")).click();
+        await page.waitForTimeout(200);
+      }
+      await settle(page, 700);
+      await shot();
+    },
+  })),
   {
     name: "quick-match-waiting",
     run: async ({ page, shot }) => {
@@ -135,6 +188,160 @@ const STATES: State[] = [
     },
   },
   { name: "account-guest", nickname: "Pip Squeak", run: async ({ page, shot }) => { await page.goto("/account"); await settle(page); await shot(); } },
+  ...(["rename:nickname-dialog", "join-toggle:code-dialog"] as const).map((pair): State => {
+    const [opener, dialog] = pair.split(":");
+    return {
+      name: `home-${dialog}`,
+      nickname: "Pip Squeak",
+      run: async ({ page, shot }) => {
+        await page.goto("/");
+        await settle(page, 900);
+        await page.locator(testid(opener)).click();
+        await page.locator(testid(dialog)).waitFor();
+        await settle(page, 400);
+        await shot();
+      },
+    };
+  }),
+  {
+    name: "home-code-dialog-error",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      await page.goto("/");
+      await settle(page, 900);
+      await page.locator(testid("join-toggle")).click();
+      await page.fill(testid("code-input"), "AB1");
+      await page.keyboard.press("Enter");
+      await page.locator(`${testid("code-dialog")} .dialog-error:visible`).waitFor();
+      await shot();
+    },
+  },
+  {
+    name: "game-power-ups-and-help",
+    nickname: "Pip Squeak",
+    run: async ({ browser, v, page, shot }) => {
+      const { second } = await twoPlayers(browser, v, page);
+      await page.locator(testid("shield-badge")).click(); // armed
+      await settle(page, 400);
+      await shot();
+      await second.context.close();
+    },
+  },
+  ...(["shield-info:shield-help", "earthquake-info:earthquake-help"] as const).map((pair): State => {
+    const [opener, dialog] = pair.split(":");
+    return {
+      name: `popup-${dialog}`,
+      nickname: "Pip Squeak",
+      run: async ({ page, shot }) => {
+        await openGame(page);
+        await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+        await settle(page, 600);
+        await page.locator(testid(opener)).click();
+        await page.locator(testid(dialog)).waitFor();
+        await settle(page, 400);
+        await shot();
+      },
+    };
+  }),
+  {
+    name: "popup-leave-dialog",
+    nickname: "Pip Squeak",
+    run: async ({ browser, v, page, shot }) => {
+      const { second } = await twoPlayers(browser, v, page);
+      await settle(page, 600);
+      await page.locator(testid("leave-game")).scrollIntoViewIfNeeded();
+      await page.locator(testid("leave-game")).click();
+      await page.locator(testid("leave-dialog")).waitFor();
+      await settle(page, 400);
+      await shot();
+      await second.context.close();
+    },
+  },
+  {
+    name: "end-win",
+    nickname: "Pip Squeak",
+    run: async ({ browser, v, page, shot }) => {
+      const { second } = await playedGame(browser, v, page);
+      await settle(page, 1800);
+      await shot();
+      await second.context.close();
+    },
+  },
+  {
+    name: "end-lose",
+    nickname: "Pip Squeak",
+    run: async ({ browser, v, page, shot }) => {
+      const { second } = await playedGame(browser, v, page, { firstWins: false });
+      await settle(page, 1800);
+      await shot();
+      await second.context.close();
+    },
+  },
+  {
+    name: "end-forfeit",
+    nickname: "Pip Squeak",
+    run: async ({ browser, v, page, shot }) => {
+      const { second } = await twoPlayers(browser, v, page);
+      await settle(page, 600);
+      await second.page.locator(testid("leave-game")).scrollIntoViewIfNeeded();
+      await second.page.locator(testid("leave-game")).click();
+      await second.page.locator(testid("leave-confirm")).click();
+      await page.locator(testid("end-popup")).waitFor({ state: "visible", timeout: 6000 });
+      await settle(page, 600);
+      await shot();
+      await second.context.close();
+    },
+  },
+  {
+    name: "end-draw",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      await serverSays(page, [snapshot({ ...emptyBoard, round: 21, status: "draw", rows: 4 })]);
+      await page.goto("/g/DRAW42");
+      await page.locator(testid("end-popup")).waitFor({ state: "visible", timeout: 6000 });
+      await settle(page, 600);
+      await shot();
+    },
+  },
+  {
+    name: "end-abandoned",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      await serverSays(page, [snapshot(emptyBoard), { type: "game_over", result: "abandoned" }]);
+      await page.goto("/g/ABAN42");
+      await page.locator(testid("end-popup")).waitFor({ state: "visible", timeout: 6000 });
+      await settle(page, 600);
+      await shot();
+    },
+  },
+  ...(["waiting", "offered", "gone"] as const).map((mode): State => ({
+    name: `rematch-${mode}`,
+    nickname: "Pip Squeak",
+    run: async ({ browser, v, page, shot }) => {
+      const { second } = await playedGame(browser, v, page);
+      if (mode === "waiting") await page.locator(testid("play-again")).click();
+      if (mode === "offered") await second.page.locator(testid("play-again")).click();
+      if (mode === "gone") {
+        await page.locator(testid("play-again")).click(); // this player asks first
+        await second.page.locator(`${testid("end-popup")} ${testid("go-home")}`).click(); // then the other leaves: "<opponent> left"
+      }
+      await page.locator(testid("rematch-status")).waitFor({ state: "visible", timeout: 6000 });
+      await settle(page, 600);
+      await shot();
+      await second.context.close();
+    },
+  })),
+  {
+    name: "game-ceiling-warning",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      await serverSays(page, [snapshot({ ...emptyBoard, round: 11 })]);
+      await page.goto("/g/CEIL42");
+      await page.locator(testid("shrink-warning")).waitFor({ state: "visible", timeout: 6000 });
+      await settle(page, 600);
+      await shot();
+    },
+  },
   {
     name: "account-signed-in",
     nickname: "Pip Squeak",

@@ -107,7 +107,7 @@ $("rename").addEventListener("click", () => {
       }
     },
   });
-  dialog.field("Your nickname", "nickname", { value: currentName, maxlength: 16, autocomplete: "nickname" });
+  dialog.field("Nickname", "nickname", { value: currentName, maxlength: 16, autocomplete: "nickname" });
   dialog.actions(dialogButton("Save", "blue", "nickname-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => dialog.close() }));
 });
 

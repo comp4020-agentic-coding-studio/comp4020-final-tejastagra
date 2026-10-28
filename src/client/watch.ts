@@ -105,7 +105,14 @@ function banner(): void {
   $("watching-banner").hidden = link;
   $("spectator-notice").hidden = !link;
   $("watch-another").hidden = link; // there is nothing to move on to from a link game
-  setText("watching-banner", `Watching ${nameOf.A ?? "Player 1"} vs ${nameOf.B ?? "Player 2"}`);
+  // The banner says who is playing by nickname; the tags that tell two guests apart are in the panels below (U94).
+  const plain = (name: string | null | undefined, fallback: string) => (name ?? fallback).replace(/\s#[0-9a-f]{4}$/i, "");
+  const banner = $("watching-banner");
+  banner.replaceChildren();
+  const lead = document.createElement("span");
+  lead.className = "watching-lead";
+  lead.textContent = "Watching ";
+  banner.append(lead, `${plain(nameOf.A, "Player 1")} vs ${plain(nameOf.B, "Player 2")}`);
 }
 
 // What happened this round, in the words of the players' screens but without "you" (U66, U73).
@@ -260,6 +267,7 @@ socket.addEventListener("message", (event) => {
     case "none_live":
       // U93: nothing is live, and nothing is made up to watch. The empty state replaces the board.
       $("no-live-games").hidden = false;
+      $("no-live-header").hidden = false; // Q11: a page with the Rubble title and a subtitle, not a bare card
       for (const id of ["players", "board-wrap", "result-line", "watch-message"]) $(id).hidden = true;
       $("watch-actions").hidden = true;
       $("watching-banner").hidden = true;

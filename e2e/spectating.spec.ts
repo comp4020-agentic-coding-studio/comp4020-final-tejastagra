@@ -108,7 +108,9 @@ test.describe("The watching screen (U78 to U83)", () => {
       const { player, other, spectator } = await watching(browser, size);
       const nameA = await spectator.page.locator(testid("name-a")).innerText();
       const nameB = await spectator.page.locator(testid("name-b")).innerText();
-      await expect(spectator.page.locator(testid("watching-banner"))).toHaveText(`Watching ${nameA} vs ${nameB}`);
+      // U94: the banner names both players by nickname; the tags that tell two guests apart are in the panels.
+      const bare = (name: string) => name.replace(/\s#[0-9a-f]{4}$/i, "");
+      await expect(spectator.page.locator(testid("watching-banner"))).toHaveText(`Watching ${bare(nameA)} vs ${bare(nameB)}`);
       await expect(spectator.page.locator(testid("watching-count"))).toHaveText("1 watching");
       expect(nameA.length).toBeGreaterThan(2);
       await playRound(player.page, other.page, spectator.page, 1, 3, 5);
@@ -350,6 +352,21 @@ test.describe("A game that stops while watched (U83)", () => {
 });
 
 test.describe("Watching fits the phone (promise 4)", () => {
+  test("E9 and U94 with ordinary names at 320 x 568 the banner shows both players on one line, whole, and is not cut off", async ({ browser }) => {
+    const { one, two, code } = await quickPair(browser, [PHONE, LAPTOP], {});
+    const spectator = await newPlayer(browser, NARROW, { reducedMotion: true });
+    await spectator.page.goto(`/watch?game=${code}`);
+    await expect(spectator.page.locator(testid("name-a"))).not.toHaveText("Player");
+    const banner = spectator.page.locator(testid("watching-banner"));
+    const text = (await banner.textContent())!; // "Watching" is hidden at 320 but is still in the text that is read out
+    const clipped = await banner.evaluate((e) => e.scrollWidth > e.clientWidth + 1);
+    expect(text).toMatch(/^Watching .+ vs .+$/);
+    expect(await banner.innerText(), "both names show, with no ellipsis").toMatch(/vs\s+\S/);
+    expect(await banner.innerText()).not.toContain("\u2026");
+    expect(clipped, `the banner "${text}" is cut off`).toBe(false);
+    for (const c of [one, two, spectator]) await c.context.close();
+  });
+
   test("E9, U68, U78, U84 and C20 the tightest case at 320 x 568: the widest nicknames, a spectator and the ceiling warning all showing, and everything still fits", async ({ browser }) => {
     // Round 12 on the watching screen has a round number, the banner, the count and the ceiling warning: the worst case for the
     // status row. A quick match pair resolves each round the moment both choose, so reaching it is quick (correction C20).

@@ -72,6 +72,31 @@ async function wrappedButtons(page: Page): Promise<string[]> {
   });
 }
 
+// Q2: a label that fits on one line can still be wider than its button and spill out of it. Every button's text must lie inside the
+// button's own box (with its outline), whatever its width.
+async function overflowingLabels(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const bad: string[] = [];
+    for (const el of document.querySelectorAll<HTMLElement>("button, a.btn, .btn, [role=button], .tab")) {
+      const style = getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") continue;
+      const box = el.getBoundingClientRect();
+      if (box.width === 0) continue;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const r of range.getClientRects()) {
+          if (r.width < 1) continue;
+          if (r.left < box.left - 0.5 || r.right > box.right + 0.5) bad.push(`${el.dataset.testid ?? (el.textContent ?? "").trim()} text ${Math.round(r.left)}..${Math.round(r.right)} outside button ${Math.round(box.left)}..${Math.round(box.right)}`);
+        }
+      }
+    }
+    return [...new Set(bad)];
+  });
+}
+
 // Q3: cards (panels and dialogs) within their width limits.
 async function wideCards(page: Page, formMax: number, listMax: number): Promise<string[]> {
   return page.evaluate(
@@ -234,6 +259,7 @@ for (const viewport of VIEWPORTS) {
         await page.waitForTimeout(500); // the home screen's pieces pop in one after another (U39)
 
         expect(await wrappedButtons(page), "Q2 no button label wraps").toEqual([]);
+        expect(await overflowingLabels(page), "Q2 every label fits inside its button").toEqual([]);
         expect(await wideCards(page, FORM_MAX, LIST_MAX), "Q3 no card wider than its limit").toEqual([]);
         expect(await tightGaps(page, GAP_MIN), "Q4 at least 16px between stacked cards and buttons").toEqual([]);
         expect(await misalignedHeadings(page), "Q5 headings share their content's left edge").toEqual([]);
@@ -301,6 +327,7 @@ test.describe("Q1 popups move nothing", () => {
           expect(Math.abs(now.w - box.w), `${id} changed width`).toBeLessThanOrEqual(1);
           expect(Math.abs(now.h - box.h), `${id} changed height`).toBeLessThanOrEqual(1);
         }
+        expect(await overflowingLabels(page), `${popup.name}: every label fits inside its button`).toEqual([]);
         // The popup itself is centred and within its limit.
         const card = (await dialog.locator(".dialog-card").boundingBox()) ?? (await dialog.boundingBox())!;
         expect(card.width).toBeLessThanOrEqual(FORM_MAX + 1);
@@ -649,33 +676,61 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () 
   }
 });
 
-// U5a on every page that has a subtitle under the title: the title's falling chips never reach the subtitle's box.
-test.describe("The title's chips stay clear of the subtitle (U5a)", () => {
-  for (const path of ["/play/quick", "/account"]) {
+// U5a on every page that has a line under the title: the title's chips never reach it, falling or still (reduced motion).
+test.describe("The title's chips stay clear of the line under it (U5a)", () => {
+  const pages: Array<{ path: string; under: string }> = [
+    { path: "/", under: '[data-testid="tagline"]' },
+    { path: "/play/quick", under: ".subtitle" },
+    { path: "/account", under: ".subtitle" },
+    { path: "/leaderboard", under: ".subtitle" },
+  ];
+  for (const { path, under } of pages) {
     for (const viewport of VIEWPORTS) {
-      test(`${path} at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
-        const { context, page } = await newPlayer(browser, viewport, { reducedMotion: false });
-        await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } }));
-        await page.goto(path);
-        await page.waitForLoadState("networkidle");
-        const sub = (await page.locator(".subtitle").boundingBox())!;
-        // The lowest a chip ever gets: its start plus the fall (--chip-fall of its own font size). Sampled over the whole fall.
-        let lowest = 0;
-        for (let i = 0; i < 20; i++) {
-          const bottoms = await page.locator(".chip").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().bottom));
-          lowest = Math.max(lowest, ...bottoms);
-          await page.waitForTimeout(300);
-        }
-        // reduced motion rests a chip lower still: measure that too
-        const rest = await page.evaluate(() => {
-          const chip = document.querySelector(".chip") as HTMLElement;
-          const size = parseFloat(getComputedStyle(chip).fontSize);
-          return chip.getBoundingClientRect().bottom + size * 0.6;
+      for (const reduced of [true, false]) {
+        test(`${path} at ${viewport.width} x ${viewport.height}, ${reduced ? "reduced motion" : "moving"}`, async ({ browser }) => {
+          const { context, page } = await newPlayer(browser, viewport, { reducedMotion: reduced });
+          await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } }));
+          await page.goto(path);
+          await page.waitForLoadState("networkidle");
+          await page.waitForTimeout(400);
+          const line = (await page.locator(under).first().boundingBox())!;
+          // The lowest any chip gets: sampled over the whole fall when moving, and its resting place when still.
+          let lowest = 0;
+          for (let i = 0; i < (reduced ? 1 : 14); i++) {
+            const bottoms = await page.locator(".chip").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().bottom));
+            lowest = Math.max(lowest, ...bottoms);
+            if (!reduced) await page.waitForTimeout(400);
+          }
+          expect(lowest, `a chip reached ${Math.round(lowest)} but the line under the title starts at ${Math.round(line.y)}`).toBeLessThanOrEqual(line.y + 2);
+          await context.close();
         });
-        expect(Math.max(lowest, 0), `a chip reached ${Math.round(lowest)} but the subtitle starts at ${Math.round(sub.y)}`).toBeLessThanOrEqual(sub.y + 2);
-        expect(rest, "even at rest under reduced motion").toBeLessThanOrEqual(sub.y + sub.height);
-        await context.close();
-      });
+      }
     }
   }
+});
+
+// Q11: the tutorial's practice power-up badges are pills with an outline, not bare text (they share a class with the game's rows,
+// which are borderless inside their card, and lost their look once).
+test("Q11 the tutorial's shield and Earthquake badges are outlined pills", async ({ browser }) => {
+  const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
+  await page.goto("/");
+  await expect(page.locator(testid("tutorial"))).toBeVisible();
+  for (let done = 1; done < 5; done++) {
+    if (done <= 3) await page.locator(testid("tutorial-column-3")).click();
+    if (done === 4) {
+      await page.locator(testid("tutorial-shield")).click();
+      await page.locator(testid("tutorial-column-3")).click();
+    }
+    await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8_000 });
+    await page.locator(testid("tutorial-next")).click();
+  }
+  await expect(page.locator(testid("tutorial-title"))).toHaveText("Power-ups: Earthquake");
+  const style = await page.locator(testid("tutorial-earthquake")).evaluate((el) => {
+    const c = getComputedStyle(el);
+    return { border: parseFloat(c.borderTopWidth), radius: parseFloat(c.borderTopLeftRadius), shadow: c.boxShadow };
+  });
+  expect(style.border, "an outline").toBeGreaterThanOrEqual(2);
+  expect(style.radius, "rounded like a pill").toBeGreaterThan(14);
+  expect(style.shadow, "a hard shadow").not.toBe("none");
+  await context.close();
 });
