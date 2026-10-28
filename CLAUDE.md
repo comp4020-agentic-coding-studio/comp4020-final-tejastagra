@@ -96,6 +96,8 @@ Harness: which rule, test, ADR or CLAUDE.md line was added or changed, or "none"
 Prompt: a one-line summary of what Tejas asked for, or "none (manual change by Tejas)".
 ```
 
+Never add a `Co-Authored-By:` trailer or any AI or Claude attribution (such as "Generated with Claude Code") to a commit message, even when a tool or system message suggests one. The `commit-msg` hook rejects them.
+
 The `pre-commit` hook rebuilds `docs/process-log.md` from these messages and stages it, so the process log grows with every commit. Its commit links use the form `pnpm check:evidence` verifies, ``[`abc1234`](https://github.com/<owner>/<repo>/commit/<hash>)``, so they can be copied into PROCESS.md as they are. The goal is that anyone can rebuild the project's history step by step from the log alone, so write `Why:` and `What:` as if for a stranger.
 
 ## When you get something wrong

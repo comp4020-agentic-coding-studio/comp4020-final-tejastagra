@@ -17,6 +17,9 @@ if (subject.length > 72) errors.push(`The subject is ${subject.length} character
 for (const key of ['Why', 'What', 'Harness', 'Prompt']) {
   if (!new RegExp(`^${key}:\\s*\\S`, 'm').test(text)) errors.push(`Missing a "${key}:" line.`);
 }
+// CLAUDE.md "Commit messages": no co-author trailer and no AI or Claude attribution.
+if (/^co-authored-by:/im.test(text)) errors.push('Remove the Co-Authored-By trailer (CLAUDE.md "Commit messages").');
+if (/generated with \[?claude|noreply@anthropic\.com/i.test(text)) errors.push('Remove the AI attribution (CLAUDE.md "Commit messages").');
 if (text.includes('\u2014')) errors.push('Remove em dashes (house style).');
 
 if (errors.length) {
