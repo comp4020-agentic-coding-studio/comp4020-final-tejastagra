@@ -2,6 +2,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
 import { makeGameCode, newPlayer, testid, waitForRound, waitForStart } from "./helpers.ts";
+import { withQuickQueue } from "./quick-lock.ts";
 
 // Two people in a link game, who play it to a win for player one: stacking column 0 while player two plays columns 1 and 2.
 async function finishedGame(browser: Browser, sizes: [{ width: number; height: number }, { width: number; height: number }] = [PHONE, LAPTOP]) {
@@ -146,5 +147,62 @@ test.describe("Rematch (R82 to R85)", () => {
     await two.page.locator(testid("column-4")).click();
     await expect(watcher.page.locator(testid("round-number"))).toHaveText("2", { timeout: 4_000 });
     for (const c of [one, two, watcher]) await c.context.close();
+  });
+});
+
+// Fix list Part 4 (R82, R84): Play again after a quick match works exactly like a friend game's rematch. Nobody is put back in
+// the queue and no new code is made: the same two people play again on the same link once both have asked.
+test.describe("Rematch after a quick match (R82, R84)", () => {
+  test("R82 R84 after a quick match both tap Play again: the other is offered it, and a new game starts on the same code with the same two players", async ({ browser }) => {
+    const { one, two, code } = await withQuickQueue(async () => {
+      const drain = await newPlayer(browser, PHONE);
+      const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
+      if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+      await drain.context.close();
+      const one = await newPlayer(browser, PHONE, { reducedMotion: true });
+      const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+      await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+      await two.page.request.post("/api/guest", { data: { nickname: "Sam Wombat" } });
+      // Through the real Quick match page, as a player would arrive.
+      await one.page.goto("/play/quick");
+      await two.page.goto("/play/quick");
+      await one.page.waitForURL(/\/g\/[A-Z0-9]{6}$/, { timeout: 10_000 });
+      await two.page.waitForURL(/\/g\/[A-Z0-9]{6}$/, { timeout: 10_000 });
+      return { one, two, code: new URL(one.page.url()).pathname.split("/")[2] };
+    });
+    expect(new URL(two.page.url()).pathname).toBe(`/g/${code}`);
+    await waitForRound(one.page, 1);
+    await waitForRound(two.page, 1);
+    // Whoever is seat A stacks column 0 and wins; the other plays columns 1 and 2.
+    for (let round = 1; round <= 4; round++) {
+      await one.page.locator(testid("column-0")).click();
+      await two.page.locator(testid(`column-${1 + (round % 2)}`)).click();
+      if (round < 4) {
+        await waitForRound(one.page, round + 1);
+        await waitForRound(two.page, round + 1);
+      }
+    }
+    await expect(one.page.locator(testid("end-popup"))).toBeVisible({ timeout: 4_000 });
+    await expect(two.page.locator(testid("end-popup"))).toBeVisible({ timeout: 4_000 });
+
+    await one.page.locator(testid("play-again")).click();
+    await expect(status(one.page)).toHaveText(/^Waiting for Sam Wombat #/);
+    await expect(status(two.page)).toHaveText(/^Pip Squeak #\w+ wants a rematch$/);
+    expect(one.page.url(), "no new code and no queue").toContain(`/g/${code}`);
+    expect(two.page.url()).toContain(`/g/${code}`);
+    await two.page.locator(testid("play-again")).click();
+    for (const p of [one.page, two.page]) {
+      await expect(p.locator(testid("end-popup"))).toBeHidden({ timeout: 3_000 });
+      expect(p.url(), "the same link").toContain(`/g/${code}`);
+    }
+    await waitForRound(one.page, 1);
+    await waitForRound(two.page, 1);
+    await expect(one.page.locator(testid("name-opponent"))).toContainText("Sam Wombat");
+    await expect(two.page.locator(testid("name-opponent"))).toContainText("Pip Squeak");
+    await one.page.locator(testid("column-3")).click();
+    await two.page.locator(testid("column-4")).click();
+    await waitForRound(one.page, 2);
+    await one.context.close();
+    await two.context.close();
   });
 });

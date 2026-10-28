@@ -818,6 +818,9 @@ export function attachRealtime(
     clearTimerFor(code);
     for (const seat of ["A", "B"] as const) clearGraceTimer(code, seat);
     forfeited.set(code, { result: "forfeit", winner });
+    // The player who forfeited is gone (left on purpose or did not come back), so a rematch can never start: the one still there
+    // is answered "left" at once if they tap Play again, instead of waiting for an offer to expire (R83).
+    rematchGone.set(code, "left");
     logEvent("forfeit", { game: code });
     logEvent("game_over", { game: code, result: "forfeit" });
     const winnerSocket = connections.get(key(code, winner));

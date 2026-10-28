@@ -227,3 +227,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Rule for the future:** a measurement says what it was written to say, and only looking says what it missed; every new screen or state goes into `scripts/visual-qa.ts` in the same commit, and is looked at before it is called finished.
 - **Commits:** the commit that follows this entry.
 
+
+### C29. Play again after a forfeit waited 30 seconds for a player who had gone
+- **Date:** 29 October 2026
+- **What went wrong:** Tejas reported that Play again after a quick match did not work like a friend game's rematch. A browser check of a full quick match rematch between two contexts passed, so the normal path was right. The broken path was a game that ended by a **forfeit** (the other player tapped Leave, or closed the tab and did not come back): the winner's Play again said "Waiting for <opponent>" and nothing answered until the 30 second offer expired, because a forfeit never marked the rematch as gone. R83 already said a leave withdraws the offer at once; the code did it only for a leave from a game that was already over.
+- **How it was caught:** writing the server tests Part 4 asked for, for each way a quick match can end, not only the way that wins on the board.
+- **Harness fix:** `forfeit()` in `src/server/realtime.ts` records the rematch as gone ("left") whatever caused it; `spec/unit-realtime-rematch.test.ts` checks a quick match rematch after a win (both ask, same code, same two people), after a deliberate leave and after a timeout forfeit (both answered "left" at once, nothing archived or created), each seen to fail without the fix; `e2e/rematch.spec.ts` plays a full quick match rematch through the real Quick match page in two browser contexts.
+- **Rule for the future:** a feature that ends in several ways (a line, a draw, a leave, a timeout, abandonment) needs a check for each ending, not only the one a happy test reaches.
+- **Commits:** the commit that follows this entry.

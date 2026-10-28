@@ -407,3 +407,59 @@ describe("R84 a rematch starts like any new game", () => {
     expect(s.db.loadGames().find((g) => g.code === "RMT040#1")!.state.round).toBe(14); // the long game is kept as it ended
   });
 });
+
+describe("R82 and R84 a rematch after a quick match works like a link game's (fix list Part 4)", () => {
+  it("R82 R84 in a quick match game the first to ask waits, the other is offered it, and when both ask a new game starts on the same code with the same two people", async () => {
+    const s = start();
+    s.rt.createQuickGame("RMQ001");
+    const a = await seat(s.url, "RMQ001", "q1");
+    const b = await seat(s.url, "RMQ001", "q2");
+    await a.next("opponent_joined");
+    await playToWin(a, b, "RMQ001");
+    await b.next("snapshot");
+    ask(a, "RMQ001", "A", a.token);
+    expect(await b.next("rematch_offer")).toEqual({ type: "rematch_offer", from: "opponent" });
+    expect(await a.quiet("rematch_started")).toBe(true); // asking alone starts nothing
+    ask(b, "RMQ001", "B", b.token);
+    await a.next("rematch_started");
+    await b.next("rematch_started");
+    const fresh = await a.next("snapshot");
+    expect(fresh.state.round).toBe(0);
+    expect(fresh.you).toBe("A");
+    expect(fresh.opponentName).toBe("Person q2"); // the same opponent
+    expect((await b.next("snapshot")).opponentName).toBe("Person q1");
+    // The same code, still a quick match game, and the finished one archived beside it (R84).
+    expect(s.rt.kindsKnown()).toContainEqual(["RMQ001", "quick"]);
+    expect(s.db.loadGames().map((g) => g.code).filter((c) => c.startsWith("RMQ001")).sort()).toEqual(["RMQ001", "RMQ001#1"]);
+  });
+});
+
+describe("R83 a quick match that ended by a forfeit never starts a new game or a queue from Play again (fix list Part 4)", () => {
+  it("R83 the winner of a quick match forfeit who taps Play again is told the other left, and nothing is created", async () => {
+    const s = start({ graceMs: 60_000 });
+    s.rt.createQuickGame("RMQ002");
+    const a = await seat(s.url, "RMQ002", "q3");
+    const b = await seat(s.url, "RMQ002", "q4");
+    await a.next("opponent_joined");
+    b.send({ type: "leave_game", code: "RMQ002", player: "B", seatToken: b.token }); // a forfeit (R81)
+    await a.next("game_over");
+    ask(a, "RMQ002", "A", a.token);
+    expect(await a.next("rematch_ended")).toEqual({ type: "rematch_ended", reason: "left" });
+    expect(await a.quiet("rematch_started")).toBe(true);
+    expect(s.db.loadGames().filter((g) => g.code.startsWith("RMQ002")).map((g) => g.code)).toEqual(["RMQ002"]); // nothing archived or made
+  });
+});
+
+describe("R83 a player who forfeited by not coming back cannot be waited for", () => {
+  it("R83 after a forfeit by timeout, the winner's Play again is answered left at once", async () => {
+    const s = start({ graceMs: 150 });
+    s.rt.createQuickGame("RMQ003");
+    const a = await seat(s.url, "RMQ003", "q5");
+    const b = await seat(s.url, "RMQ003", "q6");
+    await a.next("opponent_joined");
+    b.socket.close(); // gone, and not back within the grace period (R27)
+    await a.next("game_over");
+    ask(a, "RMQ003", "A", a.token);
+    expect(await a.next("rematch_ended")).toEqual({ type: "rematch_ended", reason: "left" });
+  });
+});
