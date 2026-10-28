@@ -13,6 +13,21 @@ Status: **todo** (stub only), **written**, **passing**.
 - **`e2e/*.spec.ts`** are Playwright browser checks for phone layout. They run only with `pnpm test:e2e`, never in `pnpm check`, because CI may have no browser.
 - **Manual checks** cannot be automated here, because a test cannot restart the server it is testing. They run in the multi-user test session (`docs/testing/multi-user-test-plan.md`).
 
+## Layout and polish (`e2e/layout.spec.ts`, `/visual-qa`)
+
+| ID | Claim | Rule | Status |
+| --- | --- | --- | --- |
+| Q1 | Nothing behind a popup moves by more than 1px when it opens or closes; every popup is a dialog with a close button and Escape | `docs/design/qa-checklist.md` | todo |
+| Q2 | Every button label is one line at every viewport | | todo |
+| Q3 | No card is wider than 480px (forms and messages) or 560px (lists) | | todo |
+| Q4 | At least 16px between stacked cards and buttons | | todo |
+| Q5 | Every heading's left edge matches its content's within 4px | | todo |
+| Q6 | Each page's main column is centred within 16px | | todo |
+| Q7 | The nickname editor opens prefilled | | todo |
+| Q8 | A guest never sees Sign out; a signed-in player never sees sign-in or sign-up | | todo |
+| Q9 | Every screen except home has a Home, Cancel or Leave button | | todo |
+| Q10, Q11 | Empty states explain themselves; no page looks plain | `/visual-qa` (judged by looking) | judged |
+
 ## Hygiene (`spec/unit-check-isolation.test.ts`)
 
 | ID | Claim | Status |
