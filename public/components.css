@@ -514,6 +514,21 @@ button.round-item {
   fill: var(--shield-off);
 }
 
+/* A used shield is struck through, like a used Earthquake, so it differs by shape as well as colour (U105). */
+.shield-state {
+  position: relative;
+}
+
+.shield-state[data-shield="used"]::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: 50%;
+  border-top: 3px solid var(--ink);
+  transform: rotate(-35deg);
+}
+
 .shield-state[data-shield="glow"] svg {
   filter: drop-shadow(0 0 6px var(--shield-on));
 }
@@ -1272,14 +1287,23 @@ input {
   margin-top: 18px;
 }
 
-/* The shield is part of your side. On a phone it spans the width under both panels; on a laptop it
-   sits directly under your panel (U16). */
-.shield-row {
+/* Your power-ups are one card of two full-width rows (U102): the row is the button, the info button sits at its right edge. */
+.powerups {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
-  gap: 6px;
-  align-items: stretch; /* the two badges are always the same height (U61) */
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.powerup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+
+.powerup-row + .powerup-row {
+  border-top: var(--outline-thin);
 }
 
 /* The opponent's Earthquake: availability only (U64). A used one is struck through, so it differs by shape. */
@@ -1334,31 +1358,14 @@ input {
   display: none;
 }
 
-.shield-info {
-  min-width: 44px;
-  min-height: 44px;
+.powerup-info {
+  min-width: 52px;
+  min-height: 48px;
   padding: 0;
-}
-
-/* The help opens over the board, so it never pushes the board or timer off the screen. */
-.game .players {
-  position: relative;
-}
-
-.shield-help,
-.earthquake-help {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  z-index: 8;
-  margin: 4px 0 0;
-  font-size: 0.95rem;
-}
-
-.shield-help[hidden],
-.earthquake-help[hidden] {
-  display: none;
+  border: 0;
+  border-left: var(--outline-thin);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .play-area {
@@ -1465,19 +1472,19 @@ input {
 }
 
 .shield-badge {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 12px;
   width: 100%;
   min-height: 48px;
-  padding: 4px 8px;
-  font: 700 0.9rem/1.1 var(--font-display);
+  padding: 4px 12px;
+  font: 700 1rem/1.1 var(--font-display);
+  white-space: nowrap;
   color: var(--text);
   background: var(--panel);
-  border: var(--outline);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-small);
+  border: 0;
+  border-radius: 0;
   cursor: pointer;
 }
 
@@ -1510,6 +1517,16 @@ input {
 
 .shield-badge:disabled {
   cursor: default;
+}
+
+/* A power-up that cannot be used right now is greyed (U103), whatever the reason. */
+.shield-badge:disabled:not([aria-pressed="true"]) {
+  background: var(--disabled);
+  color: var(--disabled-text);
+}
+
+.shield-badge:disabled:not([aria-pressed="true"]) svg {
+  fill: var(--shield-off);
 }
 
 /* The round timer: a slim bar under the board that drains over the round (U25). */
@@ -1582,9 +1599,17 @@ input {
   opacity: 0.35;
 }
 
+/* Waiting: only the board and its card are on the screen, and they are centred on it (U108). The heading, the panels and
+   the round line take no room, so nothing is left behind as a gap above the board. */
 .game[data-waiting="true"] .players,
-.game[data-waiting="true"] .status-row {
-  visibility: hidden;
+.game[data-waiting="true"] .status-row,
+.game[data-waiting="true"] .opponent-heading {
+  display: none;
+}
+
+.game[data-waiting="true"] .stage {
+  align-content: center;
+  min-height: calc(100vh - 32px);
 }
 
 .game[data-waiting="true"] .timer-track {
@@ -1990,14 +2015,25 @@ input {
   }
 
   .shield-badge {
-    min-height: 44px;
-    padding: 2px 6px;
-    font-size: 0.85rem;
+    min-height: 40px;
+    padding: 2px 10px;
+    gap: 10px;
+    font-size: 0.9rem;
   }
 
   .shield-badge svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
+  }
+
+  /* The rows are 44px tall (U102) and the opponent's labels are small, so the board and timer keep the first screen. */
+  .powerup-info {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .powerup-row {
+    min-height: 44px;
   }
 
   .game .board-wrap {
@@ -2065,8 +2101,13 @@ input {
     order: 1;
   }
 
-  .game .shield-row {
+  .game .powerups {
     order: 2;
+  }
+
+  .game .opponent-powerups {
+    order: 5;
+    justify-content: flex-start;
   }
 
   .game .vs {
@@ -2075,11 +2116,6 @@ input {
 
   .game .player-opponent {
     order: 4;
-  }
-
-  .game .shield-help,
-  .game .earthquake-help {
-    order: 5;
   }
 
   .game .vs {
@@ -2575,5 +2611,132 @@ input {
     gap: 8px;
     margin-top: 4px;
     padding-top: 8px;
+  }
+}
+
+/* The opponent's power-ups: small icons each with a label, in one strip under the two panels (U105). */
+.opponent-powerups {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 16px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.opp-power {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.opp-power .quake-state {
+  margin-left: 0;
+}
+
+.opp-power:has([data-shield="used"]),
+.opp-power:has([data-quake="used"]) {
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+/* At 320px the power-ups must leave the board and timer on the first screen (docs/design.md, U102). Everything here is
+   spacing only: the rows stay 44px, the labels stay whole. Last in the file so it wins over the base rules above. */
+@media (max-width: 359px) {
+  .opponent-powerups {
+    gap: 0 10px;
+    font-size: 0.7rem;
+    line-height: 1.1;
+  }
+
+  .opp-power svg,
+  .opp-power .quake-state {
+    width: 14px;
+    height: 14px;
+  }
+
+  .game .players {
+    row-gap: 3px;
+  }
+
+  .game .player-name {
+    font-size: 0.78rem;
+    line-height: 1.1;
+  }
+
+  .game .player-meta {
+    line-height: 1.1;
+  }
+
+  .game .stage {
+    gap: 2px;
+  }
+
+  .powerups {
+    border: var(--outline-thin);
+  }
+
+  .game .board-wrap {
+    margin: calc(var(--ghost-size) - 2px) 0 0;
+  }
+
+  .timer-track {
+    height: 6px;
+  }
+}
+
+/* Who you are playing, and leaving (docs/design/game-screen.md U106 to U108). */
+.opponent-heading {
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leave-game {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.leave-game[hidden] {
+  display: none;
+}
+
+.share .btn-block {
+  margin-top: 8px; /* with the card's 8px gap, 16px under Copy link and Share (Q4) */
+}
+
+/* The end popup's two buttons are one line each, down to 320px (U29). */
+.popup-actions .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 359px) {
+  .popup-actions .btn svg {
+    display: none;
+  }
+
+  .popup-actions .btn {
+    padding: 0 4px;
+    font-size: 1rem;
+  }
+}
+
+.game[data-waiting="true"] .leave-game {
+  display: none;
+}
+
+@media (max-width: 359px) {
+  .opponent-heading {
+    font-size: 0.8rem;
+    line-height: 1;
   }
 }

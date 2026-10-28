@@ -283,7 +283,11 @@ test.describe("The phone layout does not change (promise 4)", () => {
       expect(warning.x, "inside the screen").toBeGreaterThanOrEqual(0);
       expect(warning.x + warning.width, "inside the screen").toBeLessThanOrEqual(viewport.width);
       expect(warning.y + warning.height, "the banner does not cover the board").toBeLessThanOrEqual(board.y + 1);
-      expect(round.y, "the round number stays on screen").toBeGreaterThanOrEqual(0);
+      // On a page taller than the screen the browser scrolls to the column that was tapped, so the round number is judged
+      // by where it is on the page: at the top, never pushed down or out of the layout.
+      const scrolled = await one.page.evaluate(() => window.scrollY);
+      expect(round.y + scrolled, "the round number stays at the top of the page").toBeLessThanOrEqual(20);
+      expect(round.y + scrolled, "the round number stays on the page").toBeGreaterThanOrEqual(0);
       // The first-screen rule (docs/design.md) is for the marking viewports and 320 x 568: the whole board
       // and the timer fit, with the banner showing. 360 x 640 is not one of them (it only has to scroll
       // nowhere sideways and overlap nothing), and its height is a known gap in docs/handover.md.

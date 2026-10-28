@@ -95,12 +95,12 @@ test.describe("Play on the board", () => {
     const { one, two } = await twoPlayers(browser);
     const badge = one.page.locator(testid("shield-badge"));
     await expect(badge).toHaveAttribute("aria-pressed", "false");
-    await expect(one.page.locator(testid("shield-label"))).toHaveText("Tap to arm shield");
+    await expect(one.page.locator(testid("shield-label"))).toHaveText("Arm shield");
     await badge.click();
     await expect(badge).toHaveAttribute("aria-pressed", "true");
     await expect(one.page.locator(testid("shield-label"))).toHaveText("Shield armed");
     // R22 and U17: arming sends the opponent nothing they can see, not even a change in their panel.
-    await expect(two.page.locator(testid("opponent-shield"))).toHaveText("available");
+    await expect(two.page.locator(testid("opponent-shield"))).toHaveText("Shield available");
     await badge.click();
     await expect(badge).toHaveAttribute("aria-pressed", "false");
     await badge.click(); // armed again, then used in a round
@@ -108,7 +108,7 @@ test.describe("Play on the board", () => {
     await chooseColumn(two.page, 3);
     await waitForRound(one.page, 2);
     await expect(one.page.locator(testid("shield-label"))).toHaveText("Shield used");
-    await expect(two.page.locator(testid("opponent-shield"))).toHaveText("used"); // it is spent now, which is public (R20)
+    await expect(two.page.locator(testid("opponent-shield"))).toHaveText("Shield used"); // it is spent now, which is public (R20)
     await one.context.close();
     await two.context.close();
   });
@@ -348,7 +348,7 @@ test.describe("Tutorial", () => {
     await expect(page.locator(testid("tutorial-caption"))).toHaveText("Your shield wins one crash per game. Use it when you both need the same column.");
     const badge = page.locator(testid("tutorial-shield"));
     await expect(badge).toBeVisible();
-    await expect(badge).toContainText("Tap to arm shield");
+    await expect(badge).toContainText("Arm shield");
     // The wrong column, or no shield, is not accepted: the step waits and says why.
     await page.locator(testid("tutorial-column-3")).click();
     await expect(page.locator(testid("tutorial-hint"))).toContainText("Tap your shield first");
@@ -608,6 +608,10 @@ test.describe("Screenshots", () => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       // Top players and names change as people play, so hide the parts that depend on live data.
       const mask = [page.locator(testid("top-players")), page.locator(testid("player-card")), page.locator(testid("leaderboard-wins")), page.locator(testid("leaderboard-rounds")), page.locator(testid("live-count"))]; // the live count is how many games happen to be live (U76)
+      // The home and leaderboard screens change height with how many wins the app has recorded, and the right column is
+      // centred, so the lists are answered here with a fixed empty one: the picture then never depends on what other
+      // checks have played before it.
+      await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: [], rounds: [] } }));
       // /play/quick is left out: it joins the shared lobby, so a player left waiting by another run
       // pairs with this one and the page becomes a game. Its waiting state is checked in E6 and by axe.
       for (const path of SCREENS.filter((p) => p !== "/play/quick")) {
@@ -768,14 +772,17 @@ test.describe("Game screen layout and the waiting card", () => {
 
   test("U16 the shield badge says what to do, and the info button opens the explanation", async ({ browser }) => {
     const { one, two } = await twoPlayers(browser);
-    await expect(one.page.locator(testid("shield-label"))).toHaveText("Tap to arm shield");
-    await expect(one.page.locator(testid("shield-help"))).toBeHidden();
+    await expect(one.page.locator(testid("shield-label"))).toHaveText("Arm shield");
+    await expect(one.page.locator(testid("shield-help"))).toHaveCount(0);
     const info = (await one.page.locator(testid("shield-info")).boundingBox())!;
     expect(info.width).toBeGreaterThanOrEqual(43.5);
     expect(info.height).toBeGreaterThanOrEqual(43.5);
     await one.page.locator(testid("shield-info")).click();
     await expect(one.page.locator(testid("shield-help"))).toContainText("Your shield wins one crash per game.");
     await expect(one.page.locator(testid("shield-help"))).toContainText("to block their winning move or to take yours.");
+    await expect(one.page.locator(testid("shield-help"))).toHaveAttribute("role", "dialog");
+    await one.page.keyboard.press("Escape");
+    await expect(one.page.locator(testid("shield-help"))).toHaveCount(0);
     await one.context.close();
     await two.context.close();
   });

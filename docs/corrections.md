@@ -186,3 +186,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** opening a game page or making a link game now gives a visitor a guest session (ADR 0012), the watching page sent from a link joins as the page did so the server answers with the result, tests in `spec/app-spectating.test.ts` and `spec/unit-link-game-seats.test.ts` cover a creator with no session and a finished game, and the e2e check measures the notice and banner at 320px.
 - **Rule for the future:** test the case with no session as well as the one with a named person, and read every hook name in the design file against the code.
 - **Commits:** the commits that follow this entry.
+
+### C24. A screenshot baseline that depended on what other checks had played
+- **Date:** 28 October 2026
+- **What went wrong:** the browser check that compares each screen with its approved picture passed on its own and failed in a full run. The home screen's right column is centred, and its "Top players" strip grew from one row to three as other checks recorded wins in the same app, so the whole page shifted. I regenerated the baseline twice before finding the cause, which is the retry-until-it-passes habit CLAUDE.md names. A reviewer also found that I had marked a power-up label check as covering a state it did not reach, and that a design file named a hook (`shield-help`) that the new popup only creates when it is opened.
+- **How it was caught:** the same check failing in the full run and passing alone, then reading the diff image.
+- **Harness fix:** the screenshot check now answers `/api/leaderboard` with a fixed empty list, so a picture never depends on what ran before it; `docs/design/board-interaction.md` says popup hooks exist only while a popup is open and `spec/app-screens.test.ts` asserts the page carries no help text; first-screen checks name the worst case (the widest nicknames) as well as the usual one.
+- **Rule for the future:** a picture or a number that depends on shared live data must be given fixed data, and a failing check run twice with no cause found is a reason to look at the diff, not to regenerate.
+- **Commits:** the game-screen commit that follows this entry.

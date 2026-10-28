@@ -6,6 +6,7 @@
 // result back past the one second promise (U23).
 import { avatar, buildBoard, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
+import { dialogButton, openDialog } from "./dialog.ts";
 
 type Player = "A" | "B";
 
@@ -125,6 +126,7 @@ function showGhost(column: number | null, chosen: boolean): void {
 }
 
 function renderChoice(): void {
+  if (over) $("leave-game").hidden = true;
   columns.forEach((hit, c) => {
     hit.setAttribute("aria-pressed", String(c === selectedColumn));
     hit.setAttribute("aria-disabled", String(over || locked || columnFull(c)));
@@ -134,8 +136,8 @@ function renderChoice(): void {
   badge.dataset.state = spent ? "spent" : "ready";
   badge.setAttribute("aria-pressed", String(armed && !spent));
   badge.disabled = spent || over || locked;
-  const label = spent ? "Shield used" : over ? "Game over" : armed ? "Shield armed" : "Tap to arm shield";
-  setText("shield-label", label);
+  const label = spent ? "Shield used" : armed ? "Shield armed" : "Arm shield";
+  if (!over) setText("shield-label", label); // after the game both rows keep their last words (U103)
   badge.setAttribute("aria-label", spent ? "Shield, used" : over ? "Game over" : armed ? "Shield, armed" : "Shield, ready. Tap to arm it");
   const quake = $("earthquake-badge") as HTMLButtonElement;
   const quakeSpent = !!(you && drawn && !drawn.earthquakesLeft[you]);
@@ -143,8 +145,8 @@ function renderChoice(): void {
   quake.dataset.state = quakeSpent ? "spent" : "ready";
   quake.setAttribute("aria-pressed", String(quakeChosen && !quakeSpent));
   quake.disabled = quakeSpent || nothingToShake || over || locked;
-  const quakeLabel = quakeSpent ? "Earthquake used" : quakeChosen ? "Earthquake armed" : nothingToShake ? "Nothing to shake yet" : "Tap to use Earthquake";
-  setText("earthquake-label", quakeLabel);
+  const quakeLabel = quakeSpent ? "Earthquake used" : quakeChosen ? "Earthquake armed" : nothingToShake ? "Nothing to shake yet" : "Use Earthquake";
+  if (!over) setText("earthquake-label", quakeLabel);
   quake.setAttribute("aria-label", quakeSpent ? "Earthquake, used" : quakeChosen ? "Earthquake, armed" : nothingToShake ? "Earthquake, nothing to shake yet" : "Earthquake, ready. Tap to use it");
   ($("quake-marker") as HTMLElement).hidden = !quakeChosen;
   setText("chosen-label", selectedColumn === null && !quakeChosen ? "" : "Chosen");
@@ -216,20 +218,30 @@ $("shield-badge").addEventListener("click", () => {
 
 $("earthquake-badge").addEventListener("click", chooseQuake);
 
+// The info buttons open a popup, never text in the page (U104, Q1).
+function help(testid: string, title: string, words: string[]): void {
+  const dialog = openDialog({ testid, title });
+  for (const line of words) dialog.text(line);
+  dialog.actions(dialogButton("Close", "blue", "dialog-cancel", { onClick: () => dialog.close() }));
+}
+
 $("earthquake-info").addEventListener("click", () => {
-  const help = $("earthquake-help");
-  help.hidden = !help.hidden;
-  $("earthquake-info").setAttribute("aria-expanded", String(!help.hidden));
+  const nothingToShake = !!drawn && drawn.board.every((column) => column.length === 0);
+  help("earthquake-help", "Earthquake", [
+    ...(nothingToShake ? ["Available once the bottom row has a piece."] : []),
+    "Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Lines it creates by itself do not win.",
+  ]);
 });
 
 $("shield-info").addEventListener("click", () => {
-  const help = $("shield-help");
-  help.hidden = !help.hidden;
-  $("shield-info").setAttribute("aria-expanded", String(!help.hidden));
+  help("shield-help", "Shield", [
+    "Your shield wins one crash per game. If you and your opponent pick the same column, your disc lands and theirs is lost. Use it when you both need the same column, for example to block their winning move or to take yours.",
+  ]);
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (document.querySelector(".dialog")) return; // a popup is open: the keys belong to it
   const target = event.target as HTMLElement | null;
   if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
   if (event.key >= "1" && event.key <= "7") {
@@ -369,7 +381,7 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
   if (you) {
     const mineLeft = state.shieldsLeft[you];
     const theirsLeft = state.shieldsLeft[other(you)];
-    setText("opponent-shield", theirsLeft ? "available" : "used");
+    setText("opponent-shield", theirsLeft ? "Shield available" : "Shield used");
     setText("my-shield", mineLeft ? "available" : "used");
     const theirQuake = state.earthquakesLeft[other(you)];
     setText("opponent-earthquake", theirQuake ? "Earthquake available" : "Earthquake used");
@@ -431,6 +443,19 @@ function syncWaiting(state: State): void {
   $("waiting-panel").hidden = !waiting;
   gameRoot.dataset.waiting = String(waiting);
   if (!waiting && state.status === "playing") getReady();
+  showHeading(waiting);
+  showLeave(waiting);
+}
+
+// U106: who you are playing, one line above the board.
+function showHeading(waiting: boolean): void {
+  const name = $("name-opponent").textContent ?? "";
+  $("opponent-heading").textContent = waiting ? "Waiting for your opponent" : playedComputer || name === "Computer" ? "Playing the computer" : `Playing with ${name}`;
+}
+
+// U107: Leave game is there while a game is being played, and not before it starts or after it ends.
+function showLeave(waiting: boolean): void {
+  $("leave-game").hidden = waiting || over || !you;
 }
 
 // ---- The end of the game (U27 to U30) ----
@@ -508,6 +533,7 @@ socket.addEventListener("message", (event) => {
     case "opponent_joined":
       opponentPresent = true;
       if (typeof message.name === "string") setText("name-opponent", message.name);
+      showHeading(false);
       if (drawn) {
         syncWaiting(drawn);
         startRound(drawn); // round 1 starts now that both are here (R51)
@@ -626,3 +652,33 @@ function drawTimer(): void {
 setInterval(drawTimer, 100);
 
 renderChoice();
+
+// ---- Leaving (R81, U107, U108) ----
+function sendLeave(): void {
+  if (you && seatToken) socket.send(JSON.stringify({ type: "leave_game", code, player: you, seatToken }));
+}
+
+// The socket is closed by the page going away, so the server has the message first: wait for it to be sent.
+function goHome(): void {
+  setTimeout(() => (location.href = "/"), 60);
+}
+
+$("leave-game").addEventListener("click", () => {
+  const dialog = openDialog({ testid: "leave-dialog", title: "Leave this game?" });
+  dialog.text("It counts as a forfeit.");
+  dialog.actions(
+    dialogButton("Leave", "red", "leave-confirm", {
+      onClick: () => {
+        sendLeave();
+        dialog.close();
+        goHome();
+      },
+    }),
+    dialogButton("Stay", "blue", "dialog-cancel", { onClick: () => dialog.close() }),
+  );
+});
+
+$("cancel-game").addEventListener("click", () => {
+  sendLeave();
+  goHome();
+});

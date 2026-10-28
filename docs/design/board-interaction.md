@@ -13,7 +13,7 @@ The game screen has no column buttons and no Drop button. Players act on the boa
 
 ## The shield
 
-- **U16** The shield is a power-up and looks like one: a badge inside the player's own panel with a large shield-shaped icon, `data-testid="shield-badge"`. While available it reads "Tap to arm shield". Tapping it arms the shield for this round: it glows and reads "Shield armed". Tapping again disarms it, until the player chooses a column (U13). Once spent it is greyed out and reads "Shield used". Beside it is a small info button (`shield-info`, at least 44 by 44px) that opens a short explanation (`shield-help`): "Your shield wins one crash per game. If you and your opponent pick the same column, your disc lands and theirs is lost. Use it when you both need the same column, for example to block their winning move or to take yours."
+- **U16** *The wording of the labels and where the badge sits are changed by U102 to U105 (`game-screen.md`): the row is "Arm shield", "Shield armed", "Shield used", and the explanation opens in a popup.* The shield is a power-up and looks like one: a badge inside the player's own panel with a large shield-shaped icon, `data-testid="shield-badge"`. While available it reads "Tap to arm shield". Tapping it arms the shield for this round: it glows and reads "Shield armed". Tapping again disarms it, until the player chooses a column (U13). Once spent it is greyed out and reads "Shield used". Beside it is a small info button (`shield-info`, at least 44 by 44px) that opens a short explanation (`shield-help`): "Your shield wins one crash per game. If you and your opponent pick the same column, your disc lands and theirs is lost. Use it when you both need the same column, for example to block their winning move or to take yours."
 - **U17** The opponent's panel shows whether their shield is still available, never whether it is armed this round (rule R22).
 
 ## Earthquake
@@ -26,4 +26,6 @@ The game screen has no column buttons and no Drop button. Players act on the boa
 
 ## Test hooks
 
-Keep `column-0` to `column-6`. Remove `drop` and `shield-toggle`. Add `shield-info`, `shield-help`, `get-ready`, `ghost-disc`, `shield-badge`, `chosen-label`, `end-popup`, `end-title`, `play-again`, `go-home`, `tutorial`, `tutorial-next`, `tutorial-skip` and `how-to-play`. Keep every home screen hook (`play-computer`, `play-friend`, `quick-match`, `code-input`, `nickname-input`, `leaderboard-wins`, `leaderboard-rounds`).
+Keep `column-0` to `column-6`. Remove `drop` and `shield-toggle`. Add `shield-info`, `get-ready`, `ghost-disc`, `shield-badge`, `chosen-label`, `end-popup`, `end-title`, `play-again`, `go-home`, `tutorial`, `tutorial-next`, `tutorial-skip` and `how-to-play`. Keep every home screen hook (`play-computer`, `play-friend`, `quick-match`, `code-input`, `nickname-input`, `leaderboard-wins`, `leaderboard-rounds`).
+
+*Changed 28 October 2026 (U104): `shield-help` and `earthquake-help` are the popups' own hooks, so they exist in the page only while a popup is open and are checked in the browser (`e2e/design.spec.ts` U16, `e2e/earthquake.spec.ts` U63), not in the server's HTML.*

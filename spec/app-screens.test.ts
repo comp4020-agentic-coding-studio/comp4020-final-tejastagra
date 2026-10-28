@@ -62,11 +62,14 @@ describe("screens (docs/design.md)", () => {
   it("Game has every hook the browser checks need, and no column buttons or Drop button (U10 to U18)", async () => {
     const { status, html } = await get("/g/ABC234");
     expect(status).toBe(200);
-    const hooks = ["shield-badge", "shield-info", "shield-help", "get-ready", "round-number", "timer", "name-you", "name-opponent", "opponent-status", "my-shield", "opponent-shield", "result-line", "game-code", "copy-link", "chosen-label", "end-popup", "end-title", "play-again", "go-home"];
+    const hooks = ["shield-badge", "shield-info", "earthquake-info", "powerups", "get-ready", "round-number", "timer", "name-you", "name-opponent", "opponent-status", "my-shield", "opponent-shield", "result-line", "game-code", "copy-link", "chosen-label", "end-popup", "end-title", "play-again", "go-home"];
     for (let c = 0; c < 7; c++) hooks.push(`column-${c}`);
     for (const hook of hooks) expect(html, hook).toContain(`data-testid="${hook}"`);
     expect(html).not.toContain('data-testid="drop"');
     expect(html).not.toContain('data-testid="shield-toggle"');
+    // U104: the help is a popup that is built when the info button is tapped, so the page itself carries no help text.
+    expect(html).not.toContain('data-testid="shield-help"');
+    expect(html).not.toContain('data-testid="earthquake-help"');
     // U18: no keyboard hint line on the game screen; the keys are in How to play only.
     expect(html).not.toContain("keys-hint");
     expect(html).not.toMatch(/Keys 1 to 7/);

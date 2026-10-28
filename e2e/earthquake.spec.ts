@@ -36,7 +36,7 @@ test.describe("Earthquake badge (U61 to U64)", () => {
     await two.context.close();
   });
 
-  test("U61 and R55 the badge is disabled and says so while the bottom row is empty, then reads Tap to use Earthquake", async ({ browser }) => {
+  test("U61 and R55 the badge is disabled and says so while the bottom row is empty, then reads Use Earthquake", async ({ browser }) => {
     const { one, two } = await twoPlayers(browser, { reducedMotion: true });
     const badge = one.page.locator(testid("earthquake-badge"));
     await expect(badge).toBeVisible();
@@ -44,7 +44,7 @@ test.describe("Earthquake badge (U61 to U64)", () => {
     await expect(one.page.locator(testid("earthquake-label"))).toHaveText("Nothing to shake yet");
     await playOpeningRound(one.page, two.page);
     await expect(badge).toBeEnabled();
-    await expect(one.page.locator(testid("earthquake-label"))).toHaveText("Tap to use Earthquake");
+    await expect(one.page.locator(testid("earthquake-label"))).toHaveText("Use Earthquake");
     const box = (await badge.boundingBox())!;
     expect(box.height).toBeGreaterThanOrEqual(44);
     await one.context.close();
@@ -80,7 +80,7 @@ test.describe("Earthquake badge (U61 to U64)", () => {
     await expect(one.page.locator(testid("shield-badge"))).toHaveAttribute("aria-pressed", "false");
     await chooseColumn(two.page, 5);
     await waitForRound(one.page, 3);
-    await expect(one.page.locator(testid("shield-label"))).toHaveText("Tap to arm shield"); // the shield was never spent
+    await expect(one.page.locator(testid("shield-label"))).toHaveText("Arm shield"); // the shield was never spent
     await expect(one.page.locator(testid("earthquake-label"))).toHaveText("Earthquake used");
     await expect(one.page.locator(testid("earthquake-badge"))).toBeDisabled();
     await expect(two.page.locator(testid("opponent-earthquake"))).toHaveText("Earthquake used");
@@ -88,15 +88,17 @@ test.describe("Earthquake badge (U61 to U64)", () => {
     await two.context.close();
   });
 
-  test("U63 the info button opens the explanation over the board, in the specified words", async ({ browser }) => {
+  test("U63 and U104 the info button opens a popup with the explanation, and the opening line only while nothing can be shaken", async ({ browser }) => {
     const { one, two } = await twoPlayers(browser, { reducedMotion: true });
     await one.page.locator(testid("earthquake-info")).click();
     const help = one.page.locator(testid("earthquake-help"));
     await expect(help).toBeVisible();
-    await expect(help).toHaveText("Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Lines it creates by itself do not win.");
+    // Nothing is on the board yet, so the popup says when it becomes available first (U104).
+    await expect(help).toContainText("Available once the bottom row has a piece.");
+    await expect(help).toContainText("Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Lines it creates by itself do not win.");
     expect(((await one.page.locator(testid("earthquake-info")).boundingBox())!).width).toBeGreaterThanOrEqual(44);
-    await one.page.locator(testid("earthquake-info")).click();
-    await expect(help).toBeHidden();
+    await help.locator(testid("dialog-cancel")).click();
+    await expect(help).toHaveCount(0);
     await one.context.close();
     await two.context.close();
   });
@@ -232,7 +234,7 @@ test.describe("The tutorial's Earthquake step (U67)", () => {
     await expect(page.locator(testid("tutorial-caption"))).toHaveText("Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Use it to break up a line.");
     const badge = page.locator(testid("tutorial-earthquake"));
     await expect(badge).toBeVisible();
-    await expect(badge).toContainText("Tap to use Earthquake");
+    await expect(badge).toContainText("Use Earthquake");
     await expect(page.locator(testid("tutorial-next"))).toBeHidden();
     const cells = `${testid("tutorial-board")} [data-testid^="cell-"]`;
     expect(await page.locator(`${cells}[data-piece="B"]`).count(), "the computer starts with three in a row").toBe(3);

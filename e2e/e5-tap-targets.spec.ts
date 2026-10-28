@@ -40,7 +40,10 @@ for (const [name, viewport] of [["390", PHONE], ["320", NARROW]] as const) {
 
 test("E5 and U15 each column of the board is a hit area at least 44 px wide at 320 px, and the shield badge is 44 px tall", async ({ browser }) => {
   const { context, page } = await newPlayer(browser, NARROW);
-  await page.goto(`/g/${await makeGameCode(page)}`);
+  // A game that has started: the power-ups are not on the waiting screen (U108).
+  const code = (await (await page.request.post("/api/computer")).json()).code as string;
+  await page.goto(`/g/${code}`);
+  await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
   for (let c = 0; c < 7; c++) {
     const box = (await page.locator(testid(`column-${c}`)).boundingBox())!;
     expect(box.width, `column-${c} width`).toBeGreaterThanOrEqual(43.5);

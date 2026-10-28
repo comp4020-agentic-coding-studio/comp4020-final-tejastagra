@@ -326,12 +326,12 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
       shield.dataset.state = "ready";
       shield.disabled = false;
       shield.setAttribute("aria-pressed", "false");
-      shieldLabel.textContent = "Tap to arm shield";
+      shieldLabel.textContent = "Arm shield";
       stage.showShield(false);
       quake.dataset.state = "ready";
       quake.disabled = false;
       quake.setAttribute("aria-pressed", "false");
-      quakeLabel.textContent = "Tap to use Earthquake";
+      quakeLabel.textContent = "Use Earthquake";
       stage.showQuake(false);
     },
     lock(column) {
@@ -466,7 +466,7 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     if (locked || shield.dataset.state === "spent") return;
     armed = !armed;
     shield.setAttribute("aria-pressed", String(armed));
-    shieldLabel.textContent = armed ? "Shield armed" : "Tap to arm shield";
+    shieldLabel.textContent = armed ? "Shield armed" : "Arm shield";
     if (armed && shieldWaiter) {
       const done = shieldWaiter;
       shieldWaiter = null;
