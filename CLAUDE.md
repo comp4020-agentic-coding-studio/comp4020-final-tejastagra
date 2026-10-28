@@ -73,7 +73,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 
 ## Every change must
 
-- Keep `pnpm check` passing before it is pushed. `pnpm check` starts its own test server on a free port with a temporary data folder and deletes it afterwards, so it never needs the dev server and **never writes to `data-dev/`** (correction C22). With `APP_URL` set, as in CI, it runs against that app instead. Keep `pnpm check:fast` passing at every commit.
+- Keep `pnpm check` passing before it is pushed. `pnpm check` starts its own test server on a free port with a temporary data folder and deletes it afterwards, so it never needs the dev server and **never writes to `data-dev/`** (correction C22), and so does `pnpm test:e2e`. With `APP_URL` set, as in CI, it runs against that app instead. Keep `pnpm check:fast` passing at every commit.
 - `pnpm check:evidence` may fail only because PROCESS.md still has its template comment or no reflection exists yet. Any other failure must be fixed.
 - Add or update a test when it changes behaviour, with the rule ID in the test name. Name test files `spec/app-<name>.test.ts` (checks against the running app, using `inject("baseUrl")`) or `spec/unit-<name>.test.ts` (no app needed). Browser checks go in `e2e/` and never in `spec/`. See `spec/CHECKS.md`.
 - Be one logical change per commit.

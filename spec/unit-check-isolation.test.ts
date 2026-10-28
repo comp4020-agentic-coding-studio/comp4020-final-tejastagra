@@ -24,6 +24,8 @@ describe("H1 pnpm check never writes to data-dev/ (C22)", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
     expect(pkg.scripts.check).toContain("scripts/check.sh");
     expect(pkg.scripts["check:isolated"], "the old separate script is gone: this is the only way").toBeUndefined();
+    expect(pkg.scripts["test:e2e"], "the browser checks also use their own server").toContain("scripts/e2e.sh");
+    expect(readFileSync("scripts/e2e.sh", "utf8")).toContain("scripts/check.sh");
   });
 
   it("H1 without APP_URL the test server gets a temporary data folder that is not data-dev, an APP_URL for it, and the folder is deleted afterwards", () => {

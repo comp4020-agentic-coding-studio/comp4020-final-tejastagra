@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# `pnpm check`: the typecheck, then every spec/ test against a throwaway app.
+# `pnpm check` and `pnpm test:e2e`: the typecheck (check only), then the tests against a throwaway app.
 #
 # The app is started here, on a free port, with its own empty data folder that is deleted afterwards, so a
 # test run NEVER writes to data-dev/ (the dev server's database) and never needs the dev server running
@@ -7,6 +7,8 @@
 # run against that app as it is.
 #
 # For the checks themselves, CHECK_COMMAND replaces the test command and CHECK_SKIP_TYPECHECK skips the typecheck.
+# `pnpm test:e2e` is the same wrapper with the browser tests as its command (scripts/e2e.sh), so the browser checks
+# never write to data-dev/ either.
 set -uo pipefail
 
 if [ -z "${CHECK_SKIP_TYPECHECK:-}" ]; then
