@@ -25,7 +25,7 @@ The tutorial is an overlay over a practice board against a scripted computer. It
 8. **U144 The shrinking board.** "After round 12, and again after round 20, the top row closes. A warning shows the round before. Plan ahead: space runs out." The warning shows, the player taps a column, and the top row turns to rock.
 9. **U145 Draws.** "If you both complete a line in the same round, or the board fills up, it is a draw." The board shows both players completing a line at once. No action.
 10. **U146 Playing with friends.** "Play a friend gives you a link and a 6-letter code to send to anyone, anywhere in the world. The first person to open it plays you. Anyone after the first watches the game. Quick match pairs you with a random person who is online." No action.
-11. **U147 Leaving and playing again.** "Leaving a game counts as a loss. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake." No action. This is the only place the keys are written down (U18).
+11. **U147 Leaving and playing again.** "Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake." No action. This is the only place the keys are written down (U18).
 
 - **U47** Every caption is short, uses the words in `docs/glossary.md` and is readable on a 320px screen. Captions are announced in an `aria-live` region. The step's title is its name above ("The goal", "Pick a column", and so on).
 - **U48** The tutorial works by tap, mouse and keyboard, and under reduced motion every step still makes sense without animation.

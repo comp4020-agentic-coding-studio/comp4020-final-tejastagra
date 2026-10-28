@@ -230,7 +230,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Leaving and playing again",
-    caption: "Leaving a game counts as a loss. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.",
+    caption: "Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.",
     async run(s) {
       s.reset();
       s.hideStatus();

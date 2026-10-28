@@ -3667,13 +3667,15 @@ input {
   .tutorial-status {
     position: absolute;
     top: 8px;
-    right: 12px;
-    font-size: 0.75rem;
+    right: 10px;
+    max-width: 38%;
+    font-size: 0.7rem;
+    text-align: right;
   }
 
+  /* Q5: "Step N of 11" stays centred with the title and caption under it; the status sits clear of it at the right. */
   .tutorial-progress {
-    text-align: left;
-    padding-left: 4px;
+    text-align: center;
   }
 
   .tutorial-hint {

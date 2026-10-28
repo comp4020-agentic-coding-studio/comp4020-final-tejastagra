@@ -381,7 +381,7 @@ test.describe("Tutorial", () => {
     await expect(page.locator(testid("tutorial-caption"))).toContainText("Anyone after the first watches");
     await expect(page.locator(testid("tutorial-caption"))).toContainText("Quick match pairs you with a random person");
     await page.click(testid("tutorial-next"));
-    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Leaving a game counts as a loss. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.");
+    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.");
     await context.close();
   });
 
@@ -878,6 +878,19 @@ test.describe("Small screens and the Share fallback", () => {
         expect(skip.y + skip.height, `step ${step}: Skip on screen`).toBeLessThanOrEqual(viewport.height);
         const next = await box("tutorial-next");
         expect(next.y + next.height, `step ${step}: Next on screen`).toBeLessThanOrEqual(viewport.height);
+        // The opponent's status shares the progress line's row on a short screen: their words never overlap (Q5, U136).
+        const words = await page.evaluate(() =>
+          ["tutorial-progress", "tutorial-status"].map((id) => {
+            const el = document.querySelector(`[data-testid="${id}"]`) as HTMLElement;
+            if (!el || el.hidden || !el.textContent) return null;
+            const r = document.createRange();
+            r.selectNodeContents(el);
+            const b = r.getBoundingClientRect();
+            return { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
+          }),
+        );
+        const [p, st] = words;
+        if (p && st) expect(p.right <= st.left || st.right <= p.left || p.bottom <= st.top || st.bottom <= p.top, `step ${step}: progress and status do not overlap`).toBe(true);
         if (step < 11) await page.click(testid("tutorial-next"));
       }
       await context.close();
