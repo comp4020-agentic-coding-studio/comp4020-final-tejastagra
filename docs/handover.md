@@ -2,6 +2,66 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## The large fix list of 28 and 29 October 2026 (done, ready to deploy)
+
+Seven parts and a finish, each change as harness first (rules, design, ADR, `spec/CHECKS.md`), then tests, then code, one logical commit at a time. **Never pushed or deployed.** I never touched your dev server on port 8080 (`pnpm check`, `pnpm test:e2e` and `/visual-qa` each start their own server on a free port with a temporary data folder, and delete it). The reviewer ran on every server change, and the design-reviewer and phone-tester on every screen change; each finding they made has a test that I saw fail without its fix.
+
+### The commits, in order
+
+| Commit | Part | What it did |
+| --- | --- | --- |
+| `6830c1f` `0b7dce9` `fb4487b` | 1 | `pnpm check` and `pnpm test:e2e` run their own test server with a temporary data folder and never write to `data-dev/`; a check that fails if they do (correction C22) |
+| `500bfe0` `b5c2dad` | 1 | The QA checklist Q1 to Q11, the popup spec, `/visual-qa` (command, `scripts/visual-qa.sh`, `scripts/visual-qa.ts`) and the layout rules in CLAUDE.md |
+| `164c270` | 2 | Rules first: link games seat two and the rest watch; no exhibition game; R36 replaced |
+| `9a633c7` | 2 | Link games (creator is player 1, first other is player 2, everyone after watches, up to 50), Watch live shows quick match games only, computer games never watched, the exhibition game removed (corrections C23) |
+| `9ea857d` | 3 | The tagline is "Four in a row, with a twist." everywhere |
+| `105cc1a` | 3 | Nickname and code popups (the new popup component `src/client/dialog.ts`), one line of subtext under each home button |
+| `13f6c20` | 3 | Quick match redesigned: header, one compact card with animated discs, live count, the computer offer inside the card after 20 seconds, Cancel under it |
+| `5ac376c` | 4 | The keyboard hint line is gone; the keys are written once, in the last How to play step |
+| `d1e80af` | 4 | Rule R81 and the server: Leave game forfeits at once, saved first, with the reviewer's save-failure retry |
+| `463d68d` | 4 | Power-up rows with info popups, "Playing with <opponent>", Leave game with its popup, the centred waiting card with Cancel game, end popup buttons on one line (correction C24) |
+| `7956c32` | 5 | Rematch: rules R82 to R85, `rematch.md`, archive as `<code>#<n>`, spectators stay, bounded memory, browser checks with two contexts |
+| `0c89c93` | 6 and 7 | ADR 0013, rules R30 and R86 to R92, `scripts/admin-reset-password.ts`, forced change, change password, sign-in limit, history and stats, the account page, the leaderboard page, `e2e/layout.spec.ts` (corrections C25 to C27). One commit because the account and leaderboard pages share `screens.ts` and `components.css` and could not be split without rewriting hunks |
+| `0ccde3a` | finish | `/visual-qa` run over every screen: six defects found by looking and fixed, 45 states covered (correction C28) |
+| `c6d7e45` | finish | 32px between the icon row and Top players, with a check |
+
+### Rule changes
+
+R29 and R30 (guest history moves into the account; passwords at least 8 characters, never in plain text, a response or a log); R36 replaced and R70 to R80 changed for link games and Watch live (R71, R77 and R78 removed or reworded; the exhibition exception to R25 is gone); **new R81** (Leave game), **R82 to R85** (rematch), **R86 to R89** (admin reset, forced change, sign-in limit, guest history into the account), **R90 and R91** (stats and history), **R92** (the leaderboard says who is asking). New design files: `account.md` (U114 to U122), `leaderboard.md` (U123 to U130), `quick-match.md` (U96 to U101), `rematch.md` (U109 to U113), `qa-checklist.md`, `popups.md`; game-screen U102 to U108; U31 to U33b on the home screen. New ADR **0013** (password reset by the admin) and the amendment of ADR 0012. **Migrations 15 to 18** (kind, creator, must change), each with an old-schema test. `docs/admin.md` is new.
+
+### Corrections added: C22 to C28
+
+C22 `pnpm check` wrote to the dev database; C23 link seats for people with no session, and a finished game answered as unwatchable; C24 a screenshot baseline that depended on other checks; C25 a popup that went back to the wrong place, and a quadratic limiter; C26 sessions that closed their own connection, a reset that could hit a locked database, tests that proved nothing; C27 a hover mistaken for a layout shift, a stale screenshot, and browser checks sharing one queue; C28 six things only looking at screenshots found.
+
+### Decisions I made while you were away
+
+- **Layout spec kept as a worklist until green**, then committed with Part 6 (72 checks, every screen at 320, 390 and 1366, passing three runs in a row).
+- **A link game's seat A is reserved for its creator by player id**, saved with the game. A visitor who opens a page or makes a link game with no session is given a nameless guest session (ADR 0012), so seats can always be named. A raw client with no cookie at all holds a seat only in memory: after a restart its seat looks free until its real owner returns. Browsers always get the cookie from the page.
+- **A visitor who names a seat without proof gets "game full"**, not a spectator place, so a guess learns nothing (R32).
+- **Old games:** unmarked games became link games (never in Watch live); old computer games became never-watchable.
+- **A finished game stays known for 30 minutes** (a rematch can start, a late visitor sees the result), then it is forgotten; the maps cannot grow without bound.
+- **A rematch is not started into an empty seat**: if a player who asked has dropped, the one still there is told "left". Home and Leave from the end popup withdraw the offer. There is no separate Cancel while waiting (Home does it).
+- **Leave game, with nobody joined or against the computer, ends the game as abandoned**, never deleted (you asked to be told before any data is deleted).
+- **The forced change needs only the new password** (the sign-in already proved the temporary one), so the page never holds it and a reload shows the popup again. A session that must change its password does nothing over a game connection either.
+- **Sessions end connections at their next action**, not instantly: a reset is run by the admin's script in another process, so there is no event to react to. A stolen cookie with an open socket cannot keep playing; **signing out in another tab also stops a connection left open there** (my call, recorded in R87).
+- **A blocked username is never evicted** from the limiter's memory, and a full memory of blocked names tracks no new name. `openDb` now waits up to 5 seconds on a busy database, because the admin's script opens the file the server has open.
+- **The reset script refuses a missing database** and never creates one; on a laptop it needs `RUBBLE_DB_PATH`.
+- **The banner on the watching screen shows nicknames without tags, and at 320px without the word "Watching"** (still read out), so two ordinary names fit one line; the tags are in the panels below.
+- **The "Waiting" rematch state wraps** the opponent's name and tag onto two or three lines at 320px rather than cutting it.
+- **Both `spec/quick-lock.ts` and `e2e/quick-lock.ts`** serialise any check that uses Quick match, because it is one queue for the whole app and test files run in parallel.
+- **The Dockerfile, `checks.yml` and the layout of `scripts/` changed:** the admin script is copied into the image; CI sets `CHECK_RESET_COMMAND` so the reset runs inside the container as it does on Fly. Machine size, `/data`, the port and the shipped checks are untouched. In `spec/unit-realtime-forfeit.test.ts` the "no message after the grace period" check now allows one specified message (`rematch_ended` with reason `left`) and still forbids a forfeit `game_over`; the rule (R83) was changed first. Three expectations that compared an exact object shape (`nickname` on the public player, `you` on the leaderboard) gained their new field. Tell me if you want the forfeit test stricter.
+
+### What still needs you
+
+- **Deploy.** Nothing is pushed. `docker build` succeeded and the image served `/` and `/readme/` with an empty `/data`; `pnpm check` also passed against that image with the reset run inside it (456 checks), and I removed the container and image afterwards.
+- **A password reset needs you to read `docs/admin.md`** and to receive the email at game@tejastagra.com. The command is `mise exec -- flyctl ssh console -a comp4020-final-tejastagra -C "node scripts/admin-reset-password.ts <username>"`. I did not run it against Fly.
+- **A flake I could not fully explain:** one `pnpm check` run in about thirty failed a check that uses the Quick match queue while two review agents were loading the machine, and one run had 13 failures that passed on the next run (the server not up in time while the previous run shut down). Both were before I added the locks or after a back-to-back start; none since in more than ten clean runs. `spectating` "a player leaves and does not return" takes 31 real seconds and is the most load-sensitive browser check.
+- **The mutation score** was last measured before this list (97.11%). I did not rerun Stryker on the engine, which I did not change.
+- **Not done by choice:** the end popup's side-by-side buttons are 8px apart (Q4 speaks of stacked ones); a forfeit in the history says "0 rounds" when the game never played one, which is true; `README.md`, `PROCESS.md` and the reflections are untouched, and `pnpm check:evidence` still fails only for the PROCESS.md template, as expected.
+- **At 320 x 568 the Leave game button is below the first screen** (the board and timer keep it); it is reached by scrolling.
+
+**Checks at the end:** `pnpm check:fast` 368; `pnpm check` 456 passed and 3 todo, twice in a row and once against the Docker image; `pnpm test:e2e` 243 passed, none skipped; `/visual-qa` 135 screenshots (45 states by 3 sizes), all looked at.
+
 ## Slower ceiling, no walls, and spectating of 27 October 2026 (done, ready to deploy)
 
 Two changes in the order Tejas gave them, each as harness first (rules, design, ADR, `spec/CHECKS.md`), then tests, then code. Never pushed or deployed. There is no `/visual-qa` skill or command in this repo or among the available skills, so I did the equivalent by hand: real screenshots of every changed screen at 320, 390 and 1366 wide, and the design-reviewer and phone-tester on every screen change.
