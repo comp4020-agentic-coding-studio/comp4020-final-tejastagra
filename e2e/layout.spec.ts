@@ -279,6 +279,53 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
+// Q12: on every screen except home, the header bar's Home button is on the first screen when the page loads, without scrolling.
+// Q13: on the game screen and the friend waiting screen the board is centred on the page.
+test.describe("Q12 Home is always visible and Q13 the board is centred", () => {
+  for (const viewport of VIEWPORTS) {
+    for (const screen of SCREENS.filter((s) => s.exit)) {
+      test(`Q12 ${screen.name}: Home is in the header bar and on screen on load at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+        const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+        await screen.open(page);
+        await page.waitForLoadState("networkidle");
+        expect(await page.evaluate(() => window.scrollY), "the page has not been scrolled").toBe(0);
+        const home = page.locator(`${testid("topbar")} ${testid("header-home")}`);
+        await expect(home).toBeVisible();
+        const box = (await home.boundingBox())!;
+        expect(box.y, "Home starts inside the viewport").toBeGreaterThanOrEqual(0);
+        expect(box.y + box.height, "Home ends inside the viewport").toBeLessThanOrEqual(viewport.height);
+        expect(box.x, "Home is on the left").toBeLessThan(viewport.width / 2);
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        const bar = (await page.locator(testid("topbar")).boundingBox())!;
+        const first = await page.evaluate(() => {
+          // Nothing visible sits above the header bar except the decorative bubbles.
+          const bar = document.querySelector('[data-testid="topbar"]')!.getBoundingClientRect();
+          return [...document.querySelectorAll<HTMLElement>("main *")].filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && r.bottom <= bar.top - 1 && getComputedStyle(el).visibility !== "hidden";
+          }).length;
+        });
+        expect(first, "the header bar is the first thing on the page").toBe(0);
+        expect(bar.y).toBeLessThan(24);
+        await context.close();
+      });
+    }
+
+    for (const name of ["friend waiting", "computer game"]) {
+      test(`Q13 ${name}: the board's centre is within 16px of the page's centre at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+        const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+        await SCREENS.find((s) => s.name === name)!.open(page);
+        await page.waitForLoadState("networkidle");
+        const board = (await page.locator(`${testid("board-wrap")} .board`).boundingBox())!;
+        const width = await page.evaluate(() => document.documentElement.clientWidth);
+        expect(Math.abs(board.x + board.width / 2 - width / 2), "the board is centred").toBeLessThanOrEqual(16);
+        await context.close();
+      });
+    }
+  }
+});
+
 // Q1: a popup opens over the page and moves nothing behind it.
 test.describe("Q1 popups move nothing", () => {
   for (const viewport of VIEWPORTS) {

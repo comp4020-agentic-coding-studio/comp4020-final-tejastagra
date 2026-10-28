@@ -723,7 +723,21 @@ function goHome(): void {
   setTimeout(() => (location.href = "/"), 60);
 }
 
-$("leave-game").addEventListener("click", () => {
+// The header bar's Home (Q12, U131): while a game is being played it asks first, because leaving is a forfeit (U107); while
+// waiting for the second player it cancels the game (U108); once the game is over it goes Home and withdraws a rematch (R83).
+$("header-home").addEventListener("click", () => {
+  const waiting = gameRoot.dataset.waiting === "true";
+  if (over || waiting || !you) {
+    sendLeave();
+    goHome();
+    return;
+  }
+  confirmLeave();
+});
+
+$("leave-game").addEventListener("click", () => confirmLeave());
+
+function confirmLeave(): void {
   const dialog = openDialog({ testid: "leave-dialog", title: "Leave this game?" });
   dialog.text("It counts as a forfeit.");
   dialog.actions(
@@ -736,7 +750,7 @@ $("leave-game").addEventListener("click", () => {
     }),
     dialogButton("Stay", "blue", "dialog-cancel", { onClick: () => dialog.close() }),
   );
-});
+}
 
 $("cancel-game").addEventListener("click", () => {
   sendLeave();

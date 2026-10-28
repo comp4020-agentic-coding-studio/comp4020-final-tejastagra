@@ -3,7 +3,7 @@
 // and public/components.css, so nothing here defines a colour, font or duration
 // (CLAUDE.md). Every visible word is real product copy for players: notes about
 // how the page is built belong in docs/, not on screen (docs/design/look-and-feel.md U49).
-import { arcadePage, button, icon, roundButton, title } from "./arcade-html.ts";
+import { arcadePage, button, icon, roundButton, title, topbar } from "./arcade-html.ts";
 
 export interface ScreenContext {
   version: string; // a hash of the stylesheets, so a deploy never mixes old and new styles
@@ -91,6 +91,7 @@ export function homeScreen(ctx: ScreenContext): string {
 export function quickScreen(ctx: ScreenContext): string {
   const body = `
     <main class="arena narrow quick" data-testid="quick-screen">
+      ${topbar()}
       ${title()}
       <h2 class="subtitle">Quick match</h2>
       <section class="panel quick-card" data-testid="quick-panel" aria-live="polite">
@@ -116,6 +117,7 @@ export function quickScreen(ctx: ScreenContext): string {
 export function leaderboardScreen(ctx: ScreenContext): string {
   const body = `
     <main class="arena narrow leaderboard" data-testid="leaderboard-screen">
+      ${topbar({ href: "/" })}
       ${title()}
       <h2 class="subtitle">Leaderboard</h2>
       <div class="board-column" data-testid="leaderboard-column">
@@ -142,7 +144,6 @@ export function leaderboardScreen(ctx: ScreenContext): string {
         </div>
         <p class="your-best" data-testid="your-best" role="status"></p>
       </div>
-      <div class="stack">${button({ label: "Home", iconName: "join", kind: "blue", block: true, testid: "go-home", href: "/" })}</div>
     </main>
   `;
   return shell(ctx, "Rubble: Leaderboard", body, "/static/leaderboard.js");
@@ -153,6 +154,7 @@ export function leaderboardScreen(ctx: ScreenContext): string {
 export function accountScreen(ctx: ScreenContext): string {
   const body = `
     <main class="arena narrow account" data-testid="account-screen">
+      ${topbar({ href: "/" })}
       ${title()}
       <h2 class="subtitle">Your account</h2>
       <section class="panel account-card" data-testid="account-card" aria-live="polite">
@@ -182,7 +184,6 @@ export function accountScreen(ctx: ScreenContext): string {
         </div>
         <ol class="rows history-list" data-testid="history-list"></ol>
       </section>
-      <div class="stack">${button({ label: "Home", iconName: "join", kind: "blue", block: true, testid: "go-home", href: "/" })}</div>
     </main>
   `;
   return shell(ctx, "Rubble: Your account", body, "/static/account.js");
@@ -193,8 +194,8 @@ export function accountScreen(ctx: ScreenContext): string {
 export function readmeScreen(ctx: ScreenContext, renderedReadme: string): string {
   const body = `
     <main class="arena readme" data-testid="readme-screen">
+      ${topbar({ href: "/" })}
       <div class="panel prose">${renderedReadme}</div>
-      <div class="stack">${button({ label: "Home", iconName: "join", kind: "blue", block: true, testid: "go-home", href: "/" })}</div>
     </main>
   `;
   return shell(ctx, "Rubble: About", body, "");
@@ -210,6 +211,7 @@ const QUAKE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false
 export function watchScreen(ctx: ScreenContext): string {
   const body = `
     <main class="arena game watching" data-testid="watch-screen">
+      ${topbar({ href: "/" })}
       <div class="stage" data-testid="game-group">
         <div class="status-row">
           <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>
@@ -263,7 +265,6 @@ export function watchScreen(ctx: ScreenContext): string {
           <p class="message" data-testid="watch-message" role="status"></p>
           <div class="watch-actions" data-testid="watch-actions">
             ${button({ label: "Watch another game", iconName: "join", kind: "red", testid: "watch-another" })}
-            ${button({ label: "Home", iconName: "join", kind: "blue", testid: "go-home", href: "/" })}
           </div>
         </div>
       </div>
@@ -281,6 +282,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
   }
   const body = `
     <main class="arena game" data-testid="game-screen" data-waiting="true">
+      ${topbar()}
       <div class="stage" data-testid="game-group">
         <div class="status-row">
         <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>

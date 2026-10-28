@@ -42,7 +42,7 @@ describe("screens (docs/design.md)", () => {
   it("Account has one card, buttons that open popups, the record and no form in the page (U114 to U122)", async () => {
     const { status, html } = await get("/account");
     expect(status).toBe(200);
-    for (const hook of ["account-card", "edit-nickname", "open-signup", "open-signin", "open-password", "signout", "history", "stats-people", "stats-computer", "history-list", "go-home"]) {
+    for (const hook of ["account-card", "edit-nickname", "open-signup", "open-signin", "open-password", "signout", "history", "stats-people", "stats-computer", "history-list", "header-home"]) {
       expect(html, hook).toContain(`data-testid="${hook}"`);
     }
     expect(html).toContain("Save your progress to keep your record on any device.");

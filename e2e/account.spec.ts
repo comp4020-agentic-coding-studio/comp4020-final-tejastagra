@@ -199,7 +199,7 @@ test.describe("The account page (U114 to U122)", () => {
         const label = (await page.locator(`${testid(id)} span`).boundingBox())!;
         expect(label.height, `${id} is one line`).toBeLessThan(26);
       }
-      await expect(page.locator(testid("go-home"))).toBeVisible();
+      await expect(page.locator(testid("header-home"))).toBeVisible(); // Q12: Home is in the header bar, not at the bottom
       await context.close();
     });
   }

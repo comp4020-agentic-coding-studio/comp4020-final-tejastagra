@@ -136,7 +136,7 @@ test.describe("The watching screen (U78 to U83)", () => {
     const controls = await page.locator("button, a[href], input, select, textarea, [role=button], [tabindex]:not([tabindex='-1'])").evaluateAll((els) =>
       els.filter((e) => (e as HTMLElement).getClientRects().length > 0).map((e) => (e as HTMLElement).dataset.testid ?? e.tagName).sort(),
     );
-    expect(controls, "the only things you can act on").toEqual(["go-home", "watch-another"]);
+    expect(controls, "the only things you can act on").toEqual(["header-home", "watch-another"]); // Home is in the header bar (Q12)
     // Tapping and hovering the board does nothing: no ghost disc, no highlight, no message, nothing sent.
     const board = (await page.locator(testid("board-wrap")).boundingBox())!;
     await page.mouse.move(board.x + board.width / 2, board.y + board.height / 2);
@@ -180,12 +180,12 @@ test.describe("The watching screen (U78 to U83)", () => {
 
   test("E9 and U79 the buttons are 44px or more and Home goes home", async ({ browser }) => {
     const { player, other, spectator } = await watching(browser, PHONE);
-    for (const id of ["watch-another", "go-home"]) {
+    for (const id of ["watch-another", "header-home"]) {
       const box = (await spectator.page.locator(`${testid(id)}:visible`).boundingBox())!;
       expect(box.width, id).toBeGreaterThanOrEqual(44);
       expect(box.height, id).toBeGreaterThanOrEqual(44);
     }
-    await spectator.page.locator(`${testid("go-home")}:visible`).click();
+    await spectator.page.locator(`${testid("header-home")}:visible`).click();
     await spectator.page.waitForURL(/\/$/);
     for (const c of [player, other, spectator]) await c.context.close();
   });
@@ -225,7 +225,7 @@ test.describe("The watching screen (U78 to U83)", () => {
     expect(notice.x + notice.width, "inside the screen").toBeLessThanOrEqual(320);
     expect(await three.page.locator(testid("spectator-notice")).evaluate((e) => e.scrollWidth <= e.clientWidth), "not cut off").toBe(true);
     await expect(three.page.locator(testid("watch-another"))).toBeHidden();
-    await expect(three.page.locator(`${testid("go-home")}:visible`)).toBeVisible();
+    await expect(three.page.locator(`${testid("header-home")}:visible`)).toBeVisible();
     // The players still hold their seats and the spectator cannot choose.
     await expect(three.page.locator(testid("column-3"))).toHaveCount(0);
     await expect(one.page.locator(testid("watcher-count-text"))).toHaveText("1");
@@ -417,7 +417,7 @@ test.describe("Watching fits the phone (promise 4)", () => {
         }
       }
     }
-    for (const id of ["watch-another", "go-home"]) {
+    for (const id of ["watch-another", "header-home"]) {
       const b = (await spectator.page.locator(`${testid(id)}:visible`).boundingBox())!;
       expect(b.y + b.height, `${id} is on the first screen with everything showing`).toBeLessThanOrEqual(568);
     }
@@ -441,7 +441,7 @@ test.describe("Watching fits the phone (promise 4)", () => {
     expect(banner.y, "the banner is below the round line and the count").toBeGreaterThanOrEqual(Math.max(round.y + round.height, count.y + count.height) - 1);
     expect(round.x + round.width, "the round line and the count do not overlap").toBeLessThanOrEqual(count.x + 1);
     expect(banner.y + banner.height, "the banner does not cover the board").toBeLessThanOrEqual(board.y + 1);
-    for (const id of ["watch-another", "go-home"]) {
+    for (const id of ["watch-another", "header-home"]) {
       const b = await box(id);
       expect(b.height, id).toBeGreaterThanOrEqual(44);
       expect(b.x + b.width, id).toBeLessThanOrEqual(320);

@@ -61,11 +61,14 @@ $("computer-offer-play").addEventListener("click", async () => {
   status.textContent = "Could not start a game against the computer. You are still waiting.";
 });
 
-$("quick-cancel").addEventListener("click", async () => {
-  finished = true;
-  await call("DELETE");
-  location.href = "/";
-});
+// Cancel and the header bar's Home (Q12) both leave the queue before going Home (U100).
+for (const id of ["quick-cancel", "header-home"]) {
+  $(id).addEventListener("click", async () => {
+    finished = true;
+    await call("DELETE");
+    location.href = "/";
+  });
+}
 
 // The live count (U98): twice the number of live quick match games, asked for now and every 10 seconds while open (R77).
 async function showLive(): Promise<void> {

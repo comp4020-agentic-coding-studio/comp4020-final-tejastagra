@@ -32,4 +32,4 @@ The watching screen is the normal game screen with everything that acts taken aw
 
 ## Test hooks
 
-`watch-live`, `live-count` (home screen); `watching-banner`, `watching-count`, `watch-another`, `watch-result`, `go-home` (watching screen, at `/watch` and at a link game's address); `spectator-notice` (a link game's watching screen); `no-live-games` (the empty state); `watcher-count` (the players' screen). The watching screen has no `column-N`, `shield-badge`, `earthquake-badge`, `ghost-disc` or `timer` hook.
+`watch-live`, `live-count` (home screen); `watching-banner`, `watching-count`, `watch-another`, `watch-result`, `header-home` in the header bar (watching screen, at `/watch` and at a link game's address); `spectator-notice` (a link game's watching screen); `no-live-games` (the empty state); `watcher-count` (the players' screen). The watching screen has no `column-N`, `shield-badge`, `earthquake-badge`, `ghost-disc` or `timer` hook.

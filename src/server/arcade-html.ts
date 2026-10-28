@@ -45,6 +45,7 @@ const ICONS: Record<string, string> = {
   question: `<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 15v-2h2v2zm1-4.5h-1.7c0-2.9 3-2.7 3-4.5 0-.9-.8-1.5-1.8-1.5s-1.7.5-1.8 1.4L7.8 7.7C8.1 5.6 9.8 4.5 12 4.5c2.3 0 4 1.3 4 3.4 0 2.7-3.5 2.6-4 4.6z"/>`,
   book: `<path d="M4 4h7a2 2 0 0 1 1 .3A2 2 0 0 1 13 4h7v15h-7a2 2 0 0 0-2 2 2 2 0 0 0-2-2H4zm2 2v11h4a4 4 0 0 1 1 .1V6zm7 0v11.1a4 4 0 0 1 1-.1h4V6z"/>`,
   eye: `<path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>`,
+  home: `<path d="M12 3 2 11.5h3V21h5.5v-6h3v6H19v-9.5h3z"/>`,
   pencil: `<path d="M3 17.3V21h3.7L18 9.7 14.3 6zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7z"/>`,
 };
 
@@ -98,4 +99,13 @@ export function roundButton(o: { label: string; iconName: string; href?: string;
   return o.href
     ? `<a class="round-item" href="${o.href}"${hook}>${inner}</a>`
     : `<button class="round-item" type="button"${hook}>${inner}</button>`;
+}
+
+// The header bar every screen but home starts with (docs/design/qa-checklist.md Q12, U131): Home on the left, an optional line
+// in the middle and an optional item on the right. On the game screen the middle and the right are filled in by the page.
+export function topbar(o: { middle?: string; right?: string; href?: string } = {}): string {
+  const home = o.href === undefined
+    ? `<button class="btn btn-blue topbar-home" type="button" data-testid="header-home">${icon("home")}<span>Home</span></button>`
+    : `<a class="btn btn-blue topbar-home" href="${o.href}" data-testid="header-home">${icon("home")}<span>Home</span></a>`;
+  return `<header class="topbar" data-testid="topbar">${home}<p class="topbar-title" data-testid="topbar-title">${o.middle ?? ""}</p><p class="topbar-right" data-testid="topbar-right">${o.right ?? ""}</p></header>`;
 }

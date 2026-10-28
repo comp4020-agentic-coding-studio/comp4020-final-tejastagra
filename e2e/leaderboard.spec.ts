@@ -137,7 +137,7 @@ test.describe("The leaderboard page (U123 to U130)", () => {
     await page.route("**/api/leaderboard**", (route) => (fail ? route.fulfill({ status: 500, body: "no" }) : route.fulfill({ json: { wins: rows(3), rounds: [], you: null } })));
     await page.goto("/leaderboard");
     await expect(page.locator(testid("leaderboard-error"))).toContainText("Could not load the leaderboard. Try again.");
-    await expect(page.locator(testid("go-home"))).toBeVisible();
+    await expect(page.locator(testid("header-home"))).toBeVisible(); // Q12: Home is in the header bar
     await page.locator(testid("tab-rounds")).click(); // the tabs still work
     fail = false;
     await page.locator(testid("leaderboard-retry")).click();

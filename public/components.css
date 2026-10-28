@@ -87,6 +87,53 @@ h3 {
   margin: 18px 0 8px;
 }
 
+/* ---- The header bar (docs/design/qa-checklist.md Q12, U131): Home on the left of every screen but home ---- */
+
+.topbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 auto 16px; /* Q4: 16px to the first card under it */
+  min-height: 52px;
+}
+
+.topbar-home {
+  min-height: 44px;
+  padding: 0 14px;
+  gap: 6px;
+  font-size: 1rem;
+}
+
+.topbar-home .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.topbar-title,
+.topbar-right {
+  margin: 0;
+  font: 700 1rem/1.2 var(--font-display);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-title {
+  text-align: center;
+}
+
+.topbar-right {
+  text-align: right;
+  min-width: 0;
+}
+
+/* Something on the right as wide as Home keeps the middle line centred on the page. */
+.topbar-right:empty {
+  visibility: hidden;
+}
+
 /* ---- Bubbles (U3): disc-shaped, faint, rising behind everything ---- */
 
 .bubbles {
@@ -2078,10 +2125,11 @@ input {
   }
 
   .stage {
-    grid-template-columns: minmax(220px, 280px) minmax(0, var(--board-width));
+    /* An empty column as wide as the panels' on the right keeps the board on the page's centre (Q13). */
+    grid-template-columns: minmax(220px, 280px) minmax(0, var(--board-width)) minmax(220px, 280px);
     grid-template-areas:
-      ". round"
-      "players play";
+      ". round ."
+      "players play .";
     column-gap: 24px;
     justify-content: center;
     align-items: start;

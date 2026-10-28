@@ -28,8 +28,8 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q8 | A guest never sees Sign out; a signed-in player never sees sign-in or sign-up | | todo |
 | Q9 | Every screen except home has a Home, Cancel or Leave button | | todo |
 | Q10, Q11 | Empty states explain themselves; no page looks plain | `/visual-qa` (judged by looking) | judged |
-| Q12 | On every screen except home, the header bar's Home button is inside the viewport on load at 320, 390 and 1366 wide | `docs/design/qa-checklist.md` Q12 | todo |
-| Q13 | On the game screen and the friend waiting screen the board's centre is within 16px of the page's centre at 320, 390 and 1366 wide | Q13 | todo |
+| Q12 | On every screen except home, the header bar's Home button is inside the viewport on load at 320, 390 and 1366 wide, and the bar is the first thing on the page | `docs/design/qa-checklist.md` Q12 | passing |
+| Q13 | On the game screen and the friend waiting screen the board's centre is within 16px of the page's centre at 320, 390 and 1366 wide | Q13 | passing |
 | Q14 | A player's colour and marker are the same on both players' screens and a spectator's (`e2e/player-colours.spec.ts`) | Q14 | todo |
 
 ## Hygiene (`spec/unit-check-isolation.test.ts`)
