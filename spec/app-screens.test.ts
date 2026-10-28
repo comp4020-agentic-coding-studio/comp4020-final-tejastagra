@@ -67,7 +67,7 @@ describe("screens (docs/design.md)", () => {
   it("Game has every hook the browser checks need, and no column buttons or Drop button (U10 to U18)", async () => {
     const { status, html } = await get("/g/ABC234");
     expect(status).toBe(200);
-    const hooks = ["shield-badge", "shield-info", "earthquake-info", "powerups", "get-ready", "round-number", "timer", "name-you", "name-opponent", "opponent-status", "my-shield", "opponent-shield", "result-line", "game-code", "copy-link", "chosen-label", "end-popup", "end-title", "play-again", "go-home"];
+    const hooks = ["shield-badge", "shield-info", "earthquake-info", "powerups", "get-ready", "round-number", "timer", "name-you", "name-opponent", "opponent-status", "my-shield", "opponent-shield", "result-line", "game-code", "copy-link", "chosen-label", "end-popup", "end-title", "play-again", "go-home", "header-home", "topbar", "opponent-heading", "round-line"];
     for (let c = 0; c < 7; c++) hooks.push(`column-${c}`);
     for (const hook of hooks) expect(html, hook).toContain(`data-testid="${hook}"`);
     expect(html).not.toContain('data-testid="drop"');

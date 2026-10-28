@@ -218,7 +218,7 @@ test.describe("Long names (U114, U118)", () => {
       await one.page.goto(`/g/${code}`);
       await two.page.goto(`/g/${code}`);
       await waitForRound(one.page, 1);
-      await one.page.locator(testid("leave-game")).click();
+      await one.page.locator(testid("header-home")).click() /* U132: Home asks to confirm leaving */;
       await one.page.locator(testid("leave-confirm")).click();
       await one.page.waitForURL(/\/$/);
       await one.page.goto("/account");

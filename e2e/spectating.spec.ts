@@ -435,11 +435,15 @@ test.describe("Watching fits the phone (promise 4)", () => {
     const count = await box("watching-count");
     const round = await box("round-line");
     const board = await box("board-wrap");
-    // "Watching <name> vs <name>" has its own line (U94): below the round line and the count, inside the screen, never over them.
+    // "Watching <name> vs <name>" (U94) is in the status line under the header bar, whose right holds the round (U80, U132): inside
+    // the screen, below the round, and never over the count.
+    const bar = await box("topbar");
     expect(banner.x, "the banner is inside the screen").toBeGreaterThanOrEqual(0);
     expect(banner.x + banner.width, "the banner is inside the screen").toBeLessThanOrEqual(320);
-    expect(banner.y, "the banner is below the round line and the count").toBeGreaterThanOrEqual(Math.max(round.y + round.height, count.y + count.height) - 1);
-    expect(round.x + round.width, "the round line and the count do not overlap").toBeLessThanOrEqual(count.x + 1);
+    expect(round.y + round.height, "the round is in the header bar").toBeLessThanOrEqual(bar.y + bar.height + 1);
+    expect(banner.y, "the banner is below the header bar and the round").toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+    const apart = banner.x + banner.width <= count.x + 1 || count.x + count.width <= banner.x + 1 || banner.y + banner.height <= count.y + 1 || count.y + count.height <= banner.y + 1;
+    expect(apart, "the banner and the count do not overlap").toBe(true);
     expect(banner.y + banner.height, "the banner does not cover the board").toBeLessThanOrEqual(board.y + 1);
     for (const id of ["watch-another", "header-home"]) {
       const b = await box(id);
@@ -452,16 +456,18 @@ test.describe("Watching fits the phone (promise 4)", () => {
     for (const c of [player, other, spectator]) await c.context.close();
   });
 
-  test("E9 and U84 the players' screen at 320 x 568 keeps the watcher count on the round line and the board and timer on the first screen", async ({ browser }) => {
+  test("E9 and U84 the players' screen at 320 x 568 keeps the watcher count in the status line under the header bar and the board and timer on the first screen", async ({ browser }) => {
     const { one: player, two: other, code } = await quickPair(browser, [NARROW, PHONE], { names: true });
     const spectator = await newPlayer(browser, PHONE, { reducedMotion: true });
     await spectator.page.goto(`/watch?game=${code}`);
     await expect.poll(async () => await player.page.locator(testid("watcher-count")).isVisible(), { timeout: 4_000 }).toBeTruthy();
     const box = async (id: string) => (await player.page.locator(testid(id)).boundingBox())!;
-    const round = await box("round-line");
+    const bar = await box("topbar");
     const count = await box("watcher-count");
-    expect(Math.abs(count.y - round.y), "the count is on the round line's row").toBeLessThan(12);
-    expect(count.x).toBeGreaterThanOrEqual(round.x + round.width);
+    const players = await box("players");
+    expect(count.y, "the count is under the header bar (U84, U132)").toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+    expect(count.y + count.height, "and above the versus bar").toBeLessThanOrEqual(players.y + 1);
+    expect(count.height, "on one line").toBeLessThan(30);
     const timer = await box("timer");
     expect(timer.y + timer.height, "the timer bar is on the first screen").toBeLessThanOrEqual(568);
     expect(await player.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);

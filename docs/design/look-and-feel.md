@@ -94,7 +94,7 @@ Known limits, recorded so nobody has to rediscover them:
 ## Surfaces
 
 - **U6** Panels, cards and tiles are `--panel` with the `--outline`, `20px` corners and the `--shadow`, like toy pieces. No gradients and no glossy highlights on panels or buttons.
-- **U7** The board is the blue toy board: a `--blue` face with a `--board-shine` strip along the top edge, a thick `--board-edge` frame, short feet at the bottom corners, and round holes in `--hole`. Discs are flat: `--red` with a white ring marker (yours) or `--yellow` with an `--ink` cross marker (the opponent's), each with the `--outline` and a small hard shadow. Rubble is `--rubble` with a `--rubble-hatch` pattern. The most recent discs glow.
+- **U7** The board is the blue toy board: a `--blue` face with a `--board-shine` strip along the top edge, a thick `--board-edge` frame, short feet at the bottom corners, and round holes in `--hole`. Discs are flat: `--red` with a white ring marker or `--yellow` with an `--ink` cross marker, each seat's colour decided by the server (R93, U134), each with the `--outline` and a small hard shadow. Rubble is `--rubble` with a `--rubble-hatch` pattern. The most recent discs glow. **Size:** on a phone the board fills the width less the page margins; on a laptop it is as large as fits with the header bar, the versus bar, the timer and the power-up row all on the screen (U132), and at least half the screen's height.
 
 ## Forms, panels and overlays
 

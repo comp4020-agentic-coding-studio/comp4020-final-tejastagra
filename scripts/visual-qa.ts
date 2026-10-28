@@ -251,8 +251,8 @@ const STATES: State[] = [
     run: async ({ browser, v, page, shot }) => {
       const { second } = await twoPlayers(browser, v, page);
       await settle(page, 600);
-      await page.locator(testid("leave-game")).scrollIntoViewIfNeeded();
-      await page.locator(testid("leave-game")).click();
+      await page.locator(testid("header-home")).scrollIntoViewIfNeeded();
+      await page.locator(testid("header-home")).click(); // U132: Home asks to confirm leaving
       await page.locator(testid("leave-dialog")).waitFor();
       await settle(page, 400);
       await shot();
@@ -285,8 +285,8 @@ const STATES: State[] = [
     run: async ({ browser, v, page, shot }) => {
       const { second } = await twoPlayers(browser, v, page);
       await settle(page, 600);
-      await second.page.locator(testid("leave-game")).scrollIntoViewIfNeeded();
-      await second.page.locator(testid("leave-game")).click();
+      await second.page.locator(testid("header-home")).scrollIntoViewIfNeeded();
+      await second.page.locator(testid("header-home")).click(); // U132: Home asks to confirm leaving
       await second.page.locator(testid("leave-confirm")).click();
       await page.locator(testid("end-popup")).waitFor({ state: "visible", timeout: 6000 });
       await settle(page, 600);
@@ -352,7 +352,7 @@ const STATES: State[] = [
       await page.request.post("/api/account/signup", { data: { username, password: "correct horse battery" } });
       // A real game against a person, so the record has something in it (R90, R91).
       const { second } = await twoPlayers(browser, v, page);
-      await page.locator(testid("leave-game")).click();
+      await page.locator(testid("header-home")).click(); // U132: Home asks to confirm leaving
       await page.locator(testid("leave-confirm")).click();
       await page.waitForURL(/\/$/);
       await second.context.close();

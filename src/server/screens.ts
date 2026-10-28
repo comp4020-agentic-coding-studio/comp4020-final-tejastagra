@@ -211,10 +211,9 @@ const QUAKE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false
 export function watchScreen(ctx: ScreenContext): string {
   const body = `
     <main class="arena game watching" data-testid="watch-screen">
-      ${topbar({ href: "/" })}
+      ${topbar({ href: "/", right: '<span class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></span>' })}
       <div class="stage" data-testid="game-group">
         <div class="status-row">
-          <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>
           <p class="watching-banner" data-testid="watching-banner" role="status">Watching live</p>
           <p class="watching-banner spectator-notice" data-testid="spectator-notice" role="status" hidden>This game already has two players, so you're watching.</p>
           <p class="watcher-count" data-testid="watching-count" aria-live="off">${EYE_ICON}<span data-testid="watching-count-text">1 watching</span></p>
@@ -236,7 +235,7 @@ export function watchScreen(ctx: ScreenContext): string {
           </div>
         </section>
 
-        <div class="players" data-testid="players">
+        <div class="players versus" data-testid="players">
           <div class="player player-you" data-testid="panel-a">
             <span data-testid="avatar-a"></span>
             <span class="player-text">
@@ -282,17 +281,14 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
   }
   const body = `
     <main class="arena game" data-testid="game-screen" data-waiting="true" data-started="false">
-      ${topbar()}
+      ${topbar({ middle: '<span class="opponent-heading" data-testid="opponent-heading"></span>', right: '<span class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></span>' })}
       <div class="stage" data-testid="game-group">
-        <div class="status-row">
-        <p class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></p>
+        <div class="status-row" data-testid="status-row">
         <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 1 5 13h5l-3 10 12-14h-6z"/></svg><span data-testid="shrink-warning-text"></span></p>
         <p class="watcher-count" data-testid="watcher-count" aria-live="off" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg><span data-testid="watcher-count-text"></span><span class="visually-hidden"> watching</span></p>
         </div>
 
-        <h2 class="opponent-heading" data-testid="opponent-heading">Waiting for your opponent</h2>
-
-        <div class="players" data-testid="players">
+        <div class="players versus" data-testid="players">
           <div class="player player-you" data-testid="panel-you">
             <span data-testid="avatar-you"></span>
             <span class="player-text">
@@ -307,28 +303,8 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <span class="player-text">
               <span class="player-name" data-testid="name-opponent">Opponent</span>
               <span class="player-meta" data-testid="opponent-status-row"><span class="mini-disc" data-piece="opponent"></span><span data-testid="opponent-status">Choosing</span></span>
+              <span class="opponent-powerups" data-testid="opponent-powerups"><span class="opp-power"><span class="shield-state" data-shield="ready" data-testid="opponent-shield-state"></span><span class="opp-power-word" aria-hidden="true">Shield</span><span class="visually-hidden" data-testid="opponent-shield">Shield available</span></span><span class="opp-power"><span class="quake-state" data-quake="ready" data-testid="opponent-earthquake-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span><span class="opp-power-word" aria-hidden="true">Quake</span><span class="visually-hidden" data-testid="opponent-earthquake">Earthquake available</span></span></span>
             </span>
-          </div>
-          <p class="opponent-powerups" data-testid="opponent-powerups"><span class="opp-power"><span class="shield-state" data-shield="ready" data-testid="opponent-shield-state"></span><span data-testid="opponent-shield">Shield available</span></span><span class="opp-power"><span class="quake-state" data-quake="ready" data-testid="opponent-earthquake-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span><span data-testid="opponent-earthquake">Earthquake available</span></span></p>
-          <div class="powerups panel" data-testid="powerups" role="group" aria-label="Your power-ups">
-            <div class="powerup-row">
-              <button type="button" class="shield-badge powerup" data-testid="shield-badge" aria-pressed="false" aria-label="Shield, ready">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/></svg>
-                <span data-testid="shield-label">Arm shield</span>
-              </button>
-              <button type="button" class="icon-only powerup-info" data-testid="shield-info" aria-label="What does the shield do?" aria-haspopup="dialog">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M11 10h2v7h-2zM11 7h2v2h-2z"/><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16z"/></svg>
-              </button>
-            </div>
-            <div class="powerup-row">
-              <button type="button" class="shield-badge earthquake-badge powerup" data-testid="earthquake-badge" aria-pressed="false" aria-label="Earthquake, ready. Tap to use it" disabled>
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg>
-                <span data-testid="earthquake-label">Use Earthquake</span>
-              </button>
-              <button type="button" class="icon-only powerup-info" data-testid="earthquake-info" aria-label="What does Earthquake do?" aria-haspopup="dialog">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M11 10h2v7h-2zM11 7h2v2h-2z"/><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16z"/></svg>
-              </button>
-            </div>
           </div>
         </div>
 
@@ -356,7 +332,6 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <div class="popup" data-testid="end-popup" hidden role="dialog" aria-modal="true" aria-labelledby="end-title">
               <div class="panel popup-card">
                 <h2 class="popup-title" id="end-title" data-testid="end-title"></h2>
-                <p data-testid="end-detail"></p>
                 <p class="rematch-status" data-testid="rematch-status" role="status" hidden></p>
                 <div class="popup-actions">
                   ${button({ label: "Play again", iconName: "computer", kind: "red", testid: "play-again" })}
@@ -366,9 +341,28 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             </div>
           </div>
           <div class="timer-track" data-testid="timer" role="progressbar" aria-label="Time left in this round" aria-valuemin="0" aria-valuemax="10" aria-valuenow="10"><span class="timer-fill"></span></div>
+          <div class="powerups" data-testid="powerups" role="group" aria-label="Your power-ups">
+            <div class="powerup-row">
+              <button type="button" class="shield-badge powerup" data-testid="shield-badge" aria-pressed="false" aria-label="Shield, ready">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/></svg>
+                <span class="label-long" data-testid="shield-label">Arm shield</span><span class="label-short" aria-hidden="true">Shield</span>
+              </button>
+              <button type="button" class="icon-only powerup-info" data-testid="shield-info" aria-label="What does the shield do?" aria-haspopup="dialog">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M11 10h2v7h-2zM11 7h2v2h-2z"/><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16z"/></svg>
+              </button>
+            </div>
+            <div class="powerup-row">
+              <button type="button" class="shield-badge earthquake-badge powerup" data-testid="earthquake-badge" aria-pressed="false" aria-label="Earthquake, ready. Tap to use it" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg>
+                <span class="label-long" data-testid="earthquake-label">Use Earthquake</span><span class="label-short" aria-hidden="true">Quake</span>
+              </button>
+              <button type="button" class="icon-only powerup-info" data-testid="earthquake-info" aria-label="What does Earthquake do?" aria-haspopup="dialog">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M11 10h2v7h-2zM11 7h2v2h-2z"/><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16z"/></svg>
+              </button>
+            </div>
+          </div>
           <p class="result" data-testid="result-line" role="status" aria-live="polite"></p>
           <p class="message" data-testid="game-message" role="status"></p>
-          <button type="button" class="btn btn-blue leave-game" data-testid="leave-game" hidden>Leave game</button>
         </div>
       </div>
     </main>

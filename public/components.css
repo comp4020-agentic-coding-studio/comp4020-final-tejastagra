@@ -2171,64 +2171,14 @@ input {
 
 @media (min-width: 900px) {
   :root {
-    --board-width: calc(60vh * 7 / 6);
+    --board-width: min(560px, calc((100vh - 350px) * 7 / 6));
     --ghost-size: 56px;
   }
 
+  /* U132: one centred column, as wide as the board, sized so the header, the versus bar, the board, the timer and the power-up
+     row fit the laptop screen. */
   .game {
-    max-width: 1100px;
-  }
-
-  .stage {
-    /* An empty column as wide as the panels' on the right keeps the board on the page's centre (Q13). */
-    grid-template-columns: minmax(220px, 280px) minmax(0, var(--board-width)) minmax(220px, 280px);
-    grid-template-areas:
-      ". round ."
-      "players play .";
-    column-gap: 24px;
-    justify-content: center;
-    align-items: start;
-  }
-
-  .status-row {
-    grid-area: round;
-  }
-
-  .game .players {
-    grid-area: players;
-    grid-template-columns: 1fr;
-    justify-items: stretch;
-    margin-top: 28px;
-  }
-
-  .game .player-you {
-    order: 1;
-  }
-
-  .game .powerups {
-    order: 2;
-  }
-
-  .game .opponent-powerups {
-    order: 5;
-    justify-content: flex-start;
-  }
-
-  .game .vs {
-    order: 3;
-  }
-
-  .game .player-opponent {
-    order: 4;
-  }
-
-  .game .vs {
-    justify-self: center;
-    margin-top: 0;
-  }
-
-  .play-area {
-    grid-area: play;
+    max-width: var(--board-width);
   }
 }
 /* ---- Tutorial and end popup (U27 to U29, U41 to U48, U52) ---- */
@@ -3440,4 +3390,250 @@ input {
    and not only the width of the round number and the count beside it (U94). */
 .watching .status-row {
   width: 100%;
+}
+
+
+/* ---- The game screen as one centred column (docs/design/game-screen.md U132, U135, Q13) ---- */
+/* The header bar holds the opponent and the round (U132); the round line is not centred in the page any more. */
+.game .topbar .round-line,
+.game .topbar .opponent-heading {
+  font: inherit;
+  white-space: nowrap;
+}
+
+/* The heading is cut with an ellipsis inside the bar, so it never reaches past the screen (U132). */
+.game .topbar .opponent-heading {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game .topbar {
+  margin-bottom: 8px;
+}
+
+.game .status-row:not(:has(> :not([hidden]))) {
+  display: none;
+}
+
+/* The versus bar: your card, a small VS badge, the opponent's card, as wide as the board. */
+.game .players.versus {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+}
+
+.game .versus .player {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  padding: 6px 8px;
+}
+
+.game .versus .vs {
+  align-self: center;
+  margin: 0;
+}
+
+.opponent-powerups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.opp-power {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.opp-power .shield-state,
+.opp-power .quake-state {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+/* The board sits directly under the versus bar, with room above it for the ghost disc (U11). The watching screen has no ghost
+   disc (U79), so it gives that room back. */
+.game:not(.watching) .board-wrap {
+  margin: calc(var(--ghost-size) + 2px) 0 4px;
+}
+
+.game.watching .board-wrap {
+  margin: 8px 0 4px;
+}
+
+/* Your power-ups: one row of two compact buttons, each with its info button, centred under the timer (U132). */
+.game .powerups {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px auto 0;
+  padding: 0;
+  overflow: visible;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.game .powerup-row {
+  display: flex;
+  align-items: stretch;
+  border: var(--outline);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-small);
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.game .powerup-row + .powerup-row {
+  border-top: var(--outline);
+}
+
+.game .powerups .shield-badge {
+  width: auto;
+  min-height: 48px;
+  gap: 8px;
+  padding: 4px 12px;
+}
+
+.game .powerups .shield-badge svg {
+  width: 24px;
+  height: 24px;
+}
+
+.game .powerups .powerup-info {
+  min-width: 44px;
+  min-height: 48px;
+}
+
+.game .result {
+  min-height: 2.6em;
+  margin: 8px 0 0;
+}
+
+/* Waiting for the second player (U135): only the header bar and the dimmed board with the card over it, the board centred on
+   the screen below the bar. */
+.game[data-waiting="true"] .powerups,
+.game[data-waiting="true"] .players.versus,
+.game[data-waiting="true"] .status-row,
+.game[data-waiting="true"] .timer-track {
+  display: none;
+}
+
+.game[data-waiting="true"] .stage {
+  align-content: center;
+  min-height: calc(100vh - 100px);
+}
+
+@media (max-width: 359px) {
+  .game .versus .player {
+    padding: 4px 6px;
+    gap: 6px;
+  }
+
+  .game .powerups {
+    gap: 8px;
+  }
+
+  .game .powerups .shield-badge {
+    padding: 4px 8px;
+    gap: 6px;
+    font-size: 0.9rem;
+  }
+
+  .game .topbar {
+    gap: 6px;
+  }
+
+  .game .topbar-title,
+  .game .topbar-right {
+    font-size: 0.85rem;
+  }
+}
+
+/* U132: at 320px the power-up buttons show the short word; the state is still in the button's accessible name (U103). */
+.label-short {
+  display: none;
+}
+
+@media (max-width: 599px) {
+  .game .powerups .label-long {
+    display: none;
+  }
+
+  .game .powerups .label-short {
+    display: inline;
+  }
+}
+
+/* One column, never wider than the screen on a phone, and as wide as the board on a laptop (U132). */
+.arena.game {
+  width: 100%;
+  max-width: 560px;
+}
+
+.game .stage,
+.game .play-area {
+  min-width: 0;
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .arena.game {
+    max-width: var(--board-width);
+  }
+}
+
+/* The watching screen at 320 x 568 (U78, U80, U132): the banner and the count share one row under the header bar, and an empty
+   result line takes no room, so the board and Watch another game fit the first screen with the widest names. */
+@media (max-width: 359px) {
+  .game.watching .status-row:not(:has(.shrink-warning:not([hidden]))) {
+    flex-wrap: nowrap;
+  }
+
+  .game.watching .status-row > .watching-banner {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .game.watching .result:empty {
+    min-height: 0;
+    margin: 0;
+  }
+
+  .game.watching .topbar {
+    margin-bottom: 4px;
+  }
+}
+
+/* At 320px the header bar is as short as its 44px Home button allows (Q12, U132). */
+@media (max-width: 359px) {
+  .topbar {
+    min-height: 44px;
+  }
+
+  .topbar-home {
+    min-height: 44px;
+    padding: 0 10px;
+    box-shadow: var(--shadow-small);
+  }
+}
+
+/* U78: at 320px a watching panel's name is at most two lines, cut with an ellipsis. */
+@media (max-width: 359px) {
+  .game.watching .player-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
 }

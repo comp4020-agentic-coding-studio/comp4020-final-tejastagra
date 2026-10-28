@@ -128,7 +128,6 @@ function showGhost(column: number | null, chosen: boolean): void {
 }
 
 function renderChoice(): void {
-  if (over) $("leave-game").hidden = true;
   columns.forEach((hit, c) => {
     hit.setAttribute("aria-pressed", String(c === selectedColumn));
     hit.setAttribute("aria-disabled", String(over || locked || !started || columnFull(c)));
@@ -477,36 +476,29 @@ function syncWaiting(state: State): void {
   $("waiting-panel").hidden = !waiting;
   gameRoot.dataset.waiting = String(waiting);
   showHeading(waiting);
-  showLeave(waiting);
 }
 
 // U106: who you are playing, one line above the board.
 function showHeading(waiting: boolean): void {
   const name = $("name-opponent").textContent ?? "";
-  $("opponent-heading").textContent = waiting ? "Waiting for your opponent" : playedComputer || name === "Computer" ? "Playing the computer" : `Playing with ${name}`;
-}
-
-// U107: Leave game is there while a game is being played, and not before it starts or after it ends.
-function showLeave(waiting: boolean): void {
-  $("leave-game").hidden = waiting || over || !you;
+  // U132: the header bar's middle line. While waiting it is empty: the waiting card says it (U135).
+  $("opponent-heading").textContent = waiting ? "" : playedComputer || name === "Computer" ? "Playing the computer" : `Playing with ${name}`;
+  $("round-line").hidden = waiting;
 }
 
 // ---- The end of the game (U27 to U30) ----
 async function finish(state: State): Promise<void> {
   over = true;
   renderChoice();
-  const rounds = `${state.round} ${state.round === 1 ? "round" : "rounds"}`;
+  // U29: the popup has its title and its buttons, nothing else.
   if (state.status === "draw") {
     setText("end-title", "IT'S A DRAW!");
-    setText("end-detail", `Nobody made four in a row. ${rounds} played.`);
   } else if (state.winner === you) {
     setText("end-title", "YOU WIN!");
-    setText("end-detail", `Four in a row in ${rounds}.`);
     highlightLine(state);
     confettiBurst($("board-wrap"));
   } else {
     setText("end-title", "SO CLOSE!");
-    setText("end-detail", `Your opponent made four in a row in ${rounds}.`);
     highlightLine(state);
   }
   $("result-line").textContent = $("end-title").textContent;
@@ -617,10 +609,9 @@ socket.addEventListener("message", (event) => {
     case "game_over":
       over = true;
       setText("end-title", message.result === "abandoned" ? "GAME ABANDONED" : message.winner === you ? "YOU WIN!" : "GAME OVER");
-      setText(
-        "end-detail",
-        message.result === "abandoned" ? "Both players missed 3 rounds in a row." : message.winner === you ? "Your opponent left the game." : "You left the game for too long.",
-      );
+      // U29: the reason is under the board, in the result line, never in the popup.
+      $("result-line").textContent =
+        message.result === "abandoned" ? "Both players missed 3 rounds in a row." : message.winner === you ? "Your opponent left the game." : "You left the game for too long.";
       popupOpen();
       renderChoice();
       break;
@@ -789,7 +780,6 @@ $("header-home").addEventListener("click", () => {
   confirmLeave();
 });
 
-$("leave-game").addEventListener("click", () => confirmLeave());
 
 function confirmLeave(): void {
   const dialog = openDialog({ testid: "leave-dialog", title: "Leave this game?" });

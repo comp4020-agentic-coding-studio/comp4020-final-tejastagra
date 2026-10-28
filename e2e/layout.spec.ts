@@ -571,32 +571,44 @@ test.describe("Keyboard hint (U18, U46)", () => {
   });
 });
 
-// U102 to U105: the power-up rows and their popups.
-test.describe("Power-up rows (U102 to U105)", () => {
+// U132 (replacing U102's two full-width rows) and U103 to U105: your power-ups as one row of compact buttons under the timer.
+test.describe("Power-up row (U103 to U105, U132)", () => {
   for (const viewport of VIEWPORTS) {
-    test(`two full-width rows, each one line, with the info buttons at the right edge at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+    test(`one centred row of two buttons under the timer, each with its info button, 44px and one line at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       const code = (await (await page.request.post("/api/computer")).json()).code as string;
       await page.goto(`/g/${code}`);
       await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
       await waitForStart(page); // the start countdown has ended (R97)
-      const card = (await page.locator(testid("powerups")).boundingBox())!;
-      for (const [row, info, label, words] of [
-        ["shield-badge", "shield-info", "shield-label", "Arm shield"],
-        ["earthquake-badge", "earthquake-info", "earthquake-label", "Nothing to shake yet"],
+      const row = (await page.locator(testid("powerups")).boundingBox())!;
+      const timer = (await page.locator(testid("timer")).boundingBox())!;
+      expect(row.y, "the row is under the timer").toBeGreaterThanOrEqual(timer.y + timer.height - 1);
+      expect(Math.abs(row.x + row.width / 2 - (timer.x + timer.width / 2)), "and centred under it").toBeLessThanOrEqual(4);
+      const tops: number[] = [];
+      for (const [button, info, label] of [
+        ["shield-badge", "shield-info", "shield-label"],
+        ["earthquake-badge", "earthquake-info", "earthquake-label"],
       ] as const) {
-        const r = (await page.locator(testid(row)).boundingBox())!;
+        const b = (await page.locator(testid(button)).boundingBox())!;
         const i = (await page.locator(testid(info)).boundingBox())!;
-        const l = (await page.locator(testid(label)).boundingBox())!;
-        await expect(page.locator(testid(label))).toHaveText(words);
-        expect(r.height, `${row} is at least 44px tall`).toBeGreaterThanOrEqual(43.5);
+        tops.push(b.y);
+        expect(b.height, `${button} is at least 44px tall`).toBeGreaterThanOrEqual(43.5);
+        expect(b.width, `${button} is at least 44px wide`).toBeGreaterThanOrEqual(43.5);
         expect(i.width, `${info} is at least 44px wide`).toBeGreaterThanOrEqual(43.5);
         expect(i.height, `${info} is at least 44px tall`).toBeGreaterThanOrEqual(43.5);
-        expect(l.height, `${label} is one line`).toBeLessThan(24);
-        expect(Math.abs(r.x - card.x), `${row} starts at the card's left edge`).toBeLessThanOrEqual(3);
-        expect(Math.abs(i.x + i.width - (card.x + card.width)), `${info} ends at the card's right edge`).toBeLessThanOrEqual(3);
+        expect(Math.abs(i.y - b.y), `${info} sits beside its button`).toBeLessThanOrEqual(4);
+        // The visible words are one line: the long label on a laptop, the short one on a phone (U132).
+        const shown = page.locator(`${testid(button)} span:visible`).first();
+        expect((await shown.boundingBox())!.height, `${button}'s label is one line`).toBeLessThan(26);
+        if (viewport.width >= 600) await expect(page.locator(testid(label))).toBeVisible();
       }
-      // The empty Earthquake row is greyed and disabled, and says why in its popup (U103, U104).
+      expect(Math.abs(tops[0] - tops[1]), "both buttons are on one row").toBeLessThanOrEqual(2);
+      expect(row.x).toBeGreaterThanOrEqual(0);
+      expect(row.x + row.width, "the row fits the screen").toBeLessThanOrEqual(viewport.width);
+      // The words of U103 are still the state, in the label (laptop) and the accessible name (always).
+      await expect(page.locator(testid("shield-label"))).toHaveText("Arm shield");
+      await expect(page.locator(testid("earthquake-label"))).toHaveText("Nothing to shake yet");
+      // The empty Earthquake button is greyed and disabled, and says why in its popup (U103, U104).
       await expect(page.locator(testid("earthquake-badge"))).toBeDisabled();
       await page.locator(testid("earthquake-info")).click();
       await expect(page.locator(testid("earthquake-help"))).toContainText("Available once the bottom row has a piece.");
@@ -620,15 +632,18 @@ test.describe("Power-up rows (U102 to U105)", () => {
 });
 
 // U106 to U108 and U29: who you are playing, Leave game, Cancel game and the end popup buttons.
-test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () => {
-  test("a game against the computer says so, has Leave game, and Stay changes nothing", async ({ browser }) => {
+test.describe("Heading, leaving and the end popup (U29, U106 to U108, U132, R81)", () => {
+  test("a game against the computer says so in the header bar, Home asks before leaving, and Stay changes nothing", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     const code = (await (await page.request.post("/api/computer")).json()).code as string;
     await page.goto(`/g/${code}`);
     await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
     await waitForStart(page); // the start countdown has ended (R97)
     await expect(page.locator(testid("opponent-heading"))).toHaveText("Playing the computer");
-    const leave = page.locator(testid("leave-game"));
+    await expect(page.locator(`${testid("topbar")} ${testid("opponent-heading")}`)).toHaveText("Playing the computer"); // U132: in the header bar
+    await expect(page.locator(`${testid("topbar")} ${testid("round-line")}`)).toHaveText("Round 1");
+    await expect(page.locator(testid("leave-game"))).toHaveCount(0); // U132: no separate Leave game button
+    const leave = page.locator(testid("header-home"));
     await expect(leave).toBeVisible();
     expect((await leave.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await leave.click();
@@ -654,11 +669,12 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () 
     await two.page.goto(`/g/${code}`);
     await expect(one.page.locator(testid("opponent-heading"))).toContainText("Playing with Sam Wombat #");
     await expect(two.page.locator(testid("opponent-heading"))).toContainText("Playing with Pip Squeak #");
-    await one.page.locator(testid("leave-game")).click();
+    await one.page.locator(testid("header-home")).click() /* U132: Home asks to confirm leaving */;
     await one.page.locator(testid("leave-confirm")).click();
     await one.page.waitForURL(/\/$/);
     await expect(two.page.locator(testid("end-title"))).toHaveText("YOU WIN!", { timeout: 3_000 });
-    await expect(two.page.locator(testid("end-detail"))).toContainText("Your opponent left the game.");
+    await expect(two.page.locator(testid("result-line"))).toContainText("Your opponent left the game."); // U29: the reason is under the board
+    await expect(two.page.locator(testid("end-detail"))).toHaveCount(0); // U29: the popup has its title and buttons only
     await one.context.close();
     await two.context.close();
   });
@@ -669,7 +685,7 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () 
     await page.goto(`/g/${code}`);
     await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
     await waitForStart(page); // the start countdown has ended (R97)
-    await page.locator(testid("leave-game")).click();
+    await page.locator(testid("header-home")).click() /* U132: Home asks to confirm leaving */;
     await page.locator(testid("leave-confirm")).click();
     await page.waitForURL(/\/$/);
     await context.close();
@@ -679,7 +695,7 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () 
     await one.page.goto(`/g/${link}`);
     await two.page.goto(`/g/${link}`);
     await expect(one.page.locator(testid("shield-label"))).toHaveText("Arm shield");
-    await two.page.locator(testid("leave-game")).click();
+    await two.page.locator(testid("header-home")).click() /* U132: Home asks to confirm leaving */;
     await two.page.locator(testid("leave-confirm")).click();
     await expect(one.page.locator(testid("end-popup"))).toBeVisible({ timeout: 3_000 });
     await expect(one.page.locator(testid("shield-label"))).toHaveText("Arm shield");
@@ -688,11 +704,12 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, R81)", () 
     await two.context.close();
   });
 
-  test("the waiting screen has Cancel game, no Leave game, and Cancel game goes Home", async ({ browser }) => {
+  test("the waiting screen has Cancel game and the header bar's Home, and Cancel game goes Home", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.goto(`/g/${await makeGameCode(page)}`);
     await expect(page.locator(testid("waiting-panel"))).toBeVisible();
-    await expect(page.locator(testid("leave-game"))).toBeHidden();
+    await expect(page.locator(testid("header-home"))).toBeVisible();
+    await expect(page.locator(testid("opponent-heading"))).toHaveText(""); // U135: the card says it
     const card = (await page.locator(testid("waiting-panel")).boundingBox())!;
     expect(Math.abs(card.x + card.width / 2 - PHONE.width / 2), "the card is centred sideways").toBeLessThanOrEqual(2);
     expect(Math.abs(card.y + card.height / 2 - PHONE.height / 2), "and centred on the screen").toBeLessThanOrEqual(40);

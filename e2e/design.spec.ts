@@ -588,7 +588,7 @@ test.describe("Contrast", () => {
 });
 
 test.describe("Board size (design check)", () => {
-  test("the board fills the full width on a phone and at least 60% of the height on a laptop", async ({ browser }) => {
+  test("U7 the board fills the full width on a phone, and on a laptop is at least half the screen height with the whole game column on screen", async ({ browser }) => {
     const phone = await newPlayer(browser, PHONE);
     await phone.page.goto(`/g/${await makeGameCode(phone.page)}`);
     const pb = (await phone.page.locator(".board").boundingBox())!;
@@ -600,7 +600,9 @@ test.describe("Board size (design check)", () => {
     const laptop = await newPlayer(browser, LAPTOP);
     await laptop.page.goto(`/g/${await makeGameCode(laptop.page)}`);
     const lb = (await laptop.page.locator(".board").boundingBox())!;
-    expect(lb.height / LAPTOP.height, "laptop: the board is at least 60% of the screen height").toBeGreaterThanOrEqual(0.6);
+    // U7 changed 29 October 2026 (U132): the board is as large as fits with the header bar, the versus bar, the timer and the
+    // power-up row all on the screen, and never less than half its height.
+    expect(lb.height / LAPTOP.height, "laptop: the board is at least half the screen height").toBeGreaterThanOrEqual(0.5);
     expect(lb.y + lb.height, "and it is fully on screen").toBeLessThanOrEqual(LAPTOP.height);
     await phone.context.close();
     await narrow.context.close();
@@ -662,26 +664,28 @@ test.describe("Game screen layout and the waiting card", () => {
   }
 
   for (const [name, viewport] of [["phone", PHONE], ["laptop", LAPTOP]] as const) {
-    test(`U59 the game group is centred on the screen within 16px at ${name}`, async ({ browser }) => {
+    test(`U132 one centred column: header bar, versus bar, board, timer and power-ups, in that order, at ${name}`, async ({ browser }) => {
       const one = await newPlayer(browser, viewport);
       const two = await newPlayer(browser, LAPTOP);
       const code = await makeGameCode(one.page);
       await one.page.goto(`/g/${code}`);
       await two.page.goto(`/g/${code}`);
       await waitForRound(one.page, 1);
-      const players = (await one.page.locator(testid("players")).boundingBox())!;
-      const board = (await one.page.locator(testid("board-wrap")).boundingBox())!;
-      const round = (await one.page.locator(testid("round-line")).boundingBox())!;
-      const left = Math.min(players.x, board.x);
-      const right = Math.max(players.x + players.width, board.x + board.width);
-      expect(Math.abs((left + right) / 2 - viewport.width / 2), "panels and board together are centred").toBeLessThanOrEqual(16);
-      expect(Math.abs(round.x + round.width / 2 - (left + right) / 2) < 140 || Math.abs(round.x + round.width / 2 - (board.x + board.width / 2)) <= 16, "round number sits centred with the board").toBe(true);
-      if (viewport.width >= 900) {
-        expect(players.x + players.width, "panels sit to the left of the board").toBeLessThanOrEqual(board.x);
-        expect(Math.abs(round.x + round.width / 2 - (board.x + board.width / 2)), "round number centred over the board").toBeLessThanOrEqual(16);
-      } else {
-        expect(players.y + players.height, "panels sit above the board").toBeLessThanOrEqual(board.y);
+      const box = async (id: string) => (await one.page.locator(testid(id)).boundingBox())!;
+      const [bar, players, board, timer, powerups] = await Promise.all(["topbar", "players", "board-wrap", "timer", "powerups"].map(box));
+      const centre = (b: { x: number; width: number }) => b.x + b.width / 2;
+      for (const [name, b] of [["header bar", bar], ["versus bar", players], ["board", board], ["timer", timer], ["power-ups", powerups]] as const) {
+        expect(Math.abs(centre(b) - viewport.width / 2), `${name} is centred on the page`).toBeLessThanOrEqual(16);
       }
+      expect(bar.y + bar.height, "the header bar is above the versus bar").toBeLessThanOrEqual(players.y + 1);
+      expect(players.y + players.height, "the versus bar is above the board").toBeLessThanOrEqual(board.y + 1);
+      expect(board.y + board.height, "the timer is under the board").toBeLessThanOrEqual(timer.y + 1);
+      expect(timer.y + timer.height, "the power-ups are under the timer").toBeLessThanOrEqual(powerups.y + 1);
+      // The round is on the right of the header bar, and nothing sits beside the board.
+      const round = await box("round-line");
+      expect(round.y).toBeLessThan(bar.y + bar.height);
+      expect(round.x).toBeGreaterThan(viewport.width / 2);
+      expect(powerups.y + powerups.height, "the whole column is on the first screen").toBeLessThanOrEqual(viewport.height);
       await one.context.close();
       await two.context.close();
     });
@@ -708,7 +712,8 @@ test.describe("Game screen layout and the waiting card", () => {
     await guest.page.goto(`/g/${code}`);
     await expect(host.page.locator(testid("waiting-panel"))).toBeHidden({ timeout: 3_000 });
     await expect(host.page.locator(testid("get-ready"))).toBeVisible();
-    await expect(host.page.locator(testid("timer"))).toBeVisible();
+    await expect(host.page.locator(testid("timer")), "no timer during the start countdown (R97)").toBeHidden();
+    await expect(host.page.locator(testid("timer"))).toBeVisible({ timeout: 5_000 }); // round 1 opens after it
     await host.context.close();
     await guest.context.close();
   });

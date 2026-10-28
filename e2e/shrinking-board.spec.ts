@@ -257,10 +257,12 @@ test.describe("The phone layout does not change (promise 4)", () => {
     await crashRounds(one.page, two.page, 1, 11, everyColumn);
     await expect(one.page.locator(testid("shrink-warning"))).toBeVisible();
     const banner = (await one.page.locator(testid("shrink-warning")).boundingBox())!;
-    const round = (await one.page.locator(testid("round-line")).boundingBox())!;
+    const bar = (await one.page.locator(testid("topbar")).boundingBox())!;
+    const players = (await one.page.locator(testid("players")).boundingBox())!;
     expect(banner.height, "the banner is one line").toBeLessThan(30);
-    expect(banner.y + banner.height / 2, "the banner shares the round line's row").toBeLessThan(round.y + round.height + 8);
-    expect(banner.x, "the banner starts after the round number").toBeGreaterThanOrEqual(round.x + round.width);
+    // U68 (changed for U132): the banner has the status line under the header bar, which holds the round.
+    expect(banner.y, "the banner is under the header bar").toBeGreaterThanOrEqual(bar.y + bar.height - 1);
+    expect(banner.y + banner.height, "and above the versus bar").toBeLessThanOrEqual(players.y + 1);
     const timer = (await one.page.locator(testid("timer")).boundingBox())!;
     expect(timer.y + timer.height, "the timer bar is on the first screen").toBeLessThanOrEqual(568);
     const scroll = await one.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -284,9 +286,9 @@ test.describe("The phone layout does not change (promise 4)", () => {
       expect(warning.x + warning.width, "inside the screen").toBeLessThanOrEqual(viewport.width);
       expect(warning.y + warning.height, "the banner does not cover the board").toBeLessThanOrEqual(board.y + 1);
       // On a page taller than the screen the browser scrolls to the column that was tapped, so the round number is judged
-      // by where it is on the page: at the top, never pushed down or out of the layout.
+      // by where it is on the page: in the header bar at the top (U132), never pushed down or out of the layout.
       const scrolled = await one.page.evaluate(() => window.scrollY);
-      expect(round.y + scrolled, "the round number stays at the top of the page").toBeLessThanOrEqual(20);
+      expect(round.y + scrolled, "the round number stays in the header bar at the top of the page").toBeLessThanOrEqual(60);
       expect(round.y + scrolled, "the round number stays on the page").toBeGreaterThanOrEqual(0);
       // The first-screen rule (docs/design.md) is for the marking viewports and 320 x 568: the whole board
       // and the timer fit, with the banner showing. 360 x 640 is not one of them (it only has to scroll
