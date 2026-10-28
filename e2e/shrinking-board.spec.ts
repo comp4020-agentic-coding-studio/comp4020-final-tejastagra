@@ -3,7 +3,7 @@
 // (ADR 0011, amended after playtesting). Run with pnpm test:e2e, never in pnpm check.
 import { expect, test, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
-import { makeGameCode, newPlayer, testid, waitForRound } from "./helpers.ts";
+import { makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, waitForRound } from "./helpers.ts";
 
 async function twoPlayers(browser: Parameters<typeof newPlayer>[0], options: { reducedMotion?: boolean; a?: { width: number; height: number } } = {}) {
   const one = await newPlayer(browser, options.a ?? PHONE, { reducedMotion: options.reducedMotion });
@@ -306,30 +306,15 @@ test.describe("The phone layout does not change (promise 4)", () => {
 });
 
 test.describe("The tutorial's shrinking board step (U74)", () => {
-  async function toStep(page: Page): Promise<void> {
-    const tap = (c: number) => page.locator(testid(`tutorial-column-${c}`)).click();
-    for (let step = 1; step <= 3; step++) {
-      await tap(3);
-      await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
-      await page.click(testid("tutorial-next"));
-    }
-    await page.locator(testid("tutorial-shield")).click();
-    await tap(3);
-    await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
-    await page.click(testid("tutorial-next"));
-    await page.locator(testid("tutorial-earthquake")).click();
-    await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
-    await page.click(testid("tutorial-next"));
-  }
+  // The shrinking board is step 8 of 11 (U144).
+  const toStep = (page: Page) => toTutorialStep(page, 8);
 
   test("U74 the step comes after Earthquake, shows the warning and a flashing top row, waits for a tap, then the top row turns to rock", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-    await page.goto("/");
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
     await toStep(page);
-    await expect(page.locator(testid("tutorial-title"))).toHaveText("The board shrinks");
-    await expect(page.locator(testid("tutorial-caption"))).toHaveText(
-      "The board shrinks as rounds pass: after round 12 the ceiling drops, and it drops again after round 20. Pieces in a closed row crumble away.",
-    );
+    await expect(page.locator(testid("tutorial-title"))).toHaveText("The shrinking board");
+    await expect(page.locator(testid("tutorial-caption"))).toHaveText("After round 12, and again after round 20, the top row closes. A warning shows the round before. Plan ahead: space runs out.");
     expect(await page.locator(testid("tutorial-caption")).innerText()).not.toMatch(/wall/i); // the walls are gone
     const cells = `${testid("tutorial-board")} [data-testid^="cell-"]`;
     await expect(page.locator(testid("tutorial-warning"))).toHaveText("The ceiling drops after this round");
@@ -347,8 +332,8 @@ test.describe("The tutorial's shrinking board step (U74)", () => {
 
   test("U74 and U47 the step's banner, hint and controls stay on screen at 320 x 568 and 360 x 640", async ({ browser }) => {
     for (const viewport of [NARROW, { width: 360, height: 640 }]) {
-      const { context, page } = await newPlayer(browser, viewport, { tutorial: "new", reducedMotion: true });
-      await page.goto("/");
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
       await toStep(page);
       const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
       const warning = await box("tutorial-warning");

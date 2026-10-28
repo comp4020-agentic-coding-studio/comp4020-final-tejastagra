@@ -4,7 +4,7 @@
 import { avatar, buildBoard, confettiBurst, reducedMotion, themeNumber } from "./arcade.ts";
 import { $, currentPlayer } from "./common.ts";
 import { dialogButton, openDialog } from "./dialog.ts";
-import { replayTutorial, showTutorial } from "./tutorial.ts";
+import { beforeFirstMatch, replayTutorial } from "./tutorial.ts";
 
 const CODE_PATTERN = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/;
 const message = $("home-message");
@@ -43,8 +43,13 @@ async function start(endpoint: string): Promise<void> {
   }
 }
 
-$("play-friend").addEventListener("click", () => start("/api/games"));
-$("play-computer").addEventListener("click", () => start("/api/computer"));
+// R47: the first time a player starts a match, the tutorial runs first, then the match they chose starts (U136).
+$("play-friend").addEventListener("click", () => void beforeFirstMatch(() => start("/api/games")));
+$("play-computer").addEventListener("click", () => void beforeFirstMatch(() => start("/api/computer")));
+$("quick-match").addEventListener("click", (event) => {
+  event.preventDefault();
+  void beforeFirstMatch(() => void (location.href = "/play/quick"));
+});
 
 // "Join with a code" opens the code popup (U33b): nothing on the screen moves.
 function openCodeDialog(): void {
@@ -57,7 +62,8 @@ function openCodeDialog(): void {
         d.error("code", "A game code is 6 letters or numbers, for example K7QM2X.");
         return;
       }
-      location.href = `/g/${code}`;
+      d.close();
+      void beforeFirstMatch(() => void (location.href = `/g/${code}`)); // R47: joining with a code starts a match
     },
   });
   dialog.field("Game code", "code", { maxlength: 6, capitalize: true });
@@ -180,18 +186,9 @@ async function demo(): Promise<void> {
 // ---- The tutorial (R47, R49) ----
 $("how-to-play").addEventListener("click", () => void replayTutorial());
 
-async function maybeTutorial(): Promise<void> {
-  try {
-    const res = await fetch("/api/me");
-    if (res.ok && (await res.json()).tutorialDue) await showTutorial();
-  } catch {
-    // no tutorial if the server cannot say; the menu still works
-  }
-}
-
-// The tutorial waits for the player card, so a brand-new visitor already has a session
-// when the tutorial saves "finished" or "skipped" (R48).
-void showPlayer().then(maybeTutorial);
+// R47: the tutorial never opens on the home screen by itself; it runs when a match is started. The player card makes sure a
+// brand-new visitor has a session before then, so "finished" or "skipped" is saved with them (R48).
+void showPlayer();
 void showTop();
 void demo();
 

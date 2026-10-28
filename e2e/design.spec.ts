@@ -3,7 +3,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
-import { chooseColumn, makeGameCode, newPlayer, testid, waitForRound } from "./helpers.ts";
+import { chooseColumn, doTutorialStep, makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, TUTORIAL_STEPS, waitForRound } from "./helpers.ts";
 
 const SCREENS = ["/", "/play/quick", "/leaderboard", "/account", "/readme/"];
 
@@ -244,8 +244,8 @@ test.describe("Home", () => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
     await page.goto("/");
     await expect(page.locator(testid("player-name"))).toHaveText(/^[A-Z][a-z]+ [A-Z][a-z]+ #[0-9a-f]{4}$/);
-    await page.tap(testid("tutorial-skip"));
     await page.tap(testid("play-computer"));
+    await page.tap(testid("tutorial-skip")); // R47: the tutorial runs before the first match; skipping starts it
     await page.waitForURL(/\/g\/[A-Z2-9]{6}$/);
     await expect(page.locator(testid("round-number"))).toHaveText("1");
     await context.close();
@@ -279,46 +279,46 @@ test.describe("Home", () => {
   });
 });
 
-// Plays the tutorial step the player is on, as a player would: by tapping, never by skipping the action.
-async function doStep(page: Page, step: number): Promise<void> {
-  const tap = (c: number) => page.locator(testid(`tutorial-column-${c}`)).click();
-  if (step === 1 || step === 2 || step === 3) await tap(3);
-  if (step === 4) {
-    await page.locator(testid("tutorial-shield")).click();
-    await tap(3);
-  }
-  if (step === 5) await page.locator(testid("tutorial-earthquake")).click();
-  if (step === 6) await tap(2); // the shrinking board step: any column
-  if (step === 7) await tap(4);
-  if (step <= 7) await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
-}
-
+// The tutorial's steps (docs/design/tutorial.md U137 to U147). When it opens is checked in e2e/tutorial.spec.ts (R47, U136).
 test.describe("Tutorial", () => {
-  test("R47 and U41 to U46 the tutorial is interactive: each step waits for the player, and Next appears only once the step is done", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
-    await page.goto("/");
-    await expect(page.locator(testid("tutorial"))).toBeVisible();
+  test("U136 to U147 eleven steps in order, each with Step N of 11 and Skip; an action step shows Next only once it is done", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
     const titles: string[] = [];
-    for (let step = 1; step <= 8; step++) {
+    for (let step = 1; step <= 11; step++) {
       titles.push(await page.locator(testid("tutorial-title")).innerText());
+      await expect(page.locator(testid("tutorial-progress"))).toHaveText(`Step ${step} of 11`);
       expect((await page.locator(testid("tutorial-caption")).innerText()).length).toBeGreaterThan(20);
-      // Skip is always there; Next is not until the player has acted.
       await expect(page.locator(testid("tutorial-skip"))).toBeVisible();
-      if (step <= 7) {
-        await expect(page.locator(testid("tutorial-next")), `step ${step}: no Next before acting`).toBeHidden();
-        await doStep(page, step);
-        await page.click(testid("tutorial-next"));
-      }
+      if (step >= 2 && step <= 8) await expect(page.locator(testid("tutorial-next")), `step ${step}: no Next before acting`).toBeHidden();
+      await doTutorialStep(page, step);
+      if (step < 11) await page.click(testid("tutorial-next"));
     }
-    expect(titles).toEqual(["Pick a column", "You both move at once", "Crash!", "Power-ups: your shield", "Power-ups: Earthquake", "The board shrinks", "Four in a row wins", "Ready to play"]);
-    await expect(page.locator(testid("tutorial-next"))).toHaveText("Play the computer");
-    await expect(page.locator(testid("tutorial-skip"))).toHaveText("Back home");
+    expect(titles).toEqual(TUTORIAL_STEPS);
+    // From How to play, the last step starts nothing (U136).
+    await expect(page.locator(testid("tutorial-next"))).toHaveText("Done");
+    await expect(page.locator(testid("tutorial-skip"))).toHaveText("Close");
+    await page.click(testid("tutorial-next"));
+    await expect(page.locator(testid("tutorial"))).toBeHidden();
+    expect(new URL(page.url()).pathname).toBe("/");
     await context.close();
   });
 
-  test("U41 step 1: tapping a column locks the ghost disc in, and a second tap changes nothing", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
-    await page.goto("/");
+  test("U137 the goal shows four discs in a row, and U145 a draw shows both lines", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
+    expect(await page.locator(`${testid("tutorial-board")} .piece.win`).count(), "four glowing discs").toBe(4);
+    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Get four of your discs in a row, across, down or diagonally.");
+    await toTutorialStep(page, 9);
+    await expect(page.locator(testid("tutorial-title"))).toHaveText("Draws");
+    expect(await page.locator(`${testid("tutorial-board")} .piece.win`).count(), "both lines glow").toBe(8);
+    await context.close();
+  });
+
+  test("U138 step 2: tapping a column locks the ghost disc in, and a second tap changes nothing", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE);
+    await openTutorial(page);
+    await toTutorialStep(page, 2);
     await expect(page.locator(testid("tutorial-ghost"))).toBeHidden();
     await page.locator(testid("tutorial-column-2")).click();
     await expect(page.locator(testid("tutorial-ghost"))).toBeVisible();
@@ -330,33 +330,34 @@ test.describe("Tutorial", () => {
     await context.close();
   });
 
-  test("U42 and U43 steps 2 and 3: both discs drop together, then the same column leaves rubble", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-    await page.goto("/");
-    await doStep(page, 1);
-    await page.click(testid("tutorial-next"));
-    await doStep(page, 2);
+  test("U139 U140 U141 both discs drop together; the timer step shows a draining bar; the same column leaves rubble", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
+    await toTutorialStep(page, 3);
+    await doTutorialStep(page, 3);
     const pieces = await page.locator(`${testid("tutorial-board")} [data-testid^="cell-"][data-piece="A"], ${testid("tutorial-board")} [data-testid^="cell-"][data-piece="B"]`).count();
-    expect(pieces, "step 2: two discs landed").toBe(2);
+    expect(pieces, "step 3: two discs landed").toBe(2);
     await page.click(testid("tutorial-next"));
-    await doStep(page, 3);
-    expect(await page.locator(`${testid("tutorial-board")} [data-piece="R"]`).count(), "step 3: rubble landed").toBe(1);
+    await expect(page.locator(testid("tutorial-title"))).toHaveText("The round timer");
+    await expect(page.locator(testid("tutorial-caption"))).toContainText("10 seconds");
+    await expect(page.locator(testid("tutorial-caption"))).toContainText("3 rounds in a row");
+    await expect(page.locator(testid("tutorial-timer"))).toBeVisible();
+    await doTutorialStep(page, 4);
+    await expect(page.locator(testid("tutorial-timer"))).toBeHidden();
+    await page.click(testid("tutorial-next"));
+    await doTutorialStep(page, 5);
+    expect(await page.locator(`${testid("tutorial-board")} [data-piece="R"]`).count(), "step 5: rubble landed").toBe(1);
     await context.close();
   });
 
-  test("U44 step 4: the shield badge shows on the player's side, must be tapped first, and blocks the computer's win", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-    await page.goto("/");
-    for (let step = 1; step <= 3; step++) {
-      await doStep(page, step);
-      await page.click(testid("tutorial-next"));
-    }
-    await expect(page.locator(testid("tutorial-title"))).toHaveText("Power-ups: your shield");
-    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Your shield wins one crash per game. Use it when you both need the same column.");
+  test("U142 the shield step: the badge must be tapped first, and the disc blocks the computer's win", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
+    await toTutorialStep(page, 6);
+    await expect(page.locator(testid("tutorial-title"))).toHaveText("Your shield");
+    await expect(page.locator(testid("tutorial-caption"))).toContainText("once per game, and is used up even if there is no crash");
     const badge = page.locator(testid("tutorial-shield"));
-    await expect(badge).toBeVisible();
     await expect(badge).toContainText("Arm shield");
-    // The wrong column, or no shield, is not accepted: the step waits and says why.
     await page.locator(testid("tutorial-column-3")).click();
     await expect(page.locator(testid("tutorial-hint"))).toContainText("Tap your shield first");
     await expect(page.locator(testid("tutorial-next"))).toBeHidden();
@@ -366,65 +367,45 @@ test.describe("Tutorial", () => {
     await expect(page.locator(testid("tutorial-hint"))).toContainText("glowing column");
     await page.locator(testid("tutorial-column-3")).click();
     await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
-    // The player's disc landed in the column the computer needed, and the computer's was lost.
     await expect(page.locator(`${testid("tutorial-board")} [data-testid="cell-3-0"]`)).toHaveAttribute("data-piece", "A");
     expect(await page.locator(`${testid("tutorial-board")} [data-piece="B"]`).count(), "the computer got no fourth disc").toBe(3);
     await expect(badge).toContainText("Shield used");
     await context.close();
   });
 
-  test("U45 and U46 steps 7 and 8: four in a row wins, then Play the computer or Back home", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-    await page.goto("/");
-    for (let step = 1; step <= 7; step++) {
-      await doStep(page, step);
-      if (step === 7) expect(await page.locator(`${testid("tutorial-board")} .piece.win`).count(), "step 7 ends on four glowing discs").toBe(4);
-      await page.click(testid("tutorial-next"));
-    }
-    await expect(page.locator(testid("tutorial-title"))).toHaveText("Ready to play");
-    // U46 and U18: the keys are written down here, once, and nowhere on the game screen.
-    await expect(page.locator(testid("tutorial-caption"))).toHaveText("You know the rules. On a keyboard, keys 1 to 7 choose a column, S arms your shield and E uses Earthquake.");
-    await page.click(testid("tutorial-skip")); // Back home
-    await expect(page.locator(testid("tutorial"))).toBeHidden();
-    await expect(page.locator(testid("home-screen"))).toBeVisible();
+  test("U146 and U147 playing with friends, then leaving and playing again with the keyboard keys written once", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
+    await toTutorialStep(page, 10);
+    await expect(page.locator(testid("tutorial-caption"))).toContainText("6-letter code");
+    await expect(page.locator(testid("tutorial-caption"))).toContainText("Anyone after the first watches");
+    await expect(page.locator(testid("tutorial-caption"))).toContainText("Quick match pairs you with a random person");
+    await page.click(testid("tutorial-next"));
+    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Leaving a game counts as a loss. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.");
     await context.close();
   });
 
-  test("U41 no disc sits stuck in the top hole of the practice board at any step", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-    await page.goto("/");
-    for (let step = 1; step <= 7; step++) {
+  test("U137 to U147 no disc sits stuck in the top hole of the practice board at any step", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
+    for (let step = 1; step <= 11; step++) {
       expect(await page.locator(`${testid("tutorial-board")} [data-testid$="-5"] .piece`).count(), `step ${step} before acting: nothing in the top row`).toBe(0);
-      await doStep(page, step);
-      await page.click(testid("tutorial-next"));
+      await doTutorialStep(page, step);
+      if (step < 11) await page.click(testid("tutorial-next"));
     }
     await context.close();
   });
 
-  test("R48 the tutorial does not return after a refresh", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
-    await page.goto("/");
-    await expect(page.locator(testid("tutorial"))).toBeVisible();
-    await page.click(testid("tutorial-skip"));
-    await expect(page.locator(testid("tutorial"))).toBeHidden();
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-    await expect(page.locator(testid("tutorial"))).toBeHidden();
-    await context.close();
-  });
-
-  test("R49 Skip ends it at any step and How to play replays it", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
-    await page.goto("/");
-    await doStep(page, 1);
-    await page.click(testid("tutorial-next"));
-    await doStep(page, 2);
-    await page.click(testid("tutorial-next"));
+  test("R49 Skip ends it at any step and How to play replays it from the start", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE);
+    await openTutorial(page);
+    await toTutorialStep(page, 3);
     await page.click(testid("tutorial-skip")); // at step 3, before acting
     await expect(page.locator(testid("tutorial"))).toBeHidden();
+    expect(new URL(page.url()).pathname, "How to play starts nothing").toBe("/");
     await page.click(testid("how-to-play"));
     await expect(page.locator(testid("tutorial"))).toBeVisible();
-    await expect(page.locator(testid("tutorial-title"))).toHaveText("Pick a column"); // from the start
+    await expect(page.locator(testid("tutorial-title"))).toHaveText("The goal"); // from the start
     await context.close();
   });
 
@@ -436,13 +417,12 @@ test.describe("Tutorial", () => {
       if (/^\/api\/(games|computer|quick)/.test(url.pathname)) calls.push(`${req.method()} ${url.pathname}`);
     });
     page.on("websocket", (ws) => calls.push(`websocket ${ws.url()}`));
-    await page.goto("/");
-    await expect(page.locator(testid("tutorial"))).toBeVisible();
-    for (let step = 1; step <= 7; step++) {
-      await doStep(page, step);
-      await page.click(testid("tutorial-next"));
+    await openTutorial(page); // from How to play, so finishing it starts no match either
+    for (let step = 1; step <= 11; step++) {
+      await doTutorialStep(page, step);
+      if (step < 11) await page.click(testid("tutorial-next"));
     }
-    await page.click(testid("tutorial-skip"));
+    await page.click(testid("tutorial-next")); // Done
     expect(calls, "no game was opened during the tutorial").toEqual([]);
     // Other checks finish games while this one runs, so the whole list is not compared (it is
     // global and shared): this player's own name must be on neither list (correction C18).
@@ -573,9 +553,8 @@ test.describe("Contrast", () => {
   });
 
   test("the tutorial and the Home forms have no axe violations", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-    await page.goto("/");
-    await expect(page.locator(testid("tutorial"))).toBeVisible();
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
     expect(await axeViolations(page), "tutorial open").toEqual([]);
     await page.click(testid("tutorial-skip"));
     await page.click(testid("join-toggle"));
@@ -885,22 +864,21 @@ test.describe("Small screens and the Share fallback", () => {
   });
 
   for (const viewport of [NARROW, { width: 360, height: 640 }]) {
-    test(`U41 to U46 the tutorial card never hides its title, Next or Skip at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
-      const { context, page } = await newPlayer(browser, viewport, { tutorial: "new", reducedMotion: true });
-      await page.goto("/");
-      await expect(page.locator(testid("tutorial"))).toBeVisible();
-      for (let step = 1; step <= 8; step++) {
-        if (step <= 7) await doStep(page, step);
+    test(`U136 to U147 the tutorial card never hides its progress, title, Next or Skip at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      for (let step = 1; step <= 11; step++) {
+        await doTutorialStep(page, step);
+        const progress = (await page.locator(testid("tutorial-progress")).boundingBox())!;
+        expect(progress.y, `step ${step}: progress on screen`).toBeGreaterThanOrEqual(0);
         const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
         const title = await box("tutorial-title");
         const skip = await box("tutorial-skip");
         expect(title.y, `step ${step}: title on screen`).toBeGreaterThanOrEqual(0);
         expect(skip.y + skip.height, `step ${step}: Skip on screen`).toBeLessThanOrEqual(viewport.height);
-        if (step <= 7) {
-          const next = await box("tutorial-next");
-          expect(next.y + next.height, `step ${step}: Next on screen`).toBeLessThanOrEqual(viewport.height);
-          await page.click(testid("tutorial-next"));
-        }
+        const next = await box("tutorial-next");
+        expect(next.y + next.height, `step ${step}: Next on screen`).toBeLessThanOrEqual(viewport.height);
+        if (step < 11) await page.click(testid("tutorial-next"));
       }
       await context.close();
     });

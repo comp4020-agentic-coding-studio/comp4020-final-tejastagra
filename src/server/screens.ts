@@ -3,7 +3,7 @@
 // and public/components.css, so nothing here defines a colour, font or duration
 // (CLAUDE.md). Every visible word is real product copy for players: notes about
 // how the page is built belong in docs/, not on screen (docs/design/look-and-feel.md U49).
-import { arcadePage, button, icon, roundButton, title, topbar } from "./arcade-html.ts";
+import { arcadePage, button, icon, roundButton, title, topbar, tutorialOverlay } from "./arcade-html.ts";
 
 export interface ScreenContext {
   version: string; // a hash of the stylesheets, so a deploy never mixes old and new styles
@@ -59,17 +59,7 @@ export function homeScreen(ctx: ScreenContext): string {
         </section>
       </div>
     </main>
-    <div class="tutorial" data-testid="tutorial" hidden role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
-      <div class="panel tutorial-card">
-        <h2 id="tutorial-title" data-testid="tutorial-title"></h2>
-        <p class="tutorial-caption" data-testid="tutorial-caption" aria-live="polite"></p>
-        <div class="tutorial-board" data-testid="tutorial-board"></div>
-        <div class="tutorial-actions">
-          <button type="button" class="btn btn-red" data-testid="tutorial-next">Next</button>
-          <button type="button" class="link-button" data-testid="tutorial-skip">Skip</button>
-        </div>
-      </div>
-    </div>
+    ${tutorialOverlay()}
   `;
   return shell(ctx, "Rubble", body, "/static/home.js");
 }
@@ -354,6 +344,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
         </div>
       </div>
     </main>
+    ${tutorialOverlay()}
   `;
   return shell(ctx, "Rubble: game", body, "/static/game.js");
 }

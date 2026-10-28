@@ -59,3 +59,34 @@ export async function makeGameCode(page: Page): Promise<string> {
   const res = await page.request.post("/api/games");
   return (await res.json()).code as string;
 }
+
+// The tutorial's eleven steps (docs/design/tutorial.md U137 to U147), by number, and how a player does each one.
+export const TUTORIAL_STEPS = ["The goal", "Pick a column", "You both move at once", "The round timer", "Crashes", "Your shield", "Earthquake", "The shrinking board", "Draws", "Playing with friends", "Leaving and playing again"];
+
+// Opens the tutorial from How to play (R49): the tutorial never opens on home by itself any more (R47).
+export async function openTutorial(page: Page): Promise<void> {
+  await page.goto("/");
+  await page.locator(testid("how-to-play")).click();
+  await page.locator(testid("tutorial")).waitFor({ state: "visible" });
+}
+
+// Does the step the player is on, as a player would (by tapping, never by skipping the action), and waits for Next.
+export async function doTutorialStep(page: Page, step: number): Promise<void> {
+  const tap = (c: number) => page.locator(testid(`tutorial-column-${c}`)).click();
+  if ([2, 3, 4, 5].includes(step)) await tap(3);
+  if (step === 6) {
+    await page.locator(testid("tutorial-shield")).click();
+    await tap(3);
+  }
+  if (step === 7) await page.locator(testid("tutorial-earthquake")).click();
+  if (step === 8) await tap(2);
+  await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8_000 });
+}
+
+// Walks from step 1 to `step` (1-based), doing each step on the way.
+export async function toTutorialStep(page: Page, step: number): Promise<void> {
+  for (let s = 1; s < step; s++) {
+    await doTutorialStep(page, s);
+    await page.locator(testid("tutorial-next")).click();
+  }
+}

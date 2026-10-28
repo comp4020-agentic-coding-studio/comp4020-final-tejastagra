@@ -2,7 +2,7 @@
 // 1366 wide. Q10 and Q11 are judged by looking, in /visual-qa. Run with pnpm test:e2e, never in pnpm check.
 import { expect, test, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
-import { makeGameCode, newPlayer, testid, waitForStart } from "./helpers.ts";
+import { makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, waitForStart } from "./helpers.ts";
 
 // A failing check should fail in seconds, not wait a minute for a dialog that is not there.
 test.use({ actionTimeout: 5_000 });
@@ -806,19 +806,10 @@ test.describe("The title's chips stay clear of the line under it (U5a)", () => {
 // Q11: the tutorial's practice power-up badges are pills with an outline, not bare text (they share a class with the game's rows,
 // which are borderless inside their card, and lost their look once).
 test("Q11 the tutorial's shield and Earthquake badges are outlined pills", async ({ browser }) => {
-  const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-  await page.goto("/");
-  await expect(page.locator(testid("tutorial"))).toBeVisible();
-  for (let done = 1; done < 5; done++) {
-    if (done <= 3) await page.locator(testid("tutorial-column-3")).click();
-    if (done === 4) {
-      await page.locator(testid("tutorial-shield")).click();
-      await page.locator(testid("tutorial-column-3")).click();
-    }
-    await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8_000 });
-    await page.locator(testid("tutorial-next")).click();
-  }
-  await expect(page.locator(testid("tutorial-title"))).toHaveText("Power-ups: Earthquake");
+  const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+  await openTutorial(page);
+  await toTutorialStep(page, 7);
+  await expect(page.locator(testid("tutorial-title"))).toHaveText("Earthquake");
   const style = await page.locator(testid("tutorial-earthquake")).evaluate((el) => {
     const c = getComputedStyle(el);
     return { border: parseFloat(c.borderTopWidth), radius: parseFloat(c.borderTopLeftRadius), shadow: c.boxShadow };

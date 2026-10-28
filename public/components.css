@@ -2208,6 +2208,22 @@ input {
   font-size: 1.05rem;
 }
 
+/* "Step N of 11" (U136). */
+.tutorial-progress {
+  margin: 0;
+  font: 700 0.85rem/1.2 var(--font-display);
+  color: var(--text-muted);
+}
+
+.tutorial-card h2 {
+  margin-top: 4px;
+}
+
+/* The practice round timer (U140): the game's bar, under the practice board. */
+.tutorial-timer {
+  margin: 0 0 8px;
+}
+
 .tutorial-board {
   margin: 8px 0;
 }
@@ -3620,5 +3636,47 @@ input {
     line-clamp: 2;
     overflow: hidden;
     overflow-wrap: anywhere;
+  }
+}
+
+/* The eleven-step tutorial on short screens (U47, U136): the longer captions still leave the board, its power-up badge, the hint and
+   Skip on one screen at 320 x 568. The ghost disc overlaps the board's frame here instead of having a row of its own. */
+@media (max-width: 359px), (max-height: 640px) {
+  .tutorial-progress {
+    font-size: 0.75rem;
+  }
+
+  .tutorial-card h2 {
+    font-size: 1rem;
+  }
+
+  .tutorial-caption {
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+
+  .tutorial-board .board-wrap {
+    margin-top: calc(var(--ghost-size) / 2);
+  }
+
+  /* The opponent's status sits on the progress line's row, at the card's top right, so it costs no row. */
+  .tutorial-card {
+    position: relative;
+  }
+
+  .tutorial-status {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 0.75rem;
+  }
+
+  .tutorial-progress {
+    text-align: left;
+    padding-left: 4px;
+  }
+
+  .tutorial-hint {
+    min-height: 0;
   }
 }

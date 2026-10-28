@@ -2,7 +2,7 @@
 // Run with pnpm test:e2e, never in pnpm check.
 import { expect, test, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
-import { chooseColumn, makeGameCode, newPlayer, testid, waitForRound } from "./helpers.ts";
+import { chooseColumn, makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, waitForRound } from "./helpers.ts";
 
 async function twoPlayers(browser: Parameters<typeof newPlayer>[0], options: { reducedMotion?: boolean; a?: { width: number; height: number } } = {}) {
   const one = await newPlayer(browser, options.a ?? PHONE, { reducedMotion: options.reducedMotion });
@@ -213,25 +213,15 @@ test.describe("The earthquake round (U65, U66)", () => {
 });
 
 test.describe("The tutorial's Earthquake step (U67)", () => {
-  async function toEarthquakeStep(page: Page): Promise<void> {
-    const tap = (c: number) => page.locator(testid(`tutorial-column-${c}`)).click();
-    for (let step = 1; step <= 3; step++) {
-      await tap(3);
-      await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
-      await page.click(testid("tutorial-next"));
-    }
-    await page.locator(testid("tutorial-shield")).click();
-    await tap(3);
-    await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
-    await page.click(testid("tutorial-next"));
-  }
+  // The Earthquake step is step 7 of 11 (U143).
+  const toEarthquakeStep = (page: Page) => toTutorialStep(page, 7);
 
   test("U67 the step comes after the shield step, waits for a tap on Earthquake, and breaks the computer's line", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-    await page.goto("/");
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openTutorial(page);
     await toEarthquakeStep(page);
-    await expect(page.locator(testid("tutorial-title"))).toHaveText("Power-ups: Earthquake");
-    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Use it to break up a line.");
+    await expect(page.locator(testid("tutorial-title"))).toHaveText("Earthquake");
+    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Earthquake uses your turn: the bottom row crumbles and everything drops down one. Lines it makes by itself do not win. It works once per game, and only when the bottom row has a piece.");
     const badge = page.locator(testid("tutorial-earthquake"));
     await expect(badge).toBeVisible();
     await expect(badge).toContainText("Use Earthquake");
@@ -252,8 +242,8 @@ test.describe("The tutorial's Earthquake step (U67)", () => {
   });
 
   test("U67 and U47 the step's controls stay on screen at 320 x 568", async ({ browser }) => {
-    const { context, page } = await newPlayer(browser, NARROW, { tutorial: "new", reducedMotion: true });
-    await page.goto("/");
+    const { context, page } = await newPlayer(browser, NARROW, { reducedMotion: true });
+    await openTutorial(page);
     await toEarthquakeStep(page);
     const badge = (await page.locator(testid("tutorial-earthquake")).boundingBox())!;
     expect(badge.height).toBeGreaterThanOrEqual(44);

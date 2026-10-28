@@ -33,6 +33,8 @@ interface Stage {
   shrink(): Promise<void>;
   status(text: string): void;
   hideStatus(): void;
+  // The practice round timer (U140): a bar under the board that drains, and never runs out on its own.
+  timer(show: boolean): void;
   hint(text: string): void;
   pause(ms: number): Promise<void>;
   win(cells: Array<[number, number]>): void;
@@ -51,12 +53,28 @@ const THINK = () => themeNumber("--ms-beat");
 const FULL_ROWS = 6;
 const SHRUNK_ROWS = 5;
 
+// The eleven steps (docs/design/tutorial.md U137 to U147). A step whose `run` waits for the player shows Next only once they
+// have acted; a step with nothing to do shows Next at once.
 const STEPS: Step[] = [
   {
-    title: "Pick a column",
-    caption: "Tap a column to choose it. Once you choose, your choice is locked in.",
+    title: "The goal",
+    caption: "Get four of your discs in a row, across, down or diagonally.",
     async run(s) {
       s.reset();
+      s.hideStatus();
+      for (const c of [1, 2, 3, 4]) s.place(c, "you");
+      s.place(0, "opponent");
+      s.place(5, "opponent");
+      s.win([[1, 0], [2, 0], [3, 0], [4, 0]]);
+      s.hint("Four in a row wins.");
+    },
+  },
+  {
+    title: "Pick a column",
+    caption: "Tap a column to choose it. Your choice locks in and cannot be changed this round.",
+    async run(s) {
+      s.reset();
+      s.hint("Tap a column.");
       const column = await s.waitTap();
       s.lock(column);
       s.hint("Locked in. You cannot change it now.");
@@ -64,7 +82,7 @@ const STEPS: Step[] = [
   },
   {
     title: "You both move at once",
-    caption: "Your opponent chooses at the same time. Neither of you sees the other's choice until both discs drop.",
+    caption: "Your opponent chooses at the same time. Neither of you sees the other's choice, and both discs drop together.",
     async run(s) {
       s.reset();
       s.hint("Tap a column.");
@@ -81,8 +99,25 @@ const STEPS: Step[] = [
     },
   },
   {
-    title: "Crash!",
-    caption: "If you both pick the same column, the discs crash and leave rubble that belongs to nobody. Rubble blocks lines.",
+    title: "The round timer",
+    caption: "Each round lasts up to 10 seconds, and the bar under the board shows the time left. If you do not choose in time, you miss the round and drop nothing. If both players miss 3 rounds in a row, the game is abandoned.",
+    async run(s) {
+      s.reset();
+      s.timer(true);
+      s.hint("Watch the bar drain, then tap a column before it runs out.");
+      const column = await s.waitTap();
+      s.timer(false);
+      s.lock(column);
+      await s.pause(THINK() / 3);
+      s.clearGhost();
+      s.place(column, "you", true);
+      s.place(column === 6 ? 5 : column + 1, "opponent", true);
+      s.hint("Chosen in time. A missed round drops nothing.");
+    },
+  },
+  {
+    title: "Crashes",
+    caption: "If you both pick the same column, the discs crash and leave rubble. Rubble blocks lines for both players.",
     async run(s) {
       s.reset();
       s.hint("Tap any column. Your opponent will pick the same one.");
@@ -98,15 +133,15 @@ const STEPS: Step[] = [
     },
   },
   {
-    title: "Power-ups: your shield",
-    caption: "Your shield wins one crash per game. Use it when you both need the same column.",
+    title: "Your shield",
+    caption: "The computer is about to win in the glowing column. Arm your shield, then pick that column. The shield wins one crash, once per game, and is used up even if there is no crash.",
     async run(s) {
       s.reset();
       for (const c of [0, 1, 2]) s.place(c, "opponent"); // three in a row: the computer needs column 4
       s.place(5, "you");
       s.glow(3);
       s.showShield(true);
-      s.hint("Your opponent is about to win in the glowing column. Tap your shield.");
+      s.hint("Tap your shield.");
       await s.waitShield();
       s.hint("Shield armed. Now tap the glowing column.");
       const column = await s.waitTap((c) => (!s.armed() ? "Tap your shield first." : c !== 3 ? "Tap the glowing column: your opponent needs it." : null));
@@ -119,12 +154,12 @@ const STEPS: Step[] = [
       s.glow(null);
       s.place(column, "you", true); // your disc lands and blocks the win; theirs is lost
       s.shieldUsed();
-      s.hint("Your disc landed. Your opponent's disc was lost.");
+      s.hint("Your disc landed and blocked the win. Your shield is used up.");
     },
   },
   {
-    title: "Power-ups: Earthquake",
-    caption: "Earthquake uses your turn: the bottom row crumbles away and everything drops down one. Use it to break up a line.",
+    title: "Earthquake",
+    caption: "Earthquake uses your turn: the bottom row crumbles and everything drops down one. Lines it makes by itself do not win. It works once per game, and only when the bottom row has a piece.",
     async run(s) {
       s.reset();
       for (const c of [0, 1, 2]) {
@@ -148,8 +183,8 @@ const STEPS: Step[] = [
     },
   },
   {
-    title: "The board shrinks",
-    caption: "The board shrinks as rounds pass: after round 12 the ceiling drops, and it drops again after round 20. Pieces in a closed row crumble away.",
+    title: "The shrinking board",
+    caption: "After round 12, and again after round 20, the top row closes. A warning shows the round before. Plan ahead: space runs out.",
     async run(s) {
       s.reset();
       s.place(2, "opponent");
@@ -173,45 +208,33 @@ const STEPS: Step[] = [
     },
   },
   {
-    title: "Four in a row wins",
-    caption: "Get four of your discs in a row, across, down or diagonally. If you both do it in the same round, it is a draw.",
+    title: "Draws",
+    caption: "If you both complete a line in the same round, or the board fills up, it is a draw.",
     async run(s) {
       s.reset();
-      s.showShield(false);
-      s.showQuake(false);
-      s.warn(null);
-      s.place(0, "opponent");
-      s.place(0, "opponent");
-      s.place(5, "opponent");
-      for (const c of [1, 2, 3]) s.place(c, "you");
-      s.glow(4);
-      s.hint("Tap the glowing column to finish your row.");
-      const column = await s.waitTap((c) => (c !== 4 ? "Tap the glowing column to finish your row." : null));
-      s.lock(column);
-      s.status("Choosing");
-      await s.pause(THINK());
-      s.status("Ready");
-      await s.pause(THINK() / 3);
-      s.clearGhost();
-      s.glow(null);
-      s.place(column, "you", true);
-      s.place(6, "opponent", true);
-      await s.pause(themeNumber("--ms-drop-land"));
-      s.win([[1, 0], [2, 0], [3, 0], [4, 0]]);
-      confettiBurst(s.wrap);
-      s.hint("Four in a row. You win!");
+      s.hideStatus();
+      for (const c of [0, 1, 2, 3]) s.place(c, "you");
+      for (const c of [0, 1, 2, 3]) s.place(c, "opponent");
+      s.win([[0, 0], [1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1]]);
+      s.hint("Both lines in the same round: a draw.");
     },
   },
   {
-    title: "Ready to play",
-    caption: "You know the rules. On a keyboard, keys 1 to 7 choose a column, S arms your shield and E uses Earthquake.",
+    title: "Playing with friends",
+    caption: "Play a friend gives you a link and a 6-letter code to send to anyone, anywhere in the world. The first person to open it plays you. Anyone after the first watches the game. Quick match pairs you with a random person who is online.",
     async run(s) {
       s.reset();
-      s.showShield(false);
-      s.showQuake(false);
-      s.warn(null);
-      s.hint("");
       s.hideStatus();
+      s.hint("");
+    },
+  },
+  {
+    title: "Leaving and playing again",
+    caption: "Leaving a game counts as a loss. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.",
+    async run(s) {
+      s.reset();
+      s.hideStatus();
+      s.hint("");
     },
   },
 ];
@@ -226,13 +249,17 @@ async function save(result: "finished" | "skipped" | "replay"): Promise<void> {
   }
 }
 
-export async function showTutorial(options: { onClose?: () => void } = {}): Promise<void> {
+// `mode` "match": shown before the player's first match (R47, U136); the last button starts it, and Skip starts it too.
+// `mode` "replay": from How to play (R49); it starts nothing. `onClose` is told how it ended.
+export async function showTutorial(options: { mode?: "match" | "replay"; onClose?: (result: "finished" | "skipped") => void } = {}): Promise<void> {
+  const mode = options.mode ?? "match";
   if (open) return;
   open = true;
   let index = 0;
   let running = 0; // a step that was left (skipped, or finished) can no longer change the screen
   const root = $("tutorial");
   const titleEl = $("tutorial-title");
+  const progress = $("tutorial-progress");
   const caption = $("tutorial-caption");
   const host = $("tutorial-board");
   const next = $("tutorial-next") as HTMLButtonElement;
@@ -290,11 +317,23 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
   warning.dataset.testid = "tutorial-warning";
   warning.setAttribute("role", "status");
   warning.hidden = true;
+  const timerBar = document.createElement("div");
+  timerBar.className = "timer-track tutorial-timer";
+  timerBar.dataset.testid = "tutorial-timer";
+  timerBar.setAttribute("role", "progressbar");
+  timerBar.setAttribute("aria-label", "Time left in this practice round");
+  timerBar.setAttribute("aria-valuemin", "0");
+  timerBar.setAttribute("aria-valuemax", "10");
+  timerBar.hidden = true;
+  const timerFill = document.createElement("span");
+  timerFill.className = "timer-fill";
+  timerBar.append(timerFill);
+  let timerTick: ReturnType<typeof setInterval> | undefined;
   const hint = document.createElement("p");
   hint.className = "tutorial-hint";
   hint.dataset.testid = "tutorial-hint";
   hint.setAttribute("role", "status");
-  host.replaceChildren(status, warning, wrap, shield, quake, hint);
+  host.replaceChildren(status, warning, wrap, timerBar, shield, quake, hint);
 
   const heights = new Array<number>(7).fill(0);
   const ghost = document.createElement("span");
@@ -316,6 +355,9 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
       return row;
     },
     reset() {
+      stage.timer(false);
+      status.hidden = false;
+      hint.hidden = false;
       board.clear();
       heights.fill(0);
       stage.clearGhost();
@@ -411,7 +453,21 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     },
     hideStatus() {
       status.hidden = true;
-      hint.hidden = true;
+    },
+    timer(show) {
+      clearInterval(timerTick);
+      timerBar.hidden = !show;
+      if (!show) return;
+      // It drains from 10 to 2 seconds and stops there, so the practice round never times out on its own (U140).
+      const startedAt = Date.now();
+      const draw = () => {
+        const left = Math.max(2, 10 - (Date.now() - startedAt) / 1000);
+        timerBar.style.setProperty("--left", String(left / 10));
+        timerBar.setAttribute("aria-valuenow", String(Math.ceil(left)));
+        timerBar.dataset.urgency = left <= 3 ? "urgent" : left <= 5 ? "warn" : "";
+      };
+      draw();
+      timerTick = setInterval(draw, reducedMotion() ? 1000 : 100);
     },
     hint(text) {
       hint.textContent = text;
@@ -486,25 +542,28 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
   root.hidden = false;
   document.body.style.overflow = "hidden";
 
-  function close(result: "finished" | "skipped"): void {
+  async function close(result: "finished" | "skipped"): Promise<void> {
     open = false;
     running++;
+    stage.timer(false);
     root.hidden = true;
     document.body.style.overflow = "";
-    void save(result);
     next.removeEventListener("click", onNext);
     skip.removeEventListener("click", onSkip);
     document.removeEventListener("keydown", onKey);
-    options.onClose?.();
+    // Saved before the match starts, so it never shows again (R48), even if the next page loads at once.
+    if (mode === "match") await save(result);
+    options.onClose?.(result);
   }
 
   function render(): void {
     const step = STEPS[index];
     const last = index === STEPS.length - 1;
+    progress.textContent = `Step ${index + 1} of ${STEPS.length}`; // U136
     titleEl.textContent = step.title;
     caption.textContent = step.caption; // an aria-live region, so it is announced (U47)
-    next.textContent = last ? "Play the computer" : "Next";
-    skip.textContent = last ? "Back home" : "Skip";
+    next.textContent = last ? (mode === "match" ? "Start the match" : "Done") : "Next";
+    skip.textContent = mode === "replay" && last ? "Close" : "Skip";
     hint.hidden = false;
     next.hidden = true; // Next only appears once the step's action is done (U41 to U46)
     tapWaiter = null;
@@ -518,34 +577,19 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
     });
   }
 
-  async function onNext(): Promise<void> {
+  function onNext(): void {
     if (index < STEPS.length - 1) {
       index++;
       render();
       return;
     }
-    close("finished");
-    // U46: the last step offers the computer.
-    try {
-      const res = await fetch("/api/computer", { method: "POST" });
-      if (res.ok) {
-        const { code } = await res.json();
-        try {
-          sessionStorage.setItem(`rubble-computer-${code}`, "1");
-        } catch {
-          // Play again then starts a friend game, which is harmless
-        }
-        location.href = `/g/${code}`;
-      }
-    } catch {
-      // stay on the page; the Play the computer button is still there
-    }
+    void close("finished"); // the last step: the chosen match starts, or From How to play nothing does (U136)
   }
   function onSkip(): void {
-    close(index === STEPS.length - 1 ? "finished" : "skipped");
+    void close(index === STEPS.length - 1 ? "finished" : "skipped");
   }
   function onKey(event: KeyboardEvent): void {
-    if (event.key === "Escape") close("skipped");
+    if (event.key === "Escape") void close("skipped");
     else if (event.key >= "1" && event.key <= "7") buttons[Number(event.key) - 1].click();
     else if (event.key === "s" || event.key === "S") {
       if (!shield.hidden) shield.click();
@@ -560,7 +604,28 @@ export async function showTutorial(options: { onClose?: () => void } = {}): Prom
   render();
 }
 
+// How to play (R49): the tutorial again, starting nothing.
 export async function replayTutorial(): Promise<void> {
   await save("replay");
-  await showTutorial();
+  await showTutorial({ mode: "replay" });
+}
+
+// R47: whether this player is due the tutorial, asked of the server.
+export async function tutorialDue(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/me");
+    return res.ok && (await res.json()).tutorialDue === true;
+  } catch {
+    return false; // if the server cannot say, the match starts; the tutorial can be played from How to play
+  }
+}
+
+// R47, U136: before a match starts, run the tutorial if it is due, then start the match whether it was finished or skipped.
+export async function beforeFirstMatch(start: () => void | Promise<void>): Promise<void> {
+  if (!(await tutorialDue())) {
+    await start();
+    return;
+  }
+  await new Promise<void>((resolve) => void showTutorial({ mode: "match", onClose: () => resolve() }));
+  await start();
 }

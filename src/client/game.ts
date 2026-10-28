@@ -7,6 +7,7 @@
 import { avatar, buildBoard, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView, type Colour } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 import { dialogButton, openDialog } from "./dialog.ts";
+import { beforeFirstMatch } from "./tutorial.ts";
 
 type Player = "A" | "B";
 
@@ -90,10 +91,18 @@ try {
 }
 
 const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
-socket.addEventListener("open", () => {
+// R47, U136: a newcomer who opens a game link starts their first match here, so the tutorial runs before the page joins (nobody
+// is seated, so no countdown or round starts while they read it). A reload of a seat this tab already holds joins at once.
+const opened = new Promise<void>((resolve) => socket.addEventListener("open", () => resolve(), { once: true }));
+void (async () => {
   const saved = loadSeat();
-  socket.send(JSON.stringify({ type: "join", code, ...(saved ?? {}) }));
-});
+  const join = async () => {
+    await opened;
+    socket.send(JSON.stringify({ type: "join", code, ...(saved ?? {}) }));
+  };
+  if (saved) await join();
+  else await beforeFirstMatch(join);
+})();
 
 function setText(id: string, text: string): void {
   $(id).textContent = text;

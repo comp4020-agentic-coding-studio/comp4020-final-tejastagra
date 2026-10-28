@@ -105,25 +105,25 @@ const snapshot = (state: object, extra: object = {}) => ({ type: "snapshot", you
 
 const STATES: State[] = [
   { name: "home", run: async ({ page, shot }) => { await page.goto("/"); await settle(page, 1200); await shot(); } },
-  { name: "tutorial-step-1", tutorial: true, run: async ({ page, shot }) => { await page.goto("/"); await page.locator(testid("tutorial")).waitFor(); await settle(page); await shot(); } },
-  ...[2, 3, 4, 5, 6, 7, 8].map((step): State => ({
+  // R47: the tutorial opens when a new player starts their first match, here from Play the computer, before the match (U136).
+  { name: "tutorial-before-first-match", tutorial: true, run: async ({ page, shot }) => { await page.goto("/"); await page.locator(testid("play-computer")).click(); await page.locator(testid("tutorial")).waitFor(); await settle(page); await shot(); } },
+  // Each of the eleven steps (U137 to U147), opened from How to play; each earlier step is played with its own taps, then Next.
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((step): State => ({
     name: `tutorial-step-${step}`,
-    tutorial: true,
     run: async ({ page, shot }) => {
       await page.goto("/");
+      await page.locator(testid("how-to-play")).click();
       await page.locator(testid("tutorial")).waitFor();
       await settle(page, 400);
-      // Each earlier step is played with its own taps, as a player does, and then Next.
       for (let done = 1; done < step; done++) {
         const tap = (c: number) => page.locator(testid(`tutorial-column-${c}`)).click();
-        if (done <= 3) await tap(3);
-        if (done === 4) {
+        if ([2, 3, 4, 5].includes(done)) await tap(3);
+        if (done === 6) {
           await page.locator(testid("tutorial-shield")).click();
           await tap(3);
         }
-        if (done === 5) await page.locator(testid("tutorial-earthquake")).click();
-        if (done === 6) await tap(2);
-        if (done === 7) await tap(4);
+        if (done === 7) await page.locator(testid("tutorial-earthquake")).click();
+        if (done === 8) await tap(2);
         await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8000 });
         await page.locator(testid("tutorial-next")).click();
         await page.waitForTimeout(200);

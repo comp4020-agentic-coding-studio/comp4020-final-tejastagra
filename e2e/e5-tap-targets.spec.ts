@@ -1,7 +1,7 @@
 // E5: every tap target is at least 44 x 44 CSS px at the phone viewport (and at 320 px).
 import { expect, test, type Page } from "@playwright/test";
 import { NARROW, PHONE } from "../playwright.config.ts";
-import { STATIC_SCREENS, makeGameCode, newPlayer, testid, waitForStart } from "./helpers.ts";
+import { STATIC_SCREENS, makeGameCode, newPlayer, openTutorial, testid, waitForStart } from "./helpers.ts";
 
 async function tooSmall(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -61,9 +61,8 @@ test("E5 and U15 each column of the board is a hit area at least 44 px wide at 3
 });
 
 test("E5 the tutorial's controls and the Home popups are 44 px at 320 px", async ({ browser }) => {
-  const { context, page } = await newPlayer(browser, NARROW, { tutorial: "new" });
-  await page.goto("/");
-  await expect(page.locator(testid("tutorial"))).toBeVisible();
+  const { context, page } = await newPlayer(browser, NARROW);
+  await openTutorial(page);
   expect(await tooSmall(page), "tutorial open").toEqual([]);
   await page.click(testid("tutorial-skip"));
   expect(await tooSmall(page), "Home").toEqual([]);
