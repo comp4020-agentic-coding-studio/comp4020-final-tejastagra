@@ -36,6 +36,8 @@ The first six are the events the tutorial requires. The rest are specific to Rub
 | `tab_replaced` | A second tab took over a connection (R32) | |
 | `server_start` | The server starts | `games_loaded` `db_path` |
 | `persist_error` | A database write fails | `error` |
+| `countdown_start` | Both players are present and the start countdown begins (R97) | `game` `ms` |
+| `round_open` | The countdown ended and round 1 opened (R97) | `game` `round=1` |
 | `spectate_join` | A spectator starts watching a game (R70) | `game` `spectators` `kind=quick\|link` |
 | `spectate_leave` | A spectator stops watching: it closed the tab, or left on purpose | `game` `spectators` |
 | `spectate_move` | A spectator is moved to another game after a game ended (R76), or because their game stopped | `game` (the new game) `from` (the old game) `spectators` (in the new game) |

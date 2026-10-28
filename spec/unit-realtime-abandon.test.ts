@@ -12,7 +12,9 @@ const ROUND_MS = 150;
 function start() {
   const server = createServer((_req, res) => res.end());
   const db = openDb(":memory:");
-  const rt = attachRealtime(server, db, { roundTimerMs: ROUND_MS, disconnectGraceMs: 60_000, computerDelayMs: 20, computerSeed: 3 });
+  const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0, roundTimerMs: ROUND_MS, disconnectGraceMs: 60_000, computerDelayMs: 20, computerSeed: 3 });
   server.listen(0);
   const url = `ws://localhost:${(server.address() as AddressInfo).port}/ws`;
   return { server, db, rt, url };
@@ -132,7 +134,9 @@ describe("R19 abandonment", () => {
     server.close();
 
     const second = createServer((_req, res) => res.end());
-    const rt2 = attachRealtime(second, db, { roundTimerMs: ROUND_MS });
+    const rt2 = attachRealtime(second, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0, roundTimerMs: ROUND_MS });
     cleanup = () => { rt2.dispose(); second.close(); };
     expect(db.loadGames().find((g) => g.code === "ABN240")?.ended).toEqual({ result: "abandoned" });
     // Nothing restarts its timer, so no round is ever played in it again.

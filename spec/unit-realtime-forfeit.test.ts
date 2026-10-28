@@ -17,6 +17,8 @@ const ROUND_TIMER_MS = 60_000;
 function startServer(): { server: Server; url: string; dispose: () => void } {
   const server = createServer((_req, res) => res.end());
   const { dispose } = attachRealtime(server, openDb(":memory:"), {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0,
     disconnectGraceMs: DISCONNECT_GRACE_MS,
     roundTimerMs: ROUND_TIMER_MS,
   });
@@ -210,6 +212,8 @@ describe("R27: a player who disconnects and does not return forfeits", () => {
     const server = createServer((_req, res) => res.end());
     const shortRoundTimerMs = 100;
     const { dispose } = attachRealtime(server, openDb(":memory:"), {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0,
       disconnectGraceMs: DISCONNECT_GRACE_MS,
       roundTimerMs: shortRoundTimerMs,
     });

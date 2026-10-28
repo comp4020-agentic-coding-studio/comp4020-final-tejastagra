@@ -18,6 +18,8 @@ function start(options: { bufferLimit?: number; moveMs?: number; perGame?: numbe
   const server = createServer((_req, res) => res.end());
   const db = options.db ?? openDb(":memory:");
   const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0,
     roundTimerMs: options.roundTimerMs ?? 5000,
     disconnectGraceMs: options.graceMs,
     computerDelayMs: 40,
@@ -142,7 +144,7 @@ describe("R72 a spectator never receives a pending choice (W1)", () => {
     }
     // The spectator's snapshot has no field a pending choice could ride on.
     const joined = JSON.parse(c.raw[0]);
-    expect(Object.keys(joined).sort()).toEqual(["code", "kind", "names", "state", "type", "watching"]);
+    expect(Object.keys(joined).sort()).toEqual(["code", "colours", "kind", "names", "state", "type", "watching"]); // colours are public (R94)
   });
 
   it("W1 (R72) a spectator is never sent opponent_ready, however many times a player chooses", async () => {

@@ -118,7 +118,7 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
   });
 
   it("U7 graphics that carry meaning meet 3:1 against what they sit on", () => {
-    for (const [fg, bg] of [["--yellow", "--hole"], ["--red", "--hole"], ["--marker-you", "--red"], ["--marker-opponent", "--yellow"], ["--rubble", "--ink"], ["--rock", "--ink"], ["--timer-ok", "--field"], ["--timer-warn", "--field"], ["--timer-urgent", "--field"]] as Array<[string, string]>) {
+    for (const [fg, bg] of [["--yellow", "--hole"], ["--red", "--hole"], ["--marker-red", "--red"], ["--marker-yellow", "--yellow"], ["--rubble", "--ink"], ["--rock", "--ink"], ["--timer-ok", "--field"], ["--timer-warn", "--field"], ["--timer-urgent", "--field"]] as Array<[string, string]>) {
       expect(ratio(fg, bg), `${fg} on ${bg}`).toBeGreaterThanOrEqual(3);
     }
   });

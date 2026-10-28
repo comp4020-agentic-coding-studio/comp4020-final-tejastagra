@@ -6,6 +6,21 @@ import { logEvent } from "./log.ts";
 
 export type Ended = { result: "forfeit"; winner: Player } | { result: "abandoned" };
 
+// Each seat's colour (R93): one seat red with the ring marker, the other yellow with the cross marker.
+export type Colour = "red" | "yellow";
+export type Colours = Record<Player, Colour>;
+export const DEFAULT_COLOURS: Colours = { A: "red", B: "yellow" }; // R95: a game saved before colours existed
+
+const parseColours = (text: unknown): Colours => {
+  try {
+    const c = JSON.parse(String(text));
+    if ((c?.A === "red" && c?.B === "yellow") || (c?.A === "yellow" && c?.B === "red")) return { A: c.A, B: c.B };
+  } catch {
+    // an unreadable value falls back to the default, so one bad row never stops the app
+  }
+  return { ...DEFAULT_COLOURS };
+};
+
 export interface SavedGame {
   code: string;
   state: GameState;
@@ -19,6 +34,7 @@ export interface SavedGame {
   playerB: string | null;
   missedA: number; // rounds in which that seat made no choice (R39)
   missedB: number;
+  colours: Colours; // R93, R95
 }
 
 export interface PlayerRow {
@@ -66,14 +82,18 @@ export interface Db {
   // Marks a game as against the computer (R33), so it survives a restart and
   // never counts for the leaderboard (R37).
   // An upsert, so the mark can be written before the game itself (one source of truth).
-  markComputer(code: string, state: GameState): void;
+  // Each mark also saves the game's colours (R93), decided by the caller when the game is made.
+  markComputer(code: string, state: GameState, colours?: Colours): void;
   // Marks a game as a quick match game (R35, R71). An upsert, like markComputer.
-  markWatchable(code: string, state: GameState): void;
+  markWatchable(code: string, state: GameState, colours?: Colours): void;
   // Marks a game as a link game and records who made it (R34, R36). The first creator wins. An upsert.
-  markLink(code: string, state: GameState, creator: string | null): void;
+  markLink(code: string, state: GameState, creator: string | null, colours?: Colours): void;
   // A rematch (R84): copies the finished game under `<code>#<n>` (the first n not used) and resets the game under `code` to
-  // `fresh`, keeping its kind, creator and seats, in one transaction. Returns the archive's code.
-  archiveGame(code: string, fresh: GameState): string;
+  // `fresh`, keeping its kind, creator and seats, in one transaction. The new game's colours are `colours` (R96: swapped).
+  // Returns the archive's code.
+  archiveGame(code: string, fresh: GameState, colours?: Colours): string;
+  // The colours of a game made by a join with no kind (it has none saved yet), decided when it is made (R93).
+  setColours(code: string, colours: Colours): void;
   loadGames(): SavedGame[];
   // The games one player sat in (R90): a query on the seats, so the account page does not read and parse every saved game.
   loadGamesOf(playerId: string): SavedGame[];
@@ -130,7 +150,14 @@ const MIGRATIONS: string[] = [
   `UPDATE games SET kind = CASE WHEN vs_computer = 1 THEN 'computer' WHEN watchable = 1 THEN 'quick' ELSE 'link' END WHERE kind IS NULL`,
   // R86, R87 (ADR 0013): an account reset by the admin must choose a new password at its next sign-in. No account is marked.
   `ALTER TABLE players ADD COLUMN must_change INTEGER NOT NULL DEFAULT 0`,
+  // R93, R95 (ADR 0014): each seat's colour, decided by the server when the game is made. Games saved before this change get
+  // seat A red and seat B yellow, which is what their spectators were shown.
+  `ALTER TABLE games ADD COLUMN colours TEXT`,
+  `UPDATE games SET colours = '{"A":"red","B":"yellow"}' WHERE colours IS NULL`,
 ];
+
+// How many migrations there are: a database opened by this code has run exactly this many (`PRAGMA user_version`).
+export const MIGRATION_COUNT = MIGRATIONS.length;
 
 function migrate(db: DatabaseSync): void {
   const { user_version: appliedCount } = db.prepare("PRAGMA user_version").get() as { user_version: number };
@@ -153,31 +180,33 @@ export function openDb(path: string): Db {
     ON CONFLICT(code) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at
   `);
   const updateEnded = db.prepare(`UPDATE games SET ended = ? WHERE code = ?`);
+  // A game's colours are decided once, when it is made (R93): a later mark never changes them.
   const markComputerRow = db.prepare(`
-    INSERT INTO games (code, state, updated_at, vs_computer, kind) VALUES (?, ?, ?, 1, 'computer')
-    ON CONFLICT(code) DO UPDATE SET vs_computer = 1, kind = 'computer'
+    INSERT INTO games (code, state, updated_at, vs_computer, kind, colours) VALUES (?, ?, ?, 1, 'computer', ?)
+    ON CONFLICT(code) DO UPDATE SET vs_computer = 1, kind = 'computer', colours = COALESCE(colours, excluded.colours)
   `);
   const markWatchableRow = db.prepare(`
-    INSERT INTO games (code, state, updated_at, watchable, kind) VALUES (?, ?, ?, 1, 'quick')
-    ON CONFLICT(code) DO UPDATE SET watchable = 1, kind = 'quick'
+    INSERT INTO games (code, state, updated_at, watchable, kind, colours) VALUES (?, ?, ?, 1, 'quick', ?)
+    ON CONFLICT(code) DO UPDATE SET watchable = 1, kind = 'quick', colours = COALESCE(colours, excluded.colours)
   `);
   const markLinkRow = db.prepare(`
-    INSERT INTO games (code, state, updated_at, kind, creator) VALUES (?, ?, ?, 'link', ?)
-    ON CONFLICT(code) DO UPDATE SET kind = 'link', creator = COALESCE(creator, excluded.creator)
+    INSERT INTO games (code, state, updated_at, kind, creator, colours) VALUES (?, ?, ?, 'link', ?, ?)
+    ON CONFLICT(code) DO UPDATE SET kind = 'link', creator = COALESCE(creator, excluded.creator), colours = COALESCE(colours, excluded.colours)
   `);
   const saveRoundRow = db.prepare(`
     UPDATE games SET state = ?, updated_at = ?, missed_a = missed_a + ?, missed_b = missed_b + ? WHERE code = ?
   `);
   const copyRow = db.prepare(`
-    INSERT INTO games (code, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b)
-    SELECT ?, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b FROM games WHERE code = ?
+    INSERT INTO games (code, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b, colours)
+    SELECT ?, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b, colours FROM games WHERE code = ?
   `);
-  const resetRow = db.prepare(`UPDATE games SET state = ?, updated_at = ?, ended = NULL, missed_a = 0, missed_b = 0 WHERE code = ?`);
+  const resetRow = db.prepare(`UPDATE games SET state = ?, updated_at = ?, ended = NULL, missed_a = 0, missed_b = 0, colours = COALESCE(?, colours) WHERE code = ?`);
   const codeTaken = db.prepare(`SELECT 1 AS taken FROM games WHERE code = ?`);
+  const updateColours = db.prepare(`UPDATE games SET colours = ? WHERE code = ?`);
   const seatA = db.prepare(`UPDATE games SET player_a = ? WHERE code = ? AND player_a IS NULL`);
   const seatB = db.prepare(`UPDATE games SET player_b = ? WHERE code = ? AND player_b IS NULL`);
   const selectById = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen, must_change FROM players WHERE id = ?`);
-  const gameColumns = "code, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b";
+  const gameColumns = "code, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b, colours";
   const selectAll = db.prepare(`SELECT ${gameColumns} FROM games`);
   const selectOf = db.prepare(`SELECT ${gameColumns} FROM games WHERE player_a = ? OR player_b = ?`);
 
@@ -231,6 +260,7 @@ export function openDb(path: string): Db {
           playerB: (row.player_b as string | null) ?? null,
           missedA: row.missed_a as number,
           missedB: row.missed_b as number,
+          colours: parseColours(row.colours),
         });
       } catch (error) {
         logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
@@ -306,29 +336,32 @@ export function openDb(path: string): Db {
     saveEnded(code: string, ended: Ended): void {
       updateEnded.run(JSON.stringify(ended), code);
     },
-    markComputer(code: string, state: GameState): void {
-      markComputerRow.run(code, JSON.stringify(state), Date.now());
+    markComputer(code: string, state: GameState, colours: Colours = DEFAULT_COLOURS): void {
+      markComputerRow.run(code, JSON.stringify(state), Date.now(), JSON.stringify(colours));
     },
-    markWatchable(code: string, state: GameState): void {
-      markWatchableRow.run(code, JSON.stringify(state), Date.now());
+    markWatchable(code: string, state: GameState, colours: Colours = DEFAULT_COLOURS): void {
+      markWatchableRow.run(code, JSON.stringify(state), Date.now(), JSON.stringify(colours));
     },
-    markLink(code: string, state: GameState, creator: string | null): void {
-      markLinkRow.run(code, JSON.stringify(state), Date.now(), creator);
+    markLink(code: string, state: GameState, creator: string | null, colours: Colours = DEFAULT_COLOURS): void {
+      markLinkRow.run(code, JSON.stringify(state), Date.now(), creator, JSON.stringify(colours));
     },
-    archiveGame(code: string, fresh: GameState): string {
+    archiveGame(code: string, fresh: GameState, colours?: Colours): string {
       let n = 1;
       while (codeTaken.get(`${code}#${n}`)) n++;
       const archive = `${code}#${n}`;
       db.exec("BEGIN");
       try {
         copyRow.run(archive, code);
-        resetRow.run(JSON.stringify(fresh), Date.now(), code);
+        resetRow.run(JSON.stringify(fresh), Date.now(), colours ? JSON.stringify(colours) : null, code);
         db.exec("COMMIT");
       } catch (error) {
         db.exec("ROLLBACK");
         throw error;
       }
       return archive;
+    },
+    setColours(code: string, colours: Colours): void {
+      updateColours.run(JSON.stringify(colours), code);
     },
     loadGames(): SavedGame[] {
       return parseGames(selectAll.all());

@@ -10,6 +10,8 @@ function start(options: { offerMs?: number; graceMs?: number; retainMs?: number 
   const server = createServer((_req, res) => res.end());
   const db = openDb(":memory:");
   const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0,
     disconnectGraceMs: options.graceMs ?? 60_000,
     roundTimerMs: 60_000,
     computerDelayMs: 20,
@@ -207,7 +209,8 @@ describe("R84 a rematch keeps the link, the players and the spectators, and is a
     ask(b, "RMT020", "B", b.token);
     await a.next("rematch_started");
     const started = await w.next("rematch_started");
-    expect(started).toEqual({ type: "rematch_started" });
+    expect(started).toEqual({ type: "rematch_started", colours: expect.objectContaining({}) }); // R96: the new colours, and nothing else
+    expect(Object.keys(started.colours).sort()).toEqual(["A", "B"]);
     const round = await w.next("round");
     expect(round.state.round).toBe(0);
     expect(round.state.status).toBe("playing");
@@ -316,7 +319,9 @@ describe("R83 edge cases found in review", () => {
     const db = openDb(":memory:");
     const first = (() => {
       const server = createServer((_req, res) => res.end());
-      const rt = attachRealtime(server, db, { disconnectGraceMs: 60_000, roundTimerMs: 60_000, identify: (r) => (typeof r.headers["x-person"] === "string" ? (r.headers["x-person"] as string) : null) });
+      const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0, disconnectGraceMs: 60_000, roundTimerMs: 60_000, identify: (r) => (typeof r.headers["x-person"] === "string" ? (r.headers["x-person"] as string) : null) });
       server.listen(0);
       return { server, rt, url: `ws://localhost:${(server.address() as AddressInfo).port}/ws` };
     })();
@@ -332,7 +337,9 @@ describe("R83 edge cases found in review", () => {
     // The server restarts: the finished game is in the database and not in memory. The seat tokens were in memory too, so a
     // player coming back has none; a request with a stale token is refused (R32) and nothing starts.
     const second = createServer((_req, res) => res.end());
-    const rt = attachRealtime(second, db, { disconnectGraceMs: 60_000, roundTimerMs: 60_000, identify: (r) => (typeof r.headers["x-person"] === "string" ? (r.headers["x-person"] as string) : null) });
+    const rt = attachRealtime(second, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0, disconnectGraceMs: 60_000, roundTimerMs: 60_000, identify: (r) => (typeof r.headers["x-person"] === "string" ? (r.headers["x-person"] as string) : null) });
     second.listen(0);
     cleanup.push(() => {
       rt.dispose();

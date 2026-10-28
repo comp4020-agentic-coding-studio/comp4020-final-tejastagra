@@ -14,7 +14,7 @@ const ROUND_TIMER_MS = 300;
 
 function startServer(): { server: Server; url: string; dispose: () => void; createGame: (code: string) => void } {
   const server = createServer((_req, res) => res.end());
-  const { dispose, game } = attachRealtime(server, openDb(":memory:"), { roundTimerMs: ROUND_TIMER_MS });
+  const { dispose, game } = attachRealtime(server, openDb(":memory:"), { roundTimerMs: ROUND_TIMER_MS, countdownMs: 0 }); // no start countdown (R97): these checks time rounds
   server.listen(0);
   const { port } = server.address() as AddressInfo;
   return { server, url: `ws://localhost:${port}/ws`, dispose, createGame: (code) => void game.createGame(code) };

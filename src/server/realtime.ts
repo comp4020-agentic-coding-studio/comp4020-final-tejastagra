@@ -8,10 +8,10 @@
 // chosen and the round resolves.
 import { WebSocketServer, type WebSocket } from "ws";
 import type { Server } from "node:http";
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { newGame, resolveRound, validateChoice, type Choice, type GameState, type Player, type RejectReason } from "../engine/index.ts";
 import { createGameService, ROUND_TIMER_MS, type GameService } from "./game-service.ts";
-import type { Db, Ended } from "./db.ts";
+import { DEFAULT_COLOURS, type Colours, type Db, type Ended } from "./db.ts";
 import { logEvent } from "./log.ts";
 import { chooseMove, seededRandom } from "./computer.ts";
 import { createSpectators, SPECTATOR_MOVE_MS, type WatchableView } from "./spectators.ts";
@@ -33,6 +33,21 @@ export interface Snapshot {
   opponentName: string | null;
   // How many people are watching this game (R75). A number only.
   watching: number;
+  // Each seat's colour (R93, R94): public, the same on every screen, so it is safe to send at any time (R22).
+  colours: Colours;
+  // Whether round 1 has opened (R97): false while waiting for the second player and during the start countdown.
+  started: boolean;
+}
+
+// The start countdown (R97): sent to both players when it begins, and to a player who connects during it, with the time left.
+export interface Countdown {
+  type: "countdown";
+  ms: number;
+}
+
+// Round 1 has opened (R97): the countdown is over and choices are accepted.
+export interface Started {
+  type: "started";
 }
 
 export interface OpponentJoined {
@@ -46,7 +61,7 @@ export interface OpponentReady {
 
 export interface Rejected {
   type: "rejected";
-  reason: RejectReason | "already_chosen"; // already_chosen: R4, a choice is final
+  reason: RejectReason | "already_chosen" | "not_started"; // already_chosen: R4, a choice is final; not_started: R97, the countdown
 }
 
 // How many people are watching (R75): a number only, sent to players when it changes.
@@ -67,7 +82,7 @@ export type GameOver =
   | { type: "game_over"; result: "forfeit"; winner: Player }
   | { type: "game_over"; result: "abandoned" }; // R19: no winner
 
-export type ServerMessage = Snapshot | OpponentJoined | OpponentReady | Rejected | GameFull | TabReplaced | GameOver | Watching;
+export type ServerMessage = Snapshot | OpponentJoined | OpponentReady | Rejected | GameFull | TabReplaced | GameOver | Watching | Countdown | Started;
 
 interface JoinMessage {
   type: "join";
@@ -115,10 +130,13 @@ export interface RealtimeOptions {
   spectatorsTotal?: number; // R77
   spectatorBufferLimit?: number; // R77: bytes waiting to be sent to a spectator before it is closed
   rematchOfferMs?: number; // how long a rematch offer stands (R83); 30 seconds by default
+  // How long the start countdown lasts (R97); 3 seconds by default. 0 means no countdown, for checks of other rules (ADR 0014).
+  countdownMs?: number;
   finishedRetainMs?: number; // how long a finished game stays known in memory for a rematch or a late visitor (R84); 30 minutes by default
 }
 
 export const DISCONNECT_GRACE_MS = 30_000;
+export const START_COUNTDOWN_MS = 3_000; // R97
 export const REMATCH_OFFER_MS = 30_000; // R83
 export const FINISHED_RETAIN_MS = 30 * 60_000; // R84: a finished game is remembered this long, so memory cannot grow without bound
 export const COMPUTER_THINK_MIN_MS = 1_000; // R52
@@ -193,6 +211,20 @@ export function attachRealtime(
   // restart gives the players a fresh count rather than ending their game.
   const idleRounds = new Map<string, number>();
 
+  // ---- Colours (R93 to R96, ADR 0014) ----
+  // Each game's colours, decided at random by the server when the game is made and saved with it, so every screen draws the same
+  // seat in the same colour. Drawn from the operating system's random numbers, never the computer's, so the computer's seeded
+  // play (R46) is the same whatever the colours.
+  const colours = new Map<string, Colours>();
+  const randomColours = (): Colours => (randomInt(2) === 0 ? { A: "red", B: "yellow" } : { A: "yellow", B: "red" });
+  const coloursOf = (code: string): Colours => colours.get(code) ?? DEFAULT_COLOURS;
+
+  // ---- The start countdown (R97) ----
+  // Games whose round 1 has opened. A game past round 0, or over, has started whatever this says (a restored game, R26).
+  const countdownMs = options.countdownMs ?? START_COUNTDOWN_MS;
+  const startedGames = new Set<string>();
+  const countdowns = new Map<string, { timer: NodeJS.Timeout; endsAt: number }>();
+
   function key(code: string, player: Player): string {
     return `${code}:${player}`;
   }
@@ -230,6 +262,54 @@ export function attachRealtime(
     return count;
   }
 
+  function hasStarted(code: string): boolean {
+    const record = game.getGame(code);
+    return startedGames.has(code) || !record || record.state.round > 0 || record.state.status !== "playing" || forfeited.has(code);
+  }
+
+  function clearCountdown(code: string): void {
+    const running = countdowns.get(code);
+    if (running) clearTimeout(running.timer);
+    countdowns.delete(code);
+  }
+
+  // Both players are present (R51): round 1 opens after the countdown (R97), or at once if the game has already started.
+  function beginWhenBothPresent(code: string): void {
+    if (!bothPresent(code) || resolving.has(code)) return;
+    if (hasStarted(code)) {
+      if (!timers.has(code)) scheduleTimerFor(code);
+      return;
+    }
+    if (countdowns.has(code)) return; // already counting: a reconnecting player is told the time left by the join path
+    if (countdownMs <= 0) {
+      startedGames.add(code);
+      scheduleTimerFor(code);
+      return;
+    }
+    const endsAt = Date.now() + countdownMs;
+    const timer = setTimeout(() => {
+      countdowns.delete(code);
+      const record = game.getGame(code);
+      if (!record || record.state.status !== "playing" || forfeited.has(code)) return;
+      // A player who left during the countdown and is not back: round 1 does not open, and the countdown runs again when both
+      // are present (R51, R97).
+      if (!bothPresent(code)) return;
+      startedGames.add(code);
+      for (const player of ["A", "B"] as const) {
+        const socket = connections.get(key(code, player));
+        if (socket) send(socket, { type: "started" });
+      }
+      logEvent("round_open", { game: code, round: 1 });
+      scheduleTimerFor(code);
+    }, countdownMs);
+    countdowns.set(code, { timer, endsAt });
+    logEvent("countdown_start", { game: code, ms: countdownMs });
+    for (const player of ["A", "B"] as const) {
+      const socket = connections.get(key(code, player));
+      if (socket) send(socket, { type: "countdown", ms: countdownMs });
+    }
+  }
+
   function broadcast(code: string, state: GameState): void {
     let recipients = 0;
     for (const player of ["A", "B"] as const) {
@@ -245,6 +325,8 @@ export function attachRealtime(
           yourName: nameOfSeat(code, player),
           opponentName: nameOfSeat(code, opponentOf(player)),
           watching: spectators.watchingCount(code),
+          colours: coloursOf(code),
+          started: hasStarted(code),
         });
         recipients++;
       }
@@ -372,6 +454,8 @@ export function attachRealtime(
       kinds.delete(code);
       creators.delete(code);
       holders.delete(code);
+      colours.delete(code);
+      startedGames.delete(code);
       clearRematch(code);
       rematchGone.delete(code);
       finishedAt.delete(code);
@@ -394,7 +478,7 @@ export function attachRealtime(
       viewOf(code) {
         if (!isWatchable(code) && !(viaLinkVisit.has(code) && isShowable(code))) return undefined; // a computer game, a seat free, or no such game: all the same answer (R71)
         const record = game.getGame(code)!;
-        return { state: record.state, kind: kinds.get(code) as "quick" | "link", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") } } satisfies WatchableView;
+        return { state: record.state, kind: kinds.get(code) as "quick" | "link", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") }, colours: coloursOf(code) } satisfies WatchableView;
       },
       liveCodes: () => liveWatchable(),
       watchingChanged(code, watching) {
@@ -415,6 +499,7 @@ export function attachRealtime(
   for (const saved of db.loadGames()) {
     if (saved.state.status !== "playing" || saved.ended) continue;
     kinds.set(saved.code, saved.kind);
+    colours.set(saved.code, saved.colours); // R93: a restart keeps them
     if (saved.creator) creators.set(saved.code, saved.creator);
     if (saved.playerA || saved.playerB) holders.set(saved.code, { A: saved.playerA, B: saved.playerB });
   }
@@ -462,7 +547,8 @@ export function attachRealtime(
   // A quick match game (R35): saved as one, so a restart does not change it (R71).
   function createQuickGame(code: string): void {
     kinds.set(code, "quick");
-    db.markWatchable(code, newGame());
+    colours.set(code, randomColours()); // R93
+    db.markWatchable(code, newGame(), coloursOf(code));
     game.createGame(code);
   }
 
@@ -470,7 +556,17 @@ export function attachRealtime(
   function createLinkGame(code: string, creator: string | null): void {
     kinds.set(code, "link");
     if (creator) creators.set(code, creator);
-    db.markLink(code, newGame(), creator);
+    colours.set(code, randomColours()); // R93
+    db.markLink(code, newGame(), creator, coloursOf(code));
+    game.createGame(code);
+  }
+
+  // A game made by its first join, with no kind saved (R93): its colours are decided and saved before the game is created and
+  // broadcast, so nobody is ever told colours the database does not have (R25).
+  function createUnmarkedGame(code: string): void {
+    if (!colours.has(code)) colours.set(code, randomColours());
+    db.saveGame(code, newGame());
+    db.setColours(code, coloursOf(code));
     game.createGame(code);
   }
 
@@ -478,7 +574,8 @@ export function attachRealtime(
     kinds.set(code, "computer"); // never watched, by anyone (R71)
     // Mark first: if a later write failed, the game would still be known as
     // a computer game (R37) rather than becoming a human one after a restart.
-    db.markComputer(code, newGame());
+    colours.set(code, randomColours()); // R93: random against the computer too
+    db.markComputer(code, newGame(), coloursOf(code));
     reserveComputerSeat(code);
     game.createGame(code);
   }
@@ -591,8 +688,10 @@ export function attachRealtime(
   // Both asked (or the computer's human did): the finished game is archived under `<code>#<n>` and the code starts a new game
   // with the same people in the same seats (R84). Saved before anyone is told (R25).
   function startRematch(code: string): void {
+    const before = coloursOf(code);
+    const swapped: Colours = { A: before.B, B: before.A }; // R96
     try {
-      db.archiveGame(code, newGame());
+      db.archiveGame(code, newGame(), swapped);
     } catch (error) {
       logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
       endRematchOffer(code, "left"); // nothing changed in the database; both are told, and start a new game from Home
@@ -601,6 +700,9 @@ export function attachRealtime(
     clearRematch(code);
     rematchGone.delete(code);
     clearTimerFor(code);
+    clearCountdown(code);
+    startedGames.delete(code); // a rematch is a new game, with its own countdown (R85, R97)
+    colours.set(code, swapped);
     for (const seat of ["A", "B"] as const) clearGraceTimer(code, seat);
     forfeited.delete(code);
     idleRounds.delete(code);
@@ -611,11 +713,11 @@ export function attachRealtime(
       const socket = connections.get(key(code, player));
       if (socket) send(socket, { type: "rematch_started" } as never);
     }
-    spectators.announce(code, { type: "rematch_started" });
+    spectators.announce(code, { type: "rematch_started", colours: swapped }); // R96: spectators draw the new colours too
     // The fresh state goes to the players as a snapshot and to the spectators as a round, as for any new game.
     const record = game.getGame(code)!;
     broadcast(code, record.state);
-    if (bothPresent(code)) scheduleTimerFor(code);
+    beginWhenBothPresent(code);
   }
 
   function resolveNow(code: string, choices: { A: Choice | null; B: Choice | null }): void {
@@ -811,6 +913,8 @@ export function attachRealtime(
       yourName: nameOfSeat(code, player),
       opponentName: nameOfSeat(code, opponentOf(player)),
       watching: spectators.watchingCount(code),
+      colours: coloursOf(code),
+      started: hasStarted(code),
     });
     logEvent("snapshot_sent", { game: code, round: record.state.round, reason: "join" });
   }
@@ -834,6 +938,14 @@ export function attachRealtime(
     if (!record) return;
     if (resolving.has(code)) return;
     if (forfeited.has(code)) return;
+
+    // The start countdown is still running, or round 1 has not opened (R97). Nothing here depends on the opponent (R22).
+    if (!hasStarted(code)) {
+      const socket = connections.get(key(code, player));
+      if (socket) send(socket, { type: "rejected", reason: "not_started" });
+      logEvent("action_rejected", { type: "choose", reason: "not_started" });
+      return;
+    }
 
     // A choice is final for its round (R4). Nothing here depends on the opponent (R22).
     if (pendingFor(code)[player] !== null) {
@@ -1004,7 +1116,7 @@ export function attachRealtime(
             viaLinkVisit.delete(code);
             if (placed) return;
           }
-          send(socket, { type: "spectating", code, kind: kinds.get(code) ?? "link", state: record.state, watching: spectators.watchingCount(code), names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") }, because: "two_players" } as never);
+          send(socket, { type: "spectating", code, kind: kinds.get(code) ?? "link", state: record.state, watching: spectators.watchingCount(code), names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") }, colours: coloursOf(code), because: "two_players" } as never);
           return;
         }
         if (typeof code === "string" && !spectators.watchLink(socket, addressOf(request), code)) {
@@ -1046,7 +1158,7 @@ export function attachRealtime(
       const name = personId ? (options.nameFor?.(personId) ?? null) : null;
       if (name) seatNames.set(key(code, player), name);
       if (personId && !computerGames.has(code)) {
-        if (!game.getGame(code)) game.createGame(code); // the row must exist before it can record a seat
+        if (!game.getGame(code)) createUnmarkedGame(code); // the row must exist before it can record a seat
         db.seatPlayer(code, player, personId);
         // Remember in memory whose seat this is, as a restart would from the database (R36), so the seat can follow a guest who
         // signs in to an account (R89) and a stranger can never take it while its person is away.
@@ -1057,17 +1169,19 @@ export function attachRealtime(
       // Create the game before this connection is registered, so its
       // broadcast (sent to whichever connections already exist) cannot also
       // reach this joiner; sendSnapshot below is this joiner's one snapshot.
-      if (!game.getGame(code)) game.createGame(code);
+      if (!game.getGame(code)) createUnmarkedGame(code);
       connections.set(key(code, player), socket);
       // A game made by POST /api/games (R34) exists before anyone joins. Its first round timer
       // starts only when both players are present (R18, R51).
-      if (!timers.has(code) && !resolving.has(code) && bothPresent(code)) scheduleTimerFor(code);
-
       logEvent("join", { game: code, role: player, clients_in_game: clientsInGame(code) });
       sendSnapshot(code, player);
       // The player already waiting learns that someone has arrived. This carries no choice (R21, R22).
       const waiting = connections.get(key(code, opponentOf(player)));
       if (waiting && waiting !== socket) send(waiting, name ? { type: "opponent_joined", name } : { type: "opponent_joined" });
+      // Both are here (R51): round 1 opens after the countdown (R97). A player who connects while it runs is told the time left.
+      const running = countdowns.get(code);
+      if (running) send(socket, { type: "countdown", ms: Math.max(0, running.endsAt - Date.now()) });
+      else beginWhenBothPresent(code);
     });
 
     socket.on("close", () => {
@@ -1112,6 +1226,10 @@ export function attachRealtime(
     computerTimers.clear();
     for (const timer of rematchTimers.values()) clearTimeout(timer);
     rematchTimers.clear();
+    for (const { timer } of countdowns.values()) clearTimeout(timer);
+    countdowns.clear();
+    colours.clear();
+    startedGames.clear();
     clearInterval(sweepTimer);
     finishedAt.clear();
     spectators.clear();

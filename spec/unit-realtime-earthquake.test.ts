@@ -9,7 +9,9 @@ import { attachRealtime } from "../src/server/realtime.ts";
 function startServer() {
   const server = createServer((_req, res) => res.end());
   const db = openDb(":memory:");
-  const rt = attachRealtime(server, db, { roundTimerMs: 5000, computerDelayMs: 50, computerSeed: 1 });
+  const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0, roundTimerMs: 5000, computerDelayMs: 50, computerSeed: 1 });
   server.listen(0);
   const { port } = server.address() as AddressInfo;
   return { server, rt, url: `ws://localhost:${port}/ws` };

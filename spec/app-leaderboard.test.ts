@@ -47,6 +47,11 @@ async function playVertical(a: Awaited<ReturnType<typeof seat>>, b: Awaited<Retu
   const joined = await a.next();
   expect(["type", "name,type"]).toContain(Object.keys(joined).sort().join(","));
   expect(joined.type).toBe("opponent_joined");
+  // Both are here: the start countdown, then round 1 opens (R97).
+  for (const who of [a, b]) {
+    expect((await who.next()).type).toBe("countdown");
+    expect((await who.next()).type).toBe("started");
+  }
   let last: any;
   for (let i = 0; i < 4; i++) {
     a.socket.send(JSON.stringify({ type: "choose", code, player: a.you, seatToken: a.seatToken, column: 0, shield: false }));
@@ -109,13 +114,15 @@ describe("B: leaderboard (R37 to R39)", () => {
     const who = await guest("Solo" + unique());
     const code = await newGameCode("/api/computer");
     const a = await seat(code, who);
+    expect((await a.next()).type).toBe("countdown"); // the human is here, so the computer game counts down (R97)
+    expect((await a.next()).type).toBe("started");
     a.socket.send(JSON.stringify({ type: "choose", code, player: a.you, seatToken: a.seatToken, column: 3, shield: false }));
     await a.next();
     const lists = await board();
     expect(lists.wins.find((r) => r.name === who.name)).toBeUndefined();
     expect(lists.rounds.find((r) => r.name === who.name)).toBeUndefined();
     a.socket.close();
-  });
+  }, 15_000); // the start countdown (R97) and the computer thinking for up to 3 seconds (R52)
 
   it("B2 (R38) a guest with no cookie is never listed", async () => {
     const code = await quickCode();
@@ -182,13 +189,15 @@ describe("R92 the leaderboard says who is asking, and a full game puts the winne
     const solo = await guest("Solo" + unique());
     const code = await newGameCode("/api/computer");
     const a = await seat(code, solo);
+    expect((await a.next()).type).toBe("countdown"); // R97
+    expect((await a.next()).type).toBe("started");
     a.socket.send(JSON.stringify({ type: "choose", code, player: a.you, seatToken: a.seatToken, column: 3, shield: false }));
     await a.next();
     const board = await boardAs(solo);
     expect(board.you).toEqual({ name: solo.name, wins: 0, bestRounds: null });
     expect(board.wins.find((r) => r.name === solo.name)).toBeUndefined();
     a.socket.close();
-  });
+  }, 15_000); // the start countdown (R97) and the computer thinking for up to 3 seconds (R52)
 
   it("R92 the answer carries no id, no seat token and no session", async () => {
     const who = await guest("Private" + unique());

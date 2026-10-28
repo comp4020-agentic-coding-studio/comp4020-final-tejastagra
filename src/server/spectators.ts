@@ -22,10 +22,11 @@ export interface WatchableView {
   state: GameState;
   kind: GameKind;
   names: { A: string | null; B: string | null };
+  colours: { A: "red" | "yellow"; B: "red" | "yellow" }; // R94: the same colours the players are sent
 }
 
 export type SpectatorMessage =
-  | { type: "spectating"; code: string; kind: GameKind; state: GameState; watching: number; names: { A: string | null; B: string | null }; because?: "two_players" }
+  | { type: "spectating"; code: string; kind: GameKind; state: GameState; watching: number; names: { A: string | null; B: string | null }; colours: WatchableView["colours"]; because?: "two_players" }
   | { type: "none_live" }
   | { type: "round"; state: GameState; watching: number }
   | { type: "watching"; watching: number }
@@ -104,7 +105,7 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
     set.add(socket);
     watching.set(socket, code);
     const n = set.size;
-    hooks.send(socket, { type: "spectating", code, kind, state: view.state, watching: n, names: view.names, ...(because ? { because } : {}) });
+    hooks.send(socket, { type: "spectating", code, kind, state: view.state, watching: n, names: view.names, colours: view.colours, ...(because ? { because } : {}) });
     for (const other of set) if (other !== socket) hooks.send(other, { type: "watching", watching: n });
     hooks.watchingChanged(code, n);
     if (isMove) hooks.log("spectate_move", { game: code, from: from ?? "none", spectators: n });
@@ -132,7 +133,7 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
       if (code !== undefined && watching.get(socket) === code) {
         const view = hooks.viewOf(code);
         if (view) {
-          hooks.send(socket, { type: "spectating", code, kind: view.kind, state: view.state, watching: count(code), names: view.names, ...(because ? { because } : {}) });
+          hooks.send(socket, { type: "spectating", code, kind: view.kind, state: view.state, watching: count(code), names: view.names, colours: view.colours, ...(because ? { because } : {}) });
           return;
         }
       }
@@ -196,7 +197,7 @@ export function createSpectators(hooks: SpectatorHooks, options: SpectatorOption
     },
 
     // A rematch started (R85): every spectator is told, after the new game is saved, then sees its first round as a `round`.
-    announce(code: string, message: { type: "rematch_started" }): void {
+    announce(code: string, message: { type: "rematch_started"; colours?: WatchableView["colours"] }): void {
       for (const socket of watchers.get(code) ?? []) hooks.send(socket, message);
     },
 

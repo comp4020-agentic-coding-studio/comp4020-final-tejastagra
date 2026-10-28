@@ -165,7 +165,10 @@ describe("W: spectating against the running app (R70 to R80)", () => {
     const first = await watcher.next("spectating");
     expect(first.kind).toBe("quick");
     expect(first.state).toEqual(joinedA.state);
-    expect(Object.keys(first).sort()).toEqual(["code", "kind", "names", "state", "type", "watching"]);
+    expect(Object.keys(first).sort()).toEqual(["code", "colours", "kind", "names", "state", "type", "watching"]); // colours are public (R94)
+    // Round 1 opens after the start countdown (R97); the spectator is never sent the countdown.
+    await a.next("started");
+    await b.next("started");
     // A chooses; the spectator hears nothing until the round resolves, and then only the public result.
     const seen = watcher.raw.length;
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: joinedA.seatToken, column: 3, shield: true }));

@@ -10,6 +10,8 @@ function start() {
   const server = createServer((_req, res) => res.end());
   const db = openDb(":memory:");
   const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0,
     disconnectGraceMs: 60_000,
     roundTimerMs: 60_000,
     computerDelayMs: 20,
@@ -203,6 +205,8 @@ describe("R87 and R89 sessions and live seats", () => {
     const server = createServer((_req, res) => res.end());
     const db = openDb(":memory:");
     const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0,
       disconnectGraceMs: 60_000,
       roundTimerMs: 60_000,
       identify: (request) => (typeof request.headers["x-person"] === "string" ? (request.headers["x-person"] as string) : null),

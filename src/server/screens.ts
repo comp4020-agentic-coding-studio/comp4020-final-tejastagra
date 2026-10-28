@@ -281,7 +281,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
     glows += `<span class="column-glow" data-testid="column-glow-${column}" aria-hidden="true"></span>`;
   }
   const body = `
-    <main class="arena game" data-testid="game-screen" data-waiting="true">
+    <main class="arena game" data-testid="game-screen" data-waiting="true" data-started="false">
       ${topbar()}
       <div class="stage" data-testid="game-group">
         <div class="status-row">
@@ -296,7 +296,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
           <div class="player player-you" data-testid="panel-you">
             <span data-testid="avatar-you"></span>
             <span class="player-text">
-              <span class="player-name" data-testid="name-you">Player</span>
+              <span class="player-name" data-testid="name-you">Player</span><span class="visually-hidden">, your colour is </span><span class="visually-hidden" data-testid="my-colour">Red</span>
               <span class="player-meta"><span class="mini-disc" data-piece="you"></span><span data-testid="chosen-label" role="status"></span></span>
               <span class="visually-hidden" data-testid="my-shield">available</span>
             </span>
@@ -337,7 +337,12 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <div class="columns-glow" aria-hidden="true">${glows}</div>
             <span class="quake-marker" data-testid="quake-marker" aria-hidden="true" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span>
             <div class="columns-hit" data-testid="columns" role="group" aria-label="Choose a column">${hits}</div>
-            <div class="get-ready" data-testid="get-ready" aria-hidden="true" hidden>Get ready</div>
+            <div class="get-ready panel" data-testid="get-ready" role="status" hidden>
+              <p class="get-ready-lead">Get ready</p>
+              <p class="you-are" data-testid="you-are">You are Red</p>
+              <span class="you-are-disc piece" data-testid="you-are-disc" data-piece="you" aria-hidden="true"></span>
+              <p class="countdown-number" data-testid="countdown-number" aria-live="polite">3</p>
+            </div>
             <section class="panel share" data-testid="waiting-panel">
               <h2>Waiting for your opponent</h2>
               <p class="share-text" data-testid="share-text">Send this link. The first person to open it plays you, and anyone after that watches.</p>

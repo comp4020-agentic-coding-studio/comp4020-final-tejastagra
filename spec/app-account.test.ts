@@ -255,6 +255,9 @@ describe("R87 and R89 over a real game connection", () => {
     await b.opened;
     b.send({ type: "join", code });
     const snapB = await b.next("snapshot");
+    // Round 1 opens after the start countdown (R97), so a choice below is a choice in a game being played.
+    await a.next("started");
+    await b.next("started");
     return { code, a, b, snapA, snapB };
   }
 

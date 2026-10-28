@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rmSync } from "node:fs";
-import { openDb } from "../src/server/db.ts";
+import { MIGRATION_COUNT, openDb } from "../src/server/db.ts";
 import { newGame } from "../src/engine/index.ts";
 import { checkPassword, hashPassword } from "../src/server/identity.ts";
 import { adminResetPassword, TEMP_ALPHABET, newTemporaryPassword } from "../src/server/accounts.ts";
@@ -288,7 +288,7 @@ describe("migration 18: accounts that must change their password", () => {
       expect(upgraded.playerByUsername("pip")!.mustChange).toBe(false);
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT); // every migration has run, once
       raw.close();
       const again = openDb(path); // a second open runs nothing
       expect(again.playerByUsername("pip")!.username).toBe("pip");

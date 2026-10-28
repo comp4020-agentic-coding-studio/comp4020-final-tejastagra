@@ -61,8 +61,14 @@ async function joinGame(
 // When the second seat joins, the first seat is told that someone arrived (opponent_joined).
 // It carries nothing about a choice (R21, R22). Tests that go on to read the next message
 // from the first seat call this first, so the protocol step is visible and not skipped.
-async function expectArrival(first: { next: () => Promise<any> }): Promise<void> {
+async function expectArrival(first: { next: () => Promise<any> }, second?: { next: () => Promise<any> }): Promise<void> {
   expect(await first.next()).toEqual({ type: "opponent_joined" });
+  // Both are here, so the start countdown runs and round 1 opens after it, with `started` (R97). The countdown carries
+  // nothing about a choice, and nobody has chosen yet.
+  for (const who of second ? [first, second] : [first]) {
+    expect(await who.next()).toEqual({ type: "countdown", ms: expect.any(Number) });
+    expect(await who.next()).toEqual({ type: "started" });
+  }
 }
 
 function closeAndWait(socket: WebSocket): Promise<void> {
@@ -77,7 +83,7 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
-    await expectArrival(a);
+    await expectArrival(a, b);
     const bMessages = recordRawMessages(b.socket);
 
     // A chooses a column far from any value B might coincidentally also use,
@@ -101,12 +107,14 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     const codeLow = freshCode();
     const aLow = await joinGame(codeLow, "A");
     const bLow = await joinGame(codeLow, "B");
+    await expectArrival(aLow, bLow);
     aLow.socket.send(JSON.stringify({ type: "choose", code: codeLow, player: "A", seatToken: aLow.seatToken, column: 0, shield: false }));
     const lowMessage = await bLow.next();
 
     const codeHigh = freshCode();
     const aHigh = await joinGame(codeHigh, "A");
     const bHigh = await joinGame(codeHigh, "B");
+    await expectArrival(aHigh, bHigh);
     aHigh.socket.send(JSON.stringify({ type: "choose", code: codeHigh, player: "A", seatToken: aHigh.seatToken, column: 6, shield: true }));
     const highMessage = await bHigh.next();
 
@@ -119,13 +127,13 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     await closeAndWait(bLow.socket);
     await closeAndWait(aHigh.socket);
     await closeAndWait(bHigh.socket);
-  });
+  }, 15_000); // two games, each with its 3 second start countdown (R97)
 
   it("N3 (R22) an invalid choice by A produces no message to B at all", async () => {
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
-    await expectArrival(a);
+    await expectArrival(a, b);
     const bMessages = recordRawMessages(b.socket);
 
     // column 99 is out of range: bad_column (R3). A is told; B must hear nothing.
@@ -143,6 +151,7 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b1 = await joinGame(code, "B");
+    await expectArrival(a, b1);
 
     const b1Ready = b1.next();
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 2, shield: false }));
@@ -168,7 +177,7 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
-    await expectArrival(a);
+    await expectArrival(a, b);
     // One round first, so there is something to shake (R55).
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 0, shield: false }));
     await b.next();
@@ -198,19 +207,25 @@ describe("N: nobody can see the other player's choice early (promise 3)", () => 
     impostorSocket.send(JSON.stringify({ type: "choose", code, player: "B", column: 3, shield: false }));
     await new Promise((resolve) => setTimeout(resolve, 100));
 
+    // Then the real B joins and round 1 opens after the start countdown (R51, R97), so A's choice is a real one.
+    const b = await joinGame(code, "B");
+    await expectArrival(a, b);
+    // And again once round 1 is open, where only the seat token stands between a stranger and B's choice (R32).
+    impostorSocket.send(JSON.stringify({ type: "choose", code, player: "B", column: 3, shield: false }));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     const aNext = a.next();
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 0, shield: false }));
 
     // If the impostor's choice had been accepted, both choices would now be
     // set and the round would resolve immediately, sending A a result. It
-    // must not: race a short timeout against a.next() and expect the timeout.
+    // must not: B is told only that A is ready, and A hears nothing.
+    expect(await b.next()).toEqual({ type: "opponent_ready" });
     const result = await Promise.race([
       aNext.then((message) => ({ arrived: true, message })),
       new Promise((resolve) => setTimeout(() => resolve({ arrived: false }), 300)),
     ]);
-
     expect((result as { arrived: boolean }).arrived).toBe(false);
-
+    await closeAndWait(b.socket);
     await closeAndWait(a.socket);
     await closeAndWait(impostorSocket);
   });

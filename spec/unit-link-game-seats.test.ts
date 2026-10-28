@@ -10,6 +10,8 @@ function start(options: { graceMs?: number; roundTimerMs?: number; db?: Db; perG
   const server = createServer((_req, res) => res.end());
   const db = options.db ?? openDb(":memory:");
   const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0,
     roundTimerMs: options.roundTimerMs ?? 5000,
     disconnectGraceMs: options.graceMs,
     computerDelayMs: 40,

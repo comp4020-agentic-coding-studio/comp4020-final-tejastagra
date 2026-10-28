@@ -12,7 +12,9 @@ import { attachRealtime } from "../src/server/realtime.ts";
 function startServer(roundTimerMs = 5000) {
   const server = createServer((_req, res) => res.end());
   const db = openDb(":memory:");
-  const rt = attachRealtime(server, db, { roundTimerMs, computerDelayMs: 100, computerSeed: 1 });
+  const rt = attachRealtime(server, db, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0, roundTimerMs, computerDelayMs: 100, computerSeed: 1 });
   server.listen(0);
   const { port } = server.address() as AddressInfo;
   return { server, db, rt, url: `ws://localhost:${port}/ws` };
@@ -112,14 +114,18 @@ describe("R33 playing the computer", () => {
     try {
       const first = createServer((_req, res) => res.end());
       const db1 = openDb(path);
-      const rt1 = attachRealtime(first, db1, { roundTimerMs: 300, computerDelayMs: 50, computerSeed: 1 });
+      const rt1 = attachRealtime(first, db1, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0, roundTimerMs: 300, computerDelayMs: 50, computerSeed: 1 });
       rt1.createComputerGame("CMP239");
       rt1.dispose();
       db1.close();
 
       const server = createServer((_req, res) => res.end());
       const db2 = openDb(path);
-      const rt2 = attachRealtime(server, db2, { roundTimerMs: 300, computerDelayMs: 50, computerSeed: 1 });
+      const rt2 = attachRealtime(server, db2, {
+    // No start countdown: these checks are about other rules (R97, ADR 0014).
+    countdownMs: 0, roundTimerMs: 300, computerDelayMs: 50, computerSeed: 1 });
       cleanup = () => { rt2.dispose(); server.close(); db2.close(); };
       server.listen(0);
       const url = `ws://localhost:${(server.address() as AddressInfo).port}/ws`;
@@ -149,7 +155,7 @@ describe("R52 the computer thinks", () => {
   it("R52 the computer's Ready arrives between 1 and 3 seconds after the human joins, whatever the human does", async () => {
     for (const seed of [1, 2]) {
       const server = createServer((_req, res) => res.end());
-      const rt = attachRealtime(server, openDb(":memory:"), { roundTimerMs: 10_000, computerSeed: seed });
+      const rt = attachRealtime(server, openDb(":memory:"), { roundTimerMs: 10_000, computerSeed: seed, countdownMs: 0 });
       server.listen(0);
       const url = `ws://localhost:${(server.address() as AddressInfo).port}/ws`;
       cleanup = () => { rt.dispose(); server.close(); };

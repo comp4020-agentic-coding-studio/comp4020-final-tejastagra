@@ -56,8 +56,14 @@ async function joinGame(
 // When the second seat joins, the first seat is told that someone arrived (opponent_joined).
 // It carries nothing about a choice (R21, R22). Tests that go on to read the next message
 // from the first seat call this first, so the protocol step is visible and not skipped.
-async function expectArrival(first: { next: () => Promise<any> }): Promise<void> {
+async function expectArrival(first: { next: () => Promise<any> }, second?: { next: () => Promise<any> }): Promise<void> {
   expect(await first.next()).toEqual({ type: "opponent_joined" });
+  // Both are here, so the start countdown runs and round 1 opens after it, with `started` (R97). Every message in between is the
+  // countdown itself, which carries nothing about a choice.
+  for (const who of second ? [first, second] : [first]) {
+    expect(await who.next()).toEqual({ type: "countdown", ms: expect.any(Number) });
+    expect(await who.next()).toEqual({ type: "started" });
+  }
 }
 
 describe("T: both players see the same result at the same moment (promise 2)", () => {
@@ -65,7 +71,7 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
-    await expectArrival(a);
+    await expectArrival(a, b);
 
     const startedAt = Date.now();
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 2, shield: false }));
@@ -88,7 +94,7 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
-    await expectArrival(a);
+    await expectArrival(a, b);
 
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 1, shield: false }));
     await b.next();
@@ -108,7 +114,7 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
-    await expectArrival(a);
+    await expectArrival(a, b);
 
     const startedAt = Date.now();
     a.socket.send(JSON.stringify({ type: "choose", code, player: "A", seatToken: a.seatToken, column: 3, shield: false }));
@@ -158,7 +164,7 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     const code = freshCode();
     const a = await joinGame(code, "A");
     const b = await joinGame(code, "B");
-    await expectArrival(a);
+    await expectArrival(a, b);
     a.socket.close();
 
     const a2 = new WebSocket(wsUrl("/ws"));
@@ -255,6 +261,8 @@ describe("T: both players see the same result at the same moment (promise 2)", (
     expect(second.opponentPresent).toBe(true);
     // A is told only that someone arrived: the whole message is the type, nothing about a choice.
     expect(await nextA()).toEqual({ type: "opponent_joined" });
+    // Then the start countdown, which says how long and nothing else (R97).
+    expect(await nextA()).toEqual({ type: "countdown", ms: 3000 });
     a.close();
     b.close();
   });

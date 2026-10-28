@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rmSync } from "node:fs";
-import { openDb } from "../src/server/db.ts";
+import { MIGRATION_COUNT, openDb } from "../src/server/db.ts";
 import { createGameService, ROUND_TIMER_MS } from "../src/server/game-service.ts";
 import { newGame, resolveRound, type GameState } from "../src/engine/index.ts";
 
@@ -301,7 +301,7 @@ describe("S: what happens is kept (promise 5)", () => {
       // The tutorial flag was the tenth migration, applied once; the Earthquake migration (S4) is the 11th
       // and the shrinking board's (S5) the 12th and the walls' removal (S6) the 13th.
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT); // every migration has run, once
       raw.close();
       // An existing player has not seen the tutorial, so it is due for them.
       expect(upgraded.playerById("p-old")?.tutorialSeen).toBe(false);
@@ -348,7 +348,7 @@ describe("R53 a game saved before Earthquake is upgraded", () => {
       expect(games.NEW11.earthquakesLeft).toEqual({ A: false, B: true });
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT); // every migration has run, once
       raw.close();
     } finally {
       rmSync(path, { force: true });
@@ -397,7 +397,7 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
       expect(games.NEW12.rows).toBe(5); // never overwritten
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT); // every migration has run, once
       raw.close();
       const again = openDb(path); // opening again runs nothing a second time
       expect(again.loadGames().find((g) => g.code === "NEW12")?.state.rows).toBe(5);
@@ -424,7 +424,7 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
       expect((state.board as string[][])[1]).toEqual(["A", "B"]);
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT); // every migration has run, once
       raw.close();
     } finally {
       clean(path);
@@ -464,7 +464,7 @@ describe("R71 which games are watchable is saved", () => {
       expect(upgraded.loadGames().find((g) => g.code === "PLAIN1")?.kind).toBe("link"); // an unmarked game is a link game, never in Watch live
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT); // every migration has run, once
       raw.close();
       const again = openDb(path);
       expect(again.loadGames().find((g) => g.code === "NEWQCK")?.kind).toBe("quick");
@@ -517,7 +517,7 @@ describe("R36 and R71 the kind of a game and its creator are saved", () => {
       expect(upgraded.loadGames().find((g) => g.code === "NEWLNK")?.creator).toBe("person-1");
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT); // every migration has run, once
       raw.close();
       const again = openDb(path);
       expect(again.loadGames().find((g) => g.code === "OLDQCK")?.kind).toBe("quick");
@@ -564,5 +564,48 @@ describe("R84 archiving a finished game for a rematch (no schema change: it uses
     expect(service.restore()).toEqual(["ARC002"]);
     expect(service.getGame("ARC002#1")).toBeUndefined();
     expect(service.getGame("ARC002")!.state.round).toBe(0);
+  });
+});
+
+describe("R93 and R95 player colours are saved with the game", () => {
+  it("S8 (R95) migrations 19 and 20 give a game saved before colours seat A red and seat B yellow, once, and keep newer colours", () => {
+    expect(MIGRATION_COUNT, "the colours are migrations 19 and 20").toBe(20);
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration19.db`);
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN ended TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN vs_computer INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
+      old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE games ADD COLUMN player_a TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN player_b TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN missed_a INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE games ADD COLUMN missed_b INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE games ADD COLUMN watchable INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE games ADD COLUMN kind TEXT`);
+      old.exec(`ALTER TABLE games ADD COLUMN creator TEXT`);
+      old.exec(`ALTER TABLE players ADD COLUMN must_change INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`PRAGMA user_version = 18`); // the schema as shipped before colours
+      old.prepare("INSERT INTO games (code, state, updated_at, kind) VALUES (?, ?, ?, 'link')").run("OLDCOL", JSON.stringify({ ...newGame(), round: 5 }), Date.now());
+      old.close();
+
+      const upgraded = openDb(path);
+      expect(upgraded.loadGames().find((g) => g.code === "OLDCOL")!.colours).toEqual({ A: "red", B: "yellow" });
+      upgraded.markLink("NEWCOL", newGame(), null, { A: "yellow", B: "red" });
+      upgraded.close();
+      const raw = new DatabaseSync(path);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(20);
+      raw.close();
+      const again = openDb(path); // opening again runs nothing a second time, so a newer game's colours are kept
+      expect(again.loadGames().find((g) => g.code === "NEWCOL")!.colours).toEqual({ A: "yellow", B: "red" });
+      expect(again.loadGames().find((g) => g.code === "OLDCOL")!.colours).toEqual({ A: "red", B: "yellow" });
+      again.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
   });
 });
