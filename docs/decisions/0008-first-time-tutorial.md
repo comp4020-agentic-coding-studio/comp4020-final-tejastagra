@@ -24,3 +24,7 @@ A small amount of server state (whether the tutorial has been seen) and the scri
 ## Evidence
 
 To be added: tutorial checks and playtest notes on whether newcomers understand the shield.
+
+## Amendment, 29 October 2026 (fix list Part 7)
+
+The tutorial used to open on the home screen for a new visitor. It now opens the first time a player starts a match, before the match, and then starts the match they chose (R47, U136). It has eleven steps with a progress line (U137 to U147), adding the goal, the round timer, draws, playing with friends and leaving. Opening a friend's game link counts as starting a match (joining with a code by another route), so a new player who arrives by a link learns the rules before their first round too; the game page waits for the tutorial before it joins, so no round starts and nobody waits on a countdown meanwhile (R51: the game does not start until both are present).

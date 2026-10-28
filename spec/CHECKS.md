@@ -150,6 +150,7 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only op
 | --- | --- | --- | --- |
 | U1 to U9, U30, U49, U50 | One theme file; no colour, font, outline, radius or duration outside it; contrast; reduced motion; no preview or developer text; `/style-preview` only in development | `spec/unit-theme.test.ts`, `spec/app-screens.test.ts` | passing |
 | R47 to R50 | The tutorial is shown once, saved with the player, replayable, and never touches the leaderboard | `spec/app-tutorial.test.ts` | passing |
+| R47, U136 to U147 | The tutorial never opens on home load; it opens before the first match from each of the four home buttons and a game link, never twice; finishing or skipping starts the chosen match; every one of the 11 steps is reachable with its progress line; How to play replays it and starts nothing | `e2e/tutorial.spec.ts` | todo |
 | U10 to U18 | Play on the board by tap, hover and keyboard; the shield badge | `e2e/design.spec.ts` | passing |
 | U19 to U30 | Reveal within one second, end popups, reduced motion | `e2e/design.spec.ts` | passing |
 | U31 to U40 | Home menu content and the phone and laptop layouts | `e2e/design.spec.ts` | passing |

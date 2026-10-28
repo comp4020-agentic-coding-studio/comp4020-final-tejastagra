@@ -136,7 +136,7 @@ A **spectator** is a person watching a live game without playing in it (ADR 0012
 
 ## Tutorial
 
-- **R47** A player who has never finished or skipped the tutorial is shown it automatically before their first game.
+- **R47** *Changed 29 October 2026.* The tutorial is shown **once, automatically, the first time a player starts any match**: Play the computer, Quick match, Play a friend, Join with a code, or opening a friend's game link (which is joining with a code by another route). It is shown **before that match begins**, and **never on the home screen by itself**. After it is finished or skipped, the match the player chose starts. It stays replayable from How to play (R49), which never starts a match. A player who has finished or skipped it is never shown it again (R48).
 - **R48** Finishing or skipping the tutorial is saved with the player, so it does not return after a refresh, a new session, a restart or a redeploy.
 - **R49** The tutorial can be skipped at any step and replayed at any time from "How to play".
 - **R50** Tutorial games never change the leaderboard.
