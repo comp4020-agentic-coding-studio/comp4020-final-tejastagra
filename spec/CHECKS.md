@@ -70,15 +70,18 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | --- | --- | --- | --- |
 | W1 | A spectator never receives a pending column, shield, Earthquake or whether either player has chosen, in any message, before the round resolves | R72, R21, R22 | passing |
 | W2 | A spectator's choice or any other action is rejected with `spectator`, and nobody else hears of it | R74 | passing |
-| W3 | Friend games are never chosen, listed, counted or confirmed to exist | R71, R80 | passing |
+| W3 | Link games are never chosen by Watch live, listed or counted; a computer game can never be watched and is answered like a code that does not exist | R71, R80 | todo |
 | W4 | A spectator who joins mid-game gets a snapshot whose board matches the players' and contains no pending choice | R73 | passing |
 | W5 | The watching count is correct for players and spectators as spectators join and leave | R75 | passing |
 | W6 | A spectator is told the result and moves on to another game after 5 seconds | R76 | passing |
 | W7 | At most 50 spectators per game and 300 per machine; a full game is skipped | R77 | passing |
-| W8 | With no live game, an exhibition game starts on demand, stops with no audience and never touches the leaderboard | R78, R37 | passing |
+| W8 | *Removed 28 October 2026 (R78): there is no exhibition game.* With no live quick match game Watch live says "No live games right now" and offers Quick match and Home | R70 | todo |
 | W9 | A spectator gets each round's result within one second of the players, and the players' result is sent first | R79, R23 | passing |
 | W10 | Spectators never change round timers, abandonment, presence or forfeits | R79 | passing |
 | W11 | Watchable games stay watchable across a restart (migration 14) | R71 | passing |
+| W12 | The first two arrivals at a link game play and every later arrival watches; two simultaneous arrivals for the last seat give exactly one player and one spectator | R36 | todo |
+| W13 | A spectator cannot take a seat during the 30 second reconnection window, nor after a restart | R36, R27 | todo |
+| W14 | A browser check: the third person to open a link becomes a spectator and sees the notice | R36, U92 | todo |
 | E9 | Watching works at both viewports, nothing on the watching screen is interactive, the home count and the players' watcher count update, the exhibition label shows (each browser check names E9) | passing (`e2e/spectating.spec.ts`) |
 | U76 to U84 | Watch live button and count, the watching screen, the exhibition label, the result card and the watcher count | `e2e/spectating.spec.ts` | passing |
 

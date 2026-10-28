@@ -1,7 +1,24 @@
 # 0012. Spectating: anyone can watch a live game
 
-- **Status:** Accepted. Supersedes D3 in `docs/rules.md` ("no spectating"), which is now marked superseded there.
-- **Decided by:** Tejas (request of 27 October 2026); the details below were chosen from docs/rules.md and docs/design/
+- **Status:** Accepted, amended on 28 October 2026 (see "Amendment": computer games and the exhibition game are removed, and link games are watchable through their link). Supersedes D3 in `docs/rules.md` ("no spectating"), which is now marked superseded there.
+- **Decided by:** Tejas (requests of 27 and 28 October 2026); the details below were chosen from docs/rules.md and docs/design/
+
+## Amendment of 28 October 2026
+
+**This section replaces the parts of the decision below that it contradicts, which are kept as history.** The first version followed an older instruction. Tejas's decisions are:
+
+- **A game against the computer can never be watched, by anyone.** There is nothing to watch: one person playing a program. The **exhibition game of two computers is removed entirely**, with its exception to R25 (the only place a round was not saved before it was sent).
+- **Link games (Play a friend) are watchable, but only through their link or code.** The person who creates the game is player 1. The first person to open the link or enter the code is player 2. **Everyone after that is a spectator**, up to 50. If two people arrive at the same moment, the first request the server handles takes the seat and the other becomes a spectator. A spectator can never take a player's seat, **including during the 30 second reconnection window**. A link game never appears in Watch live, is never counted, and a code that is not a live game, or that is a quick match game, is answered like a code that does not exist.
+- **Watch live shows random quick match games only.** If none is live it says "No live games right now" and offers Quick match and Home. The live count counts quick match games only.
+- **R36 is replaced:** it no longer says a third visitor sees "game full". A third visitor to a link game watches it.
+
+What this costs, and what follows from it:
+
+- **A quick match game is watchable by anyone through Watch live, and also by its code,** which nobody is shown. That is the same exposure as before, and the players see the count.
+- **A link game's code is now a way to watch as well as to play,** so whoever is given the link can see the game. The share screen says so in words ("Send this link. The first person to open it plays you, and anyone after that watches."), and a visitor who becomes a spectator is told why ("This game already has two players, so you're watching."). A friend game that wants to stay private should not have its link posted publicly.
+- **Seats belong to people, not to the order connections arrive in after the first two.** Seat A is reserved for the creator and seat B for the first person to arrive. The server remembers who they are (the player id from the session cookie, saved with the game) so a restart does not hand a seat to a spectator, and a seat whose holder has dropped stays theirs until the 30 second grace period ends (R27).
+- **Load:** link games add spectators to the same caps as before (50 a game, 300 on the machine). The exhibition game's timer and memory are gone, which makes the machine's worst case smaller than before.
+- **Players of a link game see "N watching" like players of a quick match game** (U84), and a friend game that has spectators is no longer "private" in the sense of R71's first version.
 
 ## Context
 

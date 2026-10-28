@@ -18,6 +18,8 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Ceiling** | The top of the open area. It drops after rounds 12 and 20, closing the top row | roof, lid |
 | **Rock** | The solid piece that fills a closed row. It belongs to nobody and is different from rubble | stone, wall block |
 | **Open area** | The rows still in play | playing area, grid |
+| **Spectator** | Someone watching a game without playing in it. Never a player, never has a seat | viewer, observer, guest (a guest is a kind of player) |
+| **Link game** | A game made with Play a friend, played through its link or 6-character code. The creator is player 1, the first other person is player 2 and everyone after watches | friend game (in code and docs only), private game |
 | **Missed round** | A player made no choice before the timer ran out | skip, pass |
 | **Resolve** | The server turning both choices into the next board | |
 | **Game code** | The 6-character code that joins a shared game | room code, PIN |
