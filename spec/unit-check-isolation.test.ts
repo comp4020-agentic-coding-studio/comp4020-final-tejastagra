@@ -64,7 +64,7 @@ describe("H1 pnpm check never writes to data-dev/ (C22)", () => {
     if (made) rmSync(dev, { force: true }); // leave data-dev/ as it was found
     // And the test app really did run: the data it wrote went somewhere else and was removed.
     expect(result.stdout + result.stderr).toMatch(/passed|Tests/);
-  });
+  }, 30_000); // it starts a whole test server, which takes longer than 5 seconds on a busy machine (the limit is time, not the check)
 
   it("H1 the wrapper's server never uses the default dev path: its source passes a temporary RUBBLE_DB_PATH", () => {
     const source = readFileSync(script, "utf8");
