@@ -2,6 +2,7 @@
 // WebSocket clients. Spectating (ADR 0012, R70 to R80). The running app is shared with other checks, so these
 // compare what this test did (the games it made, by code) and never an absolute count.
 import { describe, expect, inject, it } from "vitest";
+import { withQuickQueue } from "./quick-lock.ts";
 
 const base = () => inject("baseUrl");
 const wsUrl = () => base().replace(/^http/, "ws") + "/ws";
@@ -50,11 +51,13 @@ const quiet = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Two players in a quick match game (R35), paired through the shared lobby. A waiting ticket left by another check would pair
 // with the first of ours, so one throwaway ticket first leaves the lobby empty, as the other lobby checks do.
 async function quickPair() {
-  const probe = await (await fetch(`${base()}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": address() } })).json();
-  if (probe.state === "waiting") await fetch(`${base()}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": address() } });
-  const first = await (await fetch(`${base()}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": address() } })).json();
-  const second = await (await fetch(`${base()}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": address() } })).json();
-  const code = (second.code ?? first.code) as string;
+  const code = await withQuickQueue(async () => {
+    const probe = await (await fetch(`${base()}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": address() } })).json();
+    if (probe.state === "waiting") await fetch(`${base()}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": address() } });
+    const first = await (await fetch(`${base()}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": address() } })).json();
+    const second = await (await fetch(`${base()}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": address() } })).json();
+    return (second.code ?? first.code) as string;
+  });
   return players(code);
 }
 

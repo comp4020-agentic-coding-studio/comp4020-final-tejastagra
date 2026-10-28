@@ -27,6 +27,7 @@ export interface PlayerRow {
   username: string | null;
   passwordHash: string | null;
   tutorialSeen: boolean; // R48: finished or skipped, saved with the player
+  mustChange: boolean; // R86, R87: signed in with a temporary password, so a new one must be chosen first
 }
 
 export interface Db {
@@ -38,6 +39,13 @@ export interface Db {
   upgradeToAccount(id: string, username: string, passwordHash: string): boolean;
   // R48 and R49: whether this player has finished or skipped the tutorial.
   setTutorialSeen(id: string, seen: boolean): void;
+  // R86: sets a new password hash and marks the account "must change" (an admin reset) or not. Every session of the account
+  // ends, so a stolen cookie does not survive a reset. R87: choosing a new password clears the mark and ends every session
+  // except `keepSession`, the one that is making the change.
+  setPassword(id: string, passwordHash: string, options?: { mustChange?: boolean; keepSession?: string }): void;
+  // R89: gives every game of the guest `from` to the account `to` (either seat), hands the guest's sessions to the account (so a
+  // connection that is already open keeps working) and removes the guest.
+  moveGames(from: string, to: string): void;
   playerByUsername(username: string): PlayerRow | undefined;
   createSession(tokenHash: string, playerId: string): void;
   // Sessions older than maxAgeMs are not honoured, whatever the cookie says.
@@ -67,6 +75,8 @@ export interface Db {
   // `fresh`, keeping its kind, creator and seats, in one transaction. Returns the archive's code.
   archiveGame(code: string, fresh: GameState): string;
   loadGames(): SavedGame[];
+  // The games one player sat in (R90): a query on the seats, so the account page does not read and parse every saved game.
+  loadGamesOf(playerId: string): SavedGame[];
   close(): void;
 }
 
@@ -118,6 +128,8 @@ const MIGRATIONS: string[] = [
   `ALTER TABLE games ADD COLUMN kind TEXT`,
   `ALTER TABLE games ADD COLUMN creator TEXT`,
   `UPDATE games SET kind = CASE WHEN vs_computer = 1 THEN 'computer' WHEN watchable = 1 THEN 'quick' ELSE 'link' END WHERE kind IS NULL`,
+  // R86, R87 (ADR 0013): an account reset by the admin must choose a new password at its next sign-in. No account is marked.
+  `ALTER TABLE players ADD COLUMN must_change INTEGER NOT NULL DEFAULT 0`,
 ];
 
 function migrate(db: DatabaseSync): void {
@@ -131,6 +143,9 @@ function migrate(db: DatabaseSync): void {
 export function openDb(path: string): Db {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode = WAL");
+  // The admin's reset script (ADR 0013) opens this same file while the server has it open. A writer that finds the file busy
+  // waits up to 5 seconds instead of failing with "database is locked", for the script and for the server alike.
+  db.exec("PRAGMA busy_timeout = 5000");
   migrate(db);
 
   const upsert = db.prepare(`
@@ -161,17 +176,27 @@ export function openDb(path: string): Db {
   const codeTaken = db.prepare(`SELECT 1 AS taken FROM games WHERE code = ?`);
   const seatA = db.prepare(`UPDATE games SET player_a = ? WHERE code = ? AND player_a IS NULL`);
   const seatB = db.prepare(`UPDATE games SET player_b = ? WHERE code = ? AND player_b IS NULL`);
-  const selectById = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen FROM players WHERE id = ?`);
-  const selectAll = db.prepare("SELECT code, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b FROM games");
+  const selectById = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen, must_change FROM players WHERE id = ?`);
+  const gameColumns = "code, state, updated_at, ended, vs_computer, watchable, kind, creator, player_a, player_b, missed_a, missed_b";
+  const selectAll = db.prepare(`SELECT ${gameColumns} FROM games`);
+  const selectOf = db.prepare(`SELECT ${gameColumns} FROM games WHERE player_a = ? OR player_b = ?`);
 
+  const updatePassword = db.prepare(`UPDATE players SET password_hash = ?, must_change = ? WHERE id = ?`);
+  const deleteSessionsOf = db.prepare(`DELETE FROM sessions WHERE player_id = ?`);
+  const deleteSessionsExcept = db.prepare(`DELETE FROM sessions WHERE player_id = ? AND token_hash <> ?`);
+  const moveA = db.prepare(`UPDATE games SET player_a = ? WHERE player_a = ?`);
+  const moveB = db.prepare(`UPDATE games SET player_b = ? WHERE player_b = ?`);
+  const moveCreator = db.prepare(`UPDATE games SET creator = ? WHERE creator = ?`);
+  const deletePlayerRow = db.prepare(`DELETE FROM players WHERE id = ?`);
+  const moveSessions = db.prepare(`UPDATE sessions SET player_id = ? WHERE player_id = ?`);
   const insertPlayer = db.prepare(`INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)`);
   const updateNickname = db.prepare(`UPDATE players SET nickname = ? WHERE id = ?`);
   const updateTutorial = db.prepare(`UPDATE players SET tutorial_seen = ? WHERE id = ?`);
   const upgrade = db.prepare(`UPDATE players SET username = ?, password_hash = ? WHERE id = ? AND username IS NULL`);
-  const selectByUsername = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen FROM players WHERE username = ?`);
+  const selectByUsername = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen, must_change FROM players WHERE username = ?`);
   const insertSession = db.prepare(`INSERT INTO sessions (token_hash, player_id, created_at) VALUES (?, ?, ?)`);
   const selectBySession = db.prepare(`
-    SELECT p.id, p.nickname, p.username, p.password_hash, p.tutorial_seen FROM sessions s
+    SELECT p.id, p.nickname, p.username, p.password_hash, p.tutorial_seen, p.must_change FROM sessions s
     JOIN players p ON p.id = s.player_id WHERE s.token_hash = ? AND s.created_at > ?
   `);
   const purgeSessions = db.prepare(`DELETE FROM sessions WHERE created_at <= ?`);
@@ -184,12 +209,58 @@ export function openDb(path: string): Db {
           username: (row.username as string | null) ?? null,
           passwordHash: (row.password_hash as string | null) ?? null,
           tutorialSeen: row.tutorial_seen === 1,
+          mustChange: row.must_change === 1,
         }
       : undefined;
+
+  // Turns saved rows into games, skipping (and logging) a row that cannot be read, so one bad row never stops the app.
+  const parseGames = (rows: Array<Record<string, unknown>>): SavedGame[] => {
+    const saved: SavedGame[] = [];
+    for (const row of rows) {
+      try {
+        const endedColumn = row.ended as string | null;
+        saved.push({
+          code: row.code as string,
+          state: JSON.parse(row.state as string) as GameState,
+          updatedAt: row.updated_at as number,
+          ended: endedColumn ? (JSON.parse(endedColumn) as Ended) : null,
+          vsComputer: row.vs_computer === 1,
+          kind: ((row.kind as string | null) ?? (row.vs_computer === 1 ? "computer" : row.watchable === 1 ? "quick" : "link")) as "quick" | "link" | "computer",
+          creator: (row.creator as string | null) ?? null,
+          playerA: (row.player_a as string | null) ?? null,
+          playerB: (row.player_b as string | null) ?? null,
+          missedA: row.missed_a as number,
+          missedB: row.missed_b as number,
+        });
+      } catch (error) {
+        logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    return saved;
+  };
 
   return {
     createPlayer(id: string, nickname: string): void {
       insertPlayer.run(id, nickname, Date.now());
+    },
+    setPassword(id: string, passwordHash: string, options: { mustChange?: boolean; keepSession?: string } = {}): void {
+      updatePassword.run(passwordHash, options.mustChange ? 1 : 0, id);
+      if (options.keepSession) deleteSessionsExcept.run(id, options.keepSession);
+      else deleteSessionsOf.run(id);
+    },
+    moveGames(from: string, to: string): void {
+      db.exec("BEGIN");
+      try {
+        moveA.run(to, from);
+        moveB.run(to, from);
+        moveCreator.run(to, from);
+        moveSessions.run(to, from);
+        deletePlayerRow.run(from);
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
     },
     setTutorialSeen(id: string, seen: boolean): void {
       updateTutorial.run(seen ? 1 : 0, id);
@@ -260,28 +331,10 @@ export function openDb(path: string): Db {
       return archive;
     },
     loadGames(): SavedGame[] {
-      const saved: SavedGame[] = [];
-      for (const row of selectAll.all()) {
-        try {
-          const endedColumn = row.ended as string | null;
-          saved.push({
-            code: row.code as string,
-            state: JSON.parse(row.state as string) as GameState,
-            updatedAt: row.updated_at as number,
-            ended: endedColumn ? (JSON.parse(endedColumn) as Ended) : null,
-            vsComputer: row.vs_computer === 1,
-            kind: ((row.kind as string | null) ?? (row.vs_computer === 1 ? "computer" : row.watchable === 1 ? "quick" : "link")) as "quick" | "link" | "computer",
-            creator: (row.creator as string | null) ?? null,
-            playerA: (row.player_a as string | null) ?? null,
-            playerB: (row.player_b as string | null) ?? null,
-            missedA: row.missed_a as number,
-            missedB: row.missed_b as number,
-          });
-        } catch (error) {
-          logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
-        }
-      }
-      return saved;
+      return parseGames(selectAll.all());
+    },
+    loadGamesOf(playerId: string): SavedGame[] {
+      return parseGames(selectOf.all(playerId, playerId));
     },
     close(): void {
       db.close();

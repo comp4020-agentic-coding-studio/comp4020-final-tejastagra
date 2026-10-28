@@ -12,6 +12,8 @@ import { arcadePage, button, roundButton, title } from "./arcade-html.ts";
 import * as screens from "./screens.ts";
 import { createMatchmaker } from "./matchmaker.ts";
 import { leaderboardFrom } from "./leaderboard.ts";
+import { attemptLimiter } from "./accounts.ts";
+import { historyFor } from "./history.ts";
 import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_S,
@@ -54,6 +56,7 @@ setInterval(() => db.deleteExpiredSessions(SESSION_MAX_AGE_S * 1000), 6 * 60 * 6
 // The leaderboard reads every saved game, so it is limited like the other endpoints.
 const allowRead = createRateLimiter(120, 60_000);
 const allowAuth = createRateLimiter(60, 60_000);
+const signInAttempts = attemptLimiter(); // R88: 5 failures per username in 15 minutes
 const allowQuick = createRateLimiter(120, 60_000);
 const allowLive = createRateLimiter(60, 60_000); // the home screen asks every 10 seconds (U76), so 6 a minute is normal
 
@@ -225,7 +228,7 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
   if (path === "/api/me" && req.method === "GET") {
     const player = currentPlayer(req);
     // R47: a visitor with no player yet, or a player who has not finished or skipped it, is due the tutorial.
-    json(res, 200, { player: player ? publicPlayer(player) : null, tutorialDue: !player || !player.tutorialSeen });
+    json(res, 200, { player: player ? publicPlayer(player) : null, tutorialDue: !player || !player.tutorialSeen, ...(player?.mustChange ? { mustChange: true } : {}) });
     return true;
   }
   if (path === "/api/tutorial" && req.method === "POST") {
@@ -340,14 +343,74 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
       json(res, 400, { error: "Enter a username and password." });
       return true;
     }
+    // R88: counted per username whether or not the account exists, and answered the same way, so names cannot be probed.
+    if (signInAttempts.blocked(body.username)) {
+      json(res, 429, { error: "Too many attempts. Try again in a few minutes." }, { "retry-after": "900" });
+      return true;
+    }
     const account = db.playerByUsername(body.username);
     if (!(await checkPassword(body.password, account?.passwordHash ?? null)) || !account) {
+      signInAttempts.fail(body.username);
       json(res, 401, { error: "That username and password do not match." }); // the same message for both, so usernames cannot be probed
       return true;
     }
+    signInAttempts.succeed(body.username);
+    // R89: the guest history of this device moves into the account, then the guest is gone.
+    const guest = currentPlayer(req);
+    if (guest && guest.username === null && guest.id !== account.id) {
+      db.moveGames(guest.id, account.id);
+      realtime.movePerson(guest.id, account.id); // a live seat of the guest is the account's from now on, in memory too
+    }
     const token = newSessionToken();
     db.createSession(hashToken(token), account.id);
-    json(res, 200, { player: publicPlayer(account) }, { "set-cookie": sessionCookie(token, isSecure(req)) });
+    json(res, 200, { player: publicPlayer(account), ...(account.mustChange ? { mustChange: true } : {}) }, { "set-cookie": sessionCookie(token, isSecure(req)) });
+    return true;
+  }
+  if (path === "/api/account/password" && req.method === "POST") {
+    // R87: changing a password. A guest has none. The current one must be right, the new one valid, and every other session ends.
+    if (!allowAuth(clientAddress(req))) {
+      json(res, 429, { error: "Too many attempts. Try again in a minute." }, { "retry-after": "60" });
+      return true;
+    }
+    const player = currentPlayer(req);
+    const body = await readBody(req);
+    if (!body) {
+      json(res, 400, { error: "Send application/json." });
+      return true;
+    }
+    if (!player || player.username === null) {
+      json(res, 401, { error: "Sign in first." });
+      return true;
+    }
+    // A session that signed in with a temporary password already proved it (R87), so it need not type it again.
+    if (!player.mustChange && (typeof body.current !== "string" || !(await checkPassword(body.current, player.passwordHash)))) {
+      json(res, 401, { error: "That password is not right." });
+      return true;
+    }
+    const problem = passwordProblem(body.next);
+    if (problem) {
+      json(res, 400, { error: problem });
+      return true;
+    }
+    const token = readCookie(req.headers.cookie, SESSION_COOKIE)!;
+    db.setPassword(player.id, await hashPassword(body.next as string), { keepSession: hashToken(token) });
+    // R87: the sessions of the account's other devices are gone, so their open game connections are closed at their next action
+    // (sessionStillValid); this device's session stands, so its connection goes on.
+    json(res, 200, { player: publicPlayer(player) });
+    return true;
+  }
+  if (path === "/api/me/history" && req.method === "GET") {
+    // R90, R91: the stats and history of this player only.
+    if (!allowRead(clientAddress(req))) {
+      json(res, 429, { error: "Too many requests. Try again in a minute." }, { "retry-after": "60" });
+      return true;
+    }
+    const player = currentPlayer(req);
+    if (!player) {
+      json(res, 401, { error: "Choose a nickname first." });
+      return true;
+    }
+    json(res, 200, historyFor(db, player.id, Date.now()));
     return true;
   }
   if (path === "/api/signout" && req.method === "POST") {
@@ -363,9 +426,16 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
   return false;
 }
 
+// R87: while an account must choose a new password, every API call but the change itself, who it is and signing out is refused.
+const MUST_CHANGE_ALLOWED = new Set(["/api/me", "/api/account/password", "/api/signout"]);
+
 const server = createServer((req, res) => {
   const requestPath = new URL(req.url ?? "/", "http://localhost").pathname;
-  if (requestPath.startsWith("/api/") && (requestPath === "/api/me" || requestPath === "/api/visitor" || requestPath === "/api/tutorial" || requestPath === "/api/guest" || requestPath.startsWith("/api/account/") || requestPath === "/api/signout")) {
+  if (requestPath.startsWith("/api/") && !MUST_CHANGE_ALLOWED.has(requestPath) && requestPath !== "/api/account/signin" && currentPlayer(req)?.mustChange) {
+    json(res, 403, { error: "Choose a new password first." });
+    return;
+  }
+  if (requestPath.startsWith("/api/") && (requestPath === "/api/me" || requestPath === "/api/visitor" || requestPath === "/api/tutorial" || requestPath === "/api/guest" || requestPath === "/api/me/history" || requestPath.startsWith("/api/account/") || requestPath === "/api/signout")) {
     handleIdentity(requestPath, req, res).then((handled) => {
       if (!handled) {
         res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
@@ -444,7 +514,7 @@ const server = createServer((req, res) => {
     }
     // `limit` lets a check look past the top 10 on a database with history.
     const limit = Math.min(1000, Math.max(1, Number(new URL(req.url ?? "/", "http://localhost").searchParams.get("limit")) || 10));
-    json(res, 200, leaderboardFrom(db, limit));
+    json(res, 200, leaderboardFrom(db, limit, currentPlayer(req)?.id ?? null)); // R92: `you` is the asker, from their own cookie
   } else if (path === "/api/computer" && req.method === "POST") {
     // Play the computer (R33): a game that starts at once, never waiting for anyone.
     if (!allowCreate(clientAddress(req))) {
@@ -486,7 +556,16 @@ const realtime = attachRealtime(server, db, {
   // The seat's person, from the session cookie on the upgrade request (R28).
   identify: (request) => {
     const token = readCookie(request.headers.cookie, SESSION_COOKIE);
-    return (token ? db.playerBySession(hashToken(token), SESSION_MAX_AGE_S * 1000) : undefined)?.id ?? null;
+    const person = token ? db.playerBySession(hashToken(token), SESSION_MAX_AGE_S * 1000) : undefined;
+    return person && !person.mustChange ? person.id : null; // R87: until the password is changed, the account does nothing
+  },
+  sessionMustChange: (request) => {
+    const token = readCookie(request.headers.cookie, SESSION_COOKIE);
+    return !!token && !!db.playerBySession(hashToken(token), SESSION_MAX_AGE_S * 1000)?.mustChange;
+  },
+  sessionStillValid: (request) => {
+    const token = readCookie(request.headers.cookie, SESSION_COOKIE);
+    return !!token && !!db.playerBySession(hashToken(token), SESSION_MAX_AGE_S * 1000);
   },
   nameFor: (personId) => {
     const person = db.playerById(personId);

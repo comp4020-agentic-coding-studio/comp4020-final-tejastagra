@@ -1,6 +1,7 @@
 // E6: every feature completes at the phone viewport, by tapping and typing like a player.
 import { expect, test } from "@playwright/test";
 import { PHONE } from "../playwright.config.ts";
+import { withQuickQueue } from "./quick-lock.ts";
 import { newPlayer, testid } from "./helpers.ts";
 
 test("E6 play the computer: a game starts at once and a round resolves", async ({ browser }) => {
@@ -47,7 +48,7 @@ test("E6 code entry shows a clear error for a bad code, in view", async ({ brows
   await context.close();
 });
 
-test("E6 quick match: two phones are paired into one game", async ({ browser }) => {
+test("E6 quick match: two phones are paired into one game", async ({ browser }) => withQuickQueue(async () => {
   // A player left waiting by an earlier run would be paired with the first phone at once.
   // One throwaway ticket either pairs with that waiter or is left waiting itself;
   // in that case a second pairs with it. Either way the lobby ends up empty.
@@ -68,42 +69,48 @@ test("E6 quick match: two phones are paired into one game", async ({ browser }) 
   expect(one.page.url()).toBe(two.page.url());
   await one.context.close();
   await two.context.close();
-});
+}));
 
 test("E6 sign up, sign out and sign in again, with errors visible in the first screen", async ({ browser }) => {
   const { context, page } = await newPlayer(browser, PHONE);
   const username = `e6_${Math.random().toString(36).slice(2, 10)}`;
+  await page.request.post("/api/guest", { data: { nickname: "Phone Tester" } });
   await page.goto("/account");
-  await page.fill(testid("nickname-input"), "Phone Tester");
-  await page.tap(`${testid("guest-form")} button`);
-  await page.fill(testid("signup-username"), username);
-  await page.fill(testid("signup-password"), "short"); // too short: an error, in view (C13)
-  await page.tap(`${testid("signup-form")} button`);
-  const message = page.locator("#account-message");
-  await expect(message).toContainText("at least 8 characters");
-  const box = (await message.boundingBox())!;
+  // The errors are inside the popup, under their field, and in the first screen (U88, C13).
+  await page.tap(testid("open-signup"));
+  await page.fill(testid("username-input"), username);
+  await page.fill(testid("password-input"), "short"); // too short
+  await page.tap(testid("signup-save"));
+  const error = page.locator(`${testid("signup-dialog")} .dialog-error:visible`);
+  await expect(error).toContainText("at least 8 characters");
+  const box = (await error.boundingBox())!;
   expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height);
-  await page.fill(testid("signup-password"), "a long enough password");
-  await page.tap(`${testid("signup-form")} button`);
-  await expect(page.locator("#account-who")).toContainText(username);
+  await page.fill(testid("password-input"), "a long enough password");
+  await page.tap(testid("signup-save"));
+  await expect(page.locator(testid("account-username"))).toHaveText(`@${username}`);
+  await expect(page.locator(testid("account-status"))).toHaveText("Signed in");
   await page.tap(testid("signout"));
-  await expect(page.locator("#account-who")).toContainText("not chosen a name");
-  await page.fill(testid("signin-username"), username);
-  await page.fill(testid("signin-password"), "wrong password!");
-  await page.tap(`${testid("signin-form")} button`);
-  await expect(message).toContainText("do not match");
-  await page.fill(testid("signin-password"), "a long enough password");
-  await page.tap(`${testid("signin-form")} button`);
-  await expect(page.locator("#account-who")).toContainText(username);
+  await expect(page.locator(testid("open-signin"))).toBeVisible();
+  await page.tap(testid("open-signin"));
+  await page.fill(testid("username-input"), username);
+  await page.fill(testid("password-input"), "wrong password!");
+  await page.tap(testid("signin-save"));
+  await expect(page.locator(`${testid("signin-dialog")} .dialog-error:visible`)).toContainText("do not match");
+  await page.fill(testid("password-input"), "a long enough password");
+  await page.tap(testid("signin-save"));
+  await expect(page.locator(testid("account-username"))).toHaveText(`@${username}`);
   await context.close();
 });
 
-test("E6 the leaderboard shows both lists, and /readme/ is readable", async ({ browser }) => {
+test("E6 the leaderboard shows both lists as tabs, and /readme/ is readable", async ({ browser }) => {
   const { context, page } = await newPlayer(browser, PHONE);
   await page.goto("/leaderboard");
-  await expect(page.locator(testid("leaderboard-wins"))).toBeVisible();
-  await expect(page.locator(testid("leaderboard-rounds"))).toBeVisible();
-  await expect(page.locator(`${testid("leaderboard-wins")} li`).first()).not.toHaveText("Loading...");
+  await expect(page.locator(testid("tab-wins"))).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(testid("leaderboard-loading"))).toBeHidden(); // it loaded: a list, or the words that explain an empty one
+  await expect(page.locator(`${testid("podium")}, ${testid("leaderboard-empty")}`).locator("visible=true").first()).toBeVisible();
+  await page.locator(testid("tab-rounds")).click();
+  await expect(page.locator(testid("tab-rounds"))).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(`${testid("podium")}, ${testid("leaderboard-empty")}`).locator("visible=true").first()).toBeVisible();
   await page.goto("/readme/");
   await expect(page.locator("h1").first()).toBeVisible();
   const { scrollWidth, clientWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));

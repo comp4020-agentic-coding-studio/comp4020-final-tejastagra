@@ -111,60 +111,81 @@ export function quickScreen(ctx: ScreenContext): string {
   return shell(ctx, "Rubble: Quick match", body, "/static/quick.js");
 }
 
-// ---- Leaderboard ----
+// ---- Leaderboard (docs/design/leaderboard.md U123 to U130) ----
 
 export function leaderboardScreen(ctx: ScreenContext): string {
   const body = `
-    <main class="arena narrow" data-testid="leaderboard-screen">
+    <main class="arena narrow leaderboard" data-testid="leaderboard-screen">
       ${title()}
-      <h2>Most wins</h2>
-      <ol class="rows" data-testid="leaderboard-wins"><li class="row"><span class="row-name">Loading...</span></li></ol>
-      <h2>Fewest rounds to win</h2>
-      <ol class="rows" data-testid="leaderboard-rounds"><li class="row"><span class="row-name">Loading...</span></li></ol>
-      <p id="board-message" class="message" role="status"></p>
+      <h2 class="subtitle">Leaderboard</h2>
+      <div class="board-column" data-testid="leaderboard-column">
+        <div class="tabs" data-testid="tabs" role="tablist" aria-label="Leaderboard lists">
+          <button type="button" class="tab" role="tab" aria-selected="true" aria-controls="board-panel" data-testid="tab-wins"><span>Most wins</span></button>
+          <button type="button" class="tab" role="tab" aria-selected="false" aria-controls="board-panel" data-testid="tab-rounds"><span>Fewest rounds</span></button>
+        </div>
+        <div id="board-panel" class="board-panel" role="tabpanel">
+          <p class="board-loading" data-testid="leaderboard-loading" role="status">Loading the leaderboard</p>
+          <div class="podium" data-testid="podium" hidden></div>
+          <ol class="rows board-rows" data-testid="leaderboard-wins" hidden></ol>
+          <ol class="rows board-rows" data-testid="leaderboard-rounds" hidden></ol>
+          <section class="panel board-empty" data-testid="leaderboard-empty" hidden>
+            <p class="board-empty-text" data-testid="leaderboard-empty-text"></p>
+            <div class="board-empty-actions">
+              ${button({ label: "Play a friend", iconName: "friends", kind: "blue", block: true, testid: "empty-play-friend", href: "/" })}
+              ${button({ label: "Quick match", iconName: "bolt", kind: "yellow", block: true, testid: "empty-quick-match", href: "/play/quick" })}
+            </div>
+          </section>
+          <section class="panel board-error" data-testid="leaderboard-error" role="alert" hidden>
+            <p>Could not load the leaderboard. Try again.</p>
+            <button type="button" class="btn btn-blue btn-block" data-testid="leaderboard-retry"><span>Try again</span></button>
+          </section>
+        </div>
+        <p class="your-best" data-testid="your-best" role="status"></p>
+      </div>
       <div class="stack">${button({ label: "Home", iconName: "join", kind: "blue", block: true, testid: "go-home", href: "/" })}</div>
     </main>
   `;
   return shell(ctx, "Rubble: Leaderboard", body, "/static/leaderboard.js");
 }
 
-// ---- Account ----
+// ---- Account (docs/design/account.md U114 to U122) ----
 
 export function accountScreen(ctx: ScreenContext): string {
   const body = `
-    <main class="arena narrow" data-testid="account-screen">
+    <main class="arena narrow account" data-testid="account-screen">
       ${title()}
-      <h2>Your name</h2>
-      <p id="account-who" class="message" role="status"></p>
-      <p id="account-message" class="message" role="status"></p>
-      <form id="guest-form" data-testid="guest-form" class="panel form" novalidate>
-        <label for="nickname">Nickname (2 to 16 letters, numbers, spaces, hyphens or underscores)</label>
-        <input id="nickname" name="nickname" data-testid="nickname-input" autocomplete="nickname" maxlength="16" />
-        <button type="submit" class="btn btn-red">Save nickname</button>
-      </form>
-      <h2 id="keep-heading" hidden>Keep your record</h2>
-      <form id="signup-form" data-testid="signup-form" class="panel form" novalidate hidden>
-        <label for="su-username">Username</label>
-        <input id="su-username" name="username" data-testid="signup-username" autocomplete="username" maxlength="20" />
-        <label for="su-password">Password (at least 8 characters)</label>
-        <input id="su-password" name="password" data-testid="signup-password" type="password" autocomplete="new-password" />
-        <button type="submit" class="btn btn-blue">Sign up</button>
-      </form>
-      <h2>Sign in</h2>
-      <form id="signin-form" data-testid="signin-form" class="panel form" novalidate>
-        <label for="si-username">Username</label>
-        <input id="si-username" name="username" data-testid="signin-username" autocomplete="username" />
-        <label for="si-password">Password</label>
-        <input id="si-password" name="password" data-testid="signin-password" type="password" autocomplete="current-password" />
-        <button type="submit" class="btn btn-blue">Sign in</button>
-      </form>
-      <div class="stack">
-        <button type="button" class="btn btn-yellow btn-block" data-testid="signout" hidden>Sign out</button>
-        ${button({ label: "Home", iconName: "join", kind: "blue", block: true, testid: "go-home", href: "/" })}
-      </div>
+      <h2 class="subtitle">Your account</h2>
+      <section class="panel account-card" data-testid="account-card" aria-live="polite">
+        <div class="account-who">
+          <span class="avatar" data-testid="account-avatar"></span>
+          <span class="account-names">
+            <span class="account-nickname" data-testid="account-nickname">Your account</span>
+            <span class="account-username" data-testid="account-username" hidden></span>
+            <span class="account-status" data-testid="account-status"></span>
+          </span>
+          <button type="button" class="btn btn-blue account-edit" data-testid="edit-nickname" hidden><span>Edit</span></button>
+        </div>
+        <p class="account-hint" data-testid="account-hint" hidden>Save your progress to keep your record on any device.</p>
+        <div class="account-actions" data-testid="account-actions">
+          <button type="button" class="btn btn-red" data-testid="open-signup" hidden><span>Save my progress</span></button>
+          <button type="button" class="btn btn-blue" data-testid="open-signin" hidden><span>Sign in</span></button>
+          <button type="button" class="btn btn-blue" data-testid="open-password" hidden><span>Change password</span></button>
+          <button type="button" class="btn btn-yellow" data-testid="signout" hidden><span>Sign out</span></button>
+        </div>
+        <p class="message card-message" id="account-message" data-testid="account-message" role="status"></p>
+      </section>
+      <section class="record" data-testid="history" aria-labelledby="record-title">
+        <h2 id="record-title">Your record</h2>
+        <div class="record-stats">
+          <div class="panel record-card" data-testid="stats-people"><h3>Against people</h3><dl></dl></div>
+          <div class="panel record-card" data-testid="stats-computer"><h3>Against the computer</h3><dl></dl></div>
+        </div>
+        <ol class="rows history-list" data-testid="history-list"></ol>
+      </section>
+      <div class="stack">${button({ label: "Home", iconName: "join", kind: "blue", block: true, testid: "go-home", href: "/" })}</div>
     </main>
   `;
-  return shell(ctx, "Rubble: Your name", body, "/static/account.js");
+  return shell(ctx, "Rubble: Your account", body, "/static/account.js");
 }
 
 // ---- About (/readme/) ----

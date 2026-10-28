@@ -2,6 +2,7 @@
 // Use const baseUrl = inject("baseUrl") and real HTTP or WebSocket clients, so it also runs in CI.
 // Stubs: turn each it.todo into a real test as the feature lands. Keep the ID and rule in the name.
 import { describe, expect, inject, it } from "vitest";
+import { withQuickQueue } from "./quick-lock.ts";
 
 function wsUrl(path: string): string {
   return inject("baseUrl").replace(/^http/, "ws") + path;
@@ -83,7 +84,7 @@ describe("L: playing modes (R33 to R36)", () => {
     a.close();
     b.close();
   });
-  it("L4 (R35) 20 clients arriving at once in quick match are paired into exactly 10 games, each client once", async () => {
+  it("L4 (R35) 20 clients arriving at once in quick match are paired into exactly 10 games, each client once", async () => withQuickQueue(async () => {
     const base = inject("baseUrl");
     // Clear any ticket left waiting by an earlier run, so the count is exact.
     const probe = await (await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
@@ -109,7 +110,7 @@ describe("L: playing modes (R33 to R36)", () => {
     expect(perGame.size).toBe(10);
     for (const count of perGame.values()) expect(count).toBe(2);
     for (const code of perGame.keys()) expect((await fetch(`${base}/g/${code}`)).status).toBe(200);
-  });
+  }));
 
   it("L5 (R36, replaced on 28 October 2026) a third client joining a full link game watches it: it is never given a seat and never refused", async () => {
     const { code, creator } = await linkGame();

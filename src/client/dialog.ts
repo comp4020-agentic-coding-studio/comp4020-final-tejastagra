@@ -16,7 +16,7 @@ export interface Dialog {
   root: HTMLElement;
   form: HTMLFormElement;
   // Text for a paragraph, field or button list is added to `form` before the actions.
-  field(label: string, name: string, options?: { value?: string; type?: string; maxlength?: number; autocomplete?: string; capitalize?: boolean }): HTMLInputElement;
+  field(label: string, name: string, options?: { value?: string; type?: string; maxlength?: number; autocomplete?: string; capitalize?: boolean; hint?: string }): HTMLInputElement;
   text(words: string): HTMLParagraphElement;
   actions(...buttons: HTMLElement[]): HTMLElement;
   error(name: string | null, words: string): void; // directly under its field (U88); null for the whole popup
@@ -27,7 +27,10 @@ export interface Dialog {
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 let open: Dialog | null = null;
-const history: Array<() => void> = []; // reopens, so a popup opened from another can go back to it (U90)
+// A popup opened from another remembers how to reopen it (U90). The reopen belongs to the popup that was opened `from`: it runs
+// when that popup is closed, and never when it is replaced by another one.
+let reopen: (() => void) | null = null;
+let reopenFor: Dialog | null = null;
 
 export function dialogButton(label: string, kind: "red" | "blue" | "yellow", testid: string, options: { type?: "button" | "submit"; onClick?: () => void } = {}): HTMLButtonElement {
   const b = document.createElement("button");
@@ -42,7 +45,14 @@ export function dialogButton(label: string, kind: "red" | "blue" | "yellow", tes
 }
 
 export function openDialog(options: DialogOptions): Dialog {
-  open?.close(); // only one popup at a time (U90)
+  if (open) {
+    const previous = open;
+    const keep = reopen; // a popup opened from another (openFrom) has already set its way back
+    const keepFor = reopenFor;
+    previous.close();
+    reopen = keep;
+    reopenFor = keepFor;
+  }
   const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const dismissible = options.dismissible !== false;
   const id = `dialog-${options.testid}`;
@@ -103,7 +113,16 @@ export function openDialog(options: DialogOptions): Dialog {
       problem.hidden = true;
       input.setAttribute("aria-describedby", problem.id);
       errors.set(name, problem);
-      wrap.append(labelEl, input, problem);
+      wrap.append(labelEl, input);
+      if (o.hint) {
+        const hint = document.createElement("p");
+        hint.className = "dialog-hint";
+        hint.id = `${id}-${name}-hint`;
+        hint.textContent = o.hint;
+        input.setAttribute("aria-describedby", `${hint.id} ${problem.id}`);
+        wrap.append(hint);
+      }
+      wrap.append(problem);
       form.append(wrap);
       return input;
     },
@@ -152,7 +171,11 @@ export function openDialog(options: DialogOptions): Dialog {
       document.removeEventListener("keydown", onKey, true);
       root.remove();
       options.onClose?.();
-      const back = history.pop();
+      const back = reopenFor === dialog ? reopen : null;
+      if (reopenFor === dialog) {
+        reopen = null;
+        reopenFor = null;
+      }
       if (back) back();
       else opener?.focus();
     },
@@ -211,12 +234,19 @@ export function openDialog(options: DialogOptions): Dialog {
 }
 
 // A second popup opened from the first (U90): closing it goes back to the first.
-export function openFrom(reopen: () => void, next: () => Dialog): Dialog {
-  history.push(reopen);
-  return next();
+export function openFrom(back: () => void, next: () => Dialog): Dialog {
+  reopen = null;
+  reopenFor = null;
+  const previous = open;
+  previous?.close(); // closing the first never runs its own way back: that is only for the one opened from it
+  reopen = back;
+  const dialog = next();
+  reopenFor = dialog;
+  return dialog;
 }
 
 export function closeDialog(): void {
-  history.length = 0;
+  reopen = null;
+  reopenFor = null;
   open?.close();
 }

@@ -4,24 +4,28 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
 import { newPlayer, testid, waitForRound } from "./helpers.ts";
+import { withQuickQueue } from "./quick-lock.ts";
 
 type Size = { width: number; height: number };
 
 // Two players paired by Quick match, each in their own context. Any waiting ticket from another check is paired off first.
 async function quickPair(browser: Browser, sizes: [Size, Size] = [PHONE, LAPTOP], options: { names?: boolean } = {}) {
-  const drain = await newPlayer(browser, PHONE);
-  const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
-  if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
-  await drain.context.close();
-  const one = await newPlayer(browser, sizes[0], { reducedMotion: true });
-  const two = await newPlayer(browser, sizes[1], { reducedMotion: true });
-  if (options.names) {
-    await one.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } });
-    await two.page.request.post("/api/guest", { data: { nickname: "WWWWWWWWWWWWWWWW" } });
-  }
-  await one.page.request.post(`/api/quick/${crypto.randomUUID()}`);
-  const matched = await (await two.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
-  const code = matched.code as string;
+  // The queue is shared by every check in the run, so the pairing is done while holding the lock (correction C26).
+  const { one, two, code } = await withQuickQueue(async () => {
+    const drain = await newPlayer(browser, PHONE);
+    const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
+    if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+    await drain.context.close();
+    const one = await newPlayer(browser, sizes[0], { reducedMotion: true });
+    const two = await newPlayer(browser, sizes[1], { reducedMotion: true });
+    if (options.names) {
+      await one.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } });
+      await two.page.request.post("/api/guest", { data: { nickname: "WWWWWWWWWWWWWWWW" } });
+    }
+    await one.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+    const matched = await (await two.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
+    return { one, two, code: matched.code as string };
+  });
   await one.page.goto(`/g/${code}`);
   await two.page.goto(`/g/${code}`);
   await waitForRound(one.page, 1);
@@ -349,16 +353,19 @@ test.describe("Watching fits the phone (promise 4)", () => {
   test("E9, U68, U78, U84 and C20 the tightest case at 320 x 568: the widest nicknames, a spectator and the ceiling warning all showing, and everything still fits", async ({ browser }) => {
     // Round 12 on the watching screen has a round number, the banner, the count and the ceiling warning: the worst case for the
     // status row. A quick match pair resolves each round the moment both choose, so reaching it is quick (correction C20).
-    const drain = await newPlayer(browser, PHONE);
-    const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
-    if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
-    await drain.context.close();
-    const one = await newPlayer(browser, NARROW, { reducedMotion: true });
-    const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
-    await one.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } });
-    await two.page.request.post("/api/guest", { data: { nickname: "WWWWWWWWWWWWWWWW" } });
-    await one.page.request.post(`/api/quick/${crypto.randomUUID()}`);
-    const code = (await (await two.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json()).code as string;
+    const { one, two, code } = await withQuickQueue(async () => {
+      const drain = await newPlayer(browser, PHONE);
+      const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
+      if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+      await drain.context.close();
+      const one = await newPlayer(browser, NARROW, { reducedMotion: true });
+      const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+      await one.page.request.post("/api/guest", { data: { nickname: "Mmmmmmmmmmmmmmmm" } });
+      await two.page.request.post("/api/guest", { data: { nickname: "WWWWWWWWWWWWWWWW" } });
+      await one.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+      const code = (await (await two.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json()).code as string;
+      return { one, two, code };
+    });
     await one.page.goto(`/g/${code}`);
     await two.page.goto(`/g/${code}`);
     await waitForRound(one.page, 1);

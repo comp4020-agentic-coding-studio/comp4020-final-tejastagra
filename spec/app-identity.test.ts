@@ -76,7 +76,7 @@ describe("I: identity (R28 to R32)", () => {
     expect(tag).toMatch(/^[0-9a-f]{4}$/);
     await a("/api/account/signup", { body: { username: name, password: "password123" } });
     // Same session, now an account: the player was upgraded in place, not replaced.
-    expect((await a("/api/me")).json.player).toEqual({ displayName: name, kind: "account" });
+    expect((await a("/api/me")).json.player).toEqual({ displayName: name, nickname: "Keeper", kind: "account" });
   });
 
   it("I5 (R31) guests are always shown with their short tag, and two guests with one nickname differ", async () => {

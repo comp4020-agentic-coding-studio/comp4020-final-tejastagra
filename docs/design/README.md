@@ -15,6 +15,8 @@ This folder is the source of truth for how Rubble looks, moves and teaches itsel
 | `popups.md` | The one popup component and every dialog (U85 to U90) |
 | `qa-checklist.md` | The layout and polish rules every screen must pass, Q1 to Q11 (no layout shift, no wrapped buttons, boxes that fit, spacing, alignment, one centred column, prefilled forms, sensible controls, a way to leave, empty states, no plain pages) |
 | `quick-match.md` | The Quick match waiting card, its live count and the computer offer (U96 to U101) |
+| `leaderboard.md` | The leaderboard: tabs, a podium for the top three, compact rows, your row highlighted, "Your best:" and an empty state that explains itself (U123 to U130) |
+| `account.md` | The account page: one card, popups for every form, match history and stats (U114 to U122) |
 | `rematch.md` | Play again as a rematch: waiting, the other wants one, the other left (U109 to U113) |
 | `game-screen.md` | The waiting card, timer bar, names and layout (U54 to U60) |
 | `plan.md` | The order of work, the commits and where to stop for Tejas |

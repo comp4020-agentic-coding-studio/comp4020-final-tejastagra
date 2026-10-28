@@ -148,3 +148,30 @@ describe("B1 (R37) and B2 (R38) the leaderboard read from saved games", () => {
     db.close();
   });
 });
+
+describe("R92 the asking player's own line", () => {
+  const rows = (...games: Array<Partial<FinishedGame>>) => games.map((g) => game(g));
+
+  it("R92 you are null for a visitor with no player", async () => {
+    const { viewerRecord } = await import("../src/server/leaderboard.ts");
+    expect(viewerRecord(tally(rows({})), null, () => "Nobody #0000")).toBeNull();
+  });
+
+  it("R92 you carry the asking player's name, wins and fewest rounds, and nothing else", async () => {
+    const { viewerRecord } = await import("../src/server/leaderboard.ts");
+    const t = tally(rows({ round: 9 }, { round: 5 }, { missedB: 1, round: 3 })); // p1 won three, fastest clean win in 5
+    const mine = viewerRecord(t, "p1", () => "Pip #a7f3");
+    expect(mine).toEqual({ name: "Pip #a7f3", wins: 3, bestRounds: 5 });
+    expect(Object.keys(mine!).sort()).toEqual(["bestRounds", "name", "wins"]); // no id
+  });
+
+  it("R92 a player with no wins is shown with 0 wins and no best, not left out", async () => {
+    const { viewerRecord } = await import("../src/server/leaderboard.ts");
+    expect(viewerRecord(tally(rows({})), "p2", () => "Sam #b2c1")).toEqual({ name: "Sam #b2c1", wins: 0, bestRounds: null });
+  });
+
+  it("R92 and R37 wins against the computer never appear in your record", async () => {
+    const { viewerRecord } = await import("../src/server/leaderboard.ts");
+    expect(viewerRecord(tally(rows({ vsComputer: true })), "p1", () => "Pip #a7f3")).toEqual({ name: "Pip #a7f3", wins: 0, bestRounds: null });
+  });
+});

@@ -40,6 +40,8 @@ jobs:
         run: pnpm check
         env:
           APP_URL: http://localhost:8080
+          # the admin's password reset runs inside the container, as it does on Fly (ADR 0013, docs/admin.md)
+          CHECK_RESET_COMMAND: docker exec app node scripts/admin-reset-password.ts
       - name: Show the app's output
         # what the container printed, so a crash or slow boot is visible
         if: ${{ failure() }}

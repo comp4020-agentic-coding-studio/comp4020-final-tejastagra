@@ -101,11 +101,27 @@ export function finishedFrom(g: SavedGame): FinishedGame {
 
 // Both lists, read from the saved games so they survive restarts (promise 5).
 // Names are the public display names (R31): a guest's short tag, never a full id.
-export function leaderboardFrom(db: Db, limit: number): { wins: BoardRow[]; rounds: BoardRow[] } {
+export function leaderboardFrom(db: Db, limit: number, viewerId: string | null = null): { wins: BoardRow[]; rounds: BoardRow[]; you: ViewerRecord | null } {
   const tallies = tally(db.loadGames().map(finishedFrom));
   const name = (id: string) => {
     const row = db.playerById(id);
     return row ? publicPlayer(row).displayName : null;
   };
-  return { wins: topWins(tallies, name, limit), rounds: topRounds(tallies, name, limit) };
+  return { wins: topWins(tallies, name, limit), rounds: topRounds(tallies, name, limit), you: viewerRecord(tallies, viewerId, name) };
+}
+
+// R92: the asking player's own line, from the same tallies as the lists. Their public name (R31), their wins (0 if none) and
+// their fewest rounds to win (null if none): no id, and nothing about anyone else.
+export interface ViewerRecord {
+  name: string;
+  wins: number;
+  bestRounds: number | null;
+}
+
+export function viewerRecord(tallies: Map<string, Tally>, playerId: string | null, name: (id: string) => string | null): ViewerRecord | null {
+  if (!playerId) return null;
+  const shown = name(playerId);
+  if (shown === null) return null;
+  const mine = tallies.get(playerId);
+  return { name: shown, wins: mine?.wins ?? 0, bestRounds: mine?.bestRounds ?? null };
 }

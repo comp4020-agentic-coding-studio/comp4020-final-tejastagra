@@ -25,6 +25,8 @@ RUN corepack enable \
     && pnpm store prune
 
 COPY src ./src
+# The admin's password reset (docs/admin.md, ADR 0013) runs on the machine with `flyctl ssh console`, so it ships in the image.
+COPY scripts/admin-reset-password.ts ./scripts/admin-reset-password.ts
 COPY public ./public
 COPY README.md ./README.md
 

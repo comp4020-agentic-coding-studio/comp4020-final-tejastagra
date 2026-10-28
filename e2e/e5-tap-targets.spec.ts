@@ -29,11 +29,16 @@ for (const [name, viewport] of [["390", PHONE], ["320", NARROW]] as const) {
     }
     // Screens that show more controls once something has happened: the sign-up form and sign-out,
     // the Quick match computer offer, and the game screen with the share panel.
+    await page.request.post("/api/guest", { data: { nickname: "TapTest" } });
     await page.goto("/account");
-    await page.fill(testid("nickname-input"), "TapTest");
-    await page.click(`${testid("guest-form")} button`);
-    await expect(page.locator(testid("signup-form"))).toBeVisible();
-    expect(await tooSmall(page), `/account after a guest at ${name}`).toEqual([]);
+    await expect(page.locator(testid("open-signup"))).toBeVisible();
+    expect(await tooSmall(page), `/account as a guest at ${name}`).toEqual([]);
+    for (const [opener, dialog] of [["open-signup", "signup-dialog"], ["open-signin", "signin-dialog"], ["edit-nickname", "nickname-dialog"]] as const) {
+      await page.click(testid(opener));
+      await expect(page.locator(testid(dialog))).toBeVisible();
+      expect(await tooSmall(page), `${dialog} open at ${name}`).toEqual([]);
+      await page.keyboard.press("Escape");
+    }
     await context.close();
   });
 }

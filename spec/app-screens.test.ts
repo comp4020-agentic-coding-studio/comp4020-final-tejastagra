@@ -39,12 +39,17 @@ describe("screens (docs/design.md)", () => {
     expect(html).toContain('data-testid="leaderboard-rounds"');
   });
 
-  it("Account has username and password fields for sign up and sign in", async () => {
+  it("Account has one card, buttons that open popups, the record and no form in the page (U114 to U122)", async () => {
     const { status, html } = await get("/account");
     expect(status).toBe(200);
-    expect(html).toContain('type="password"');
-    expect(html).toContain('autocomplete="new-password"');
-    expect(html).toContain('autocomplete="current-password"');
+    for (const hook of ["account-card", "edit-nickname", "open-signup", "open-signin", "open-password", "signout", "history", "stats-people", "stats-computer", "history-list", "go-home"]) {
+      expect(html, hook).toContain(`data-testid="${hook}"`);
+    }
+    expect(html).toContain("Save your progress to keep your record on any device.");
+    // Q1: every form is a popup built when it is opened, so the page carries no password field and no form.
+    expect(html).not.toContain('type="password"');
+    expect(html).not.toContain("<form");
+    expect(html).toContain('class="title"'); // Q11: the page header
   });
 
   it("Quick match shows a waiting state and an offer of the computer", async () => {

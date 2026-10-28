@@ -8,6 +8,7 @@ Status: **todo** (stub only), **written**, **passing**.
 
 - **Course checks.** `spec/invariants.test.ts` and `spec/global-setup.ts` ship with the course. Never delete or weaken them. `spec/README.md` explains them.
 - **`pnpm check`** (`scripts/check.sh`) starts its own test server on a free port with a temporary data folder, runs `pnpm typecheck`, then every `spec/**/*.test.ts` through `vitest.config.ts` against it, then deletes the folder, so it never touches `data-dev/` (check H1, correction C22). With `APP_URL` set (as CI does, against the Docker image) it runs against that app instead and starts nothing. `pnpm test:e2e` (`scripts/e2e.sh`) does the same for the browser checks. `pnpm test` alone is the old behaviour: vitest against whatever app is at `APP_URL` (default `http://localhost:8080`). In CI it runs against the Docker image with an empty `/data`, and a failure blocks the deploy.
+- **`spec/app-account.test.ts`** runs the admin's password reset script against the app under test: `pnpm check` gives it the database (`CHECK_DB_PATH`), and a run against Docker or another app sets `CHECK_RESET_COMMAND` (CI sets it to `docker exec app node scripts/admin-reset-password.ts`). Without either it fails and says what to set.
 - **`spec/app-*.test.ts`** are app checks. They talk to the running app with real HTTP and WebSocket clients, using `inject("baseUrl")`.
 - **`spec/unit-*.test.ts`** are unit checks. They need no running app. They also run alone with `pnpm check:fast`, which uses `vitest.unit.config.ts` (no global setup, so no app needed), and are what mutation testing uses.
 - **`e2e/*.spec.ts`** are Playwright browser checks for phone layout. They run only with `pnpm test:e2e`, never in `pnpm check`, because CI may have no browser.
@@ -95,6 +96,21 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | RM4 | A rematch keeps the code, the seats and the spectators, is archived as `<code>#<n>`, counts as a separate game for the leaderboard, and starts fresh (all rows open, power-ups unspent) | R84, R85, R38 | passing |
 | RM5 | A computer game rematches at once under the same code and never touches the leaderboard | R82, R37 | passing |
 | RM6 | Browser: both players tap Play again and a new game starts on the same link; the other leaving shows "<opponent> left"; a spectator stays and sees the new game | U109 to U113 | passing |
+
+## Accounts, history and the leaderboard (`spec/unit-accounts.test.ts`, `spec/app-account.test.ts`, `spec/unit-leaderboard.test.ts`, `spec/app-leaderboard.test.ts`, `e2e/account.spec.ts`, `e2e/leaderboard.spec.ts`)
+
+| ID | Claim | Rule | Status |
+| --- | --- | --- | --- |
+| AC1 | The admin reset sets a random 12 character temporary password from an alphabet without look-alikes, stores only its hash, ends the account's sessions, marks must change, and logs the username only; an unknown username changes nothing | R86, R30 | passing |
+| AC2 | A reset password signs in once and demands a new one: everything else is refused with 403, over HTTP and over a game connection; choosing one clears the mark and the temporary password stops working | R87 | passing |
+| AC3 | Changing a password needs the current one, 8 characters or more, and ends the account's other sessions but not this device's; a thief's open connection is closed at its next action | R87 | passing |
+| AC4 | Five failed sign-ins for one username in 15 minutes block it with the given words, per username, the same for unknown names; a flood of names cannot unblock a victim; memory is capped | R88 | passing |
+| AC5 | Signing in moves the guest's games and live seats to the account, and the guest's open connection goes on | R89 | passing |
+| AC6 | Stats and history are counted from saved games, split by people and the computer, win rate over finished games, abandoned games shown but not counted, last 20 newest first, only the caller's, no ids | R90, R91 | passing |
+| AC7 | Migration 18 upgrades an old database once; the reset works while the server process has the database open (two processes) | R87 | passing |
+| AC8 | No response and no log line from any account call contains a password, a temporary password or a hash | R30 | passing |
+| LB1 | `GET /api/leaderboard` carries the asker's own line only, null for no session, never an id; a full game puts the winner on both lists | R92, R38, R39 | passing |
+| LB2 | The page: tabs, podium of three, compact rows 12px apart, your row highlighted with a tag, Your best under each list, an empty state that explains itself, an error with Try again | U123 to U130 | passing |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
 

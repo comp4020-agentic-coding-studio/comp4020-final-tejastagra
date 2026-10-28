@@ -104,6 +104,12 @@ export interface RealtimeOptions {
   identify?: (request: import("node:http").IncomingMessage) => string | null;
   // The public display name for a person id (nickname and tag, or username), for the panels (U57).
   nameFor?: (personId: string) => string | null;
+  // Whether the session behind an upgrade request still exists (R87). A socket whose session ended is closed at its next action,
+  // which is how a reset done by the admin's script, in another process, reaches a connection that is already open.
+  sessionStillValid?: (request: import("node:http").IncomingMessage) => boolean;
+  // Whether the session behind an upgrade request must still choose a new password (R87): such a session does nothing over the
+  // game connection either, whatever seat token it holds.
+  sessionMustChange?: (request: import("node:http").IncomingMessage) => boolean;
   spectatorMoveMs?: number; // how long a spectator sees a result before moving on (R76); the browser waits this long
   spectatorsPerGame?: number; // R77
   spectatorsTotal?: number; // R77
@@ -131,6 +137,7 @@ export function attachRealtime(
   createQuickGame: (code: string) => void;
   liveCount: () => number;
   createLinkGame: (code: string, creator: string | null) => void;
+  movePerson: (from: string, to: string) => void;
   watchingIn: (code: string) => number;
   spectatorState: () => { watchers: number; watching: number; lastGame: number; addresses: number };
   retained: () => { kinds: number; creators: number; holders: number; rematchGone: number; rematchAsked: number; rematchTimers: number };
@@ -275,6 +282,28 @@ export function attachRealtime(
   // The person each seat belongs to, when the seat was taken by someone we can identify (R28). After a restart nobody is
   // connected, but these say whose the seats are, so a spectator cannot take one (R36).
   const holders = new Map<string, { A: string | null; B: string | null }>();
+  // The person behind each live connection, when they were identified (R28), so an account's open sockets can be closed
+  // when its sessions end (R87) and a guest's seats can move to the account they sign in to (R89).
+  const socketPersons = new Map<WebSocket, string>();
+  const socketRequests = new Map<WebSocket, import("node:http").IncomingMessage>();
+  // True while the socket's session still exists. A socket with no identified person has nothing to check.
+  function sessionOk(socket: WebSocket): boolean {
+    const request = socketRequests.get(socket);
+    // A must-change session is not an identified person (so it holds no person), but it must not act on a seat either (R87).
+    if (request && options.sessionMustChange?.(request)) {
+      socketRequests.delete(socket);
+      logEvent("session_ended_socket_closed", {});
+      socket.close();
+      return false;
+    }
+    if (!request || !socketPersons.has(socket) || !options.sessionStillValid) return true;
+    if (options.sessionStillValid(request)) return true;
+    socketPersons.delete(socket);
+    socketRequests.delete(socket);
+    logEvent("session_ended_socket_closed", {});
+    socket.close();
+    return false;
+  }
   const spectatorMoveMs = options.spectatorMoveMs ?? SPECTATOR_MOVE_MS;
 
   // Both players have taken their seats, so there is a game to watch (R36). A seat stays taken while its player is away.
@@ -887,6 +916,7 @@ export function attachRealtime(
   }
 
   wss.on("connection", (socket, request) => {
+    socketRequests.set(socket, request);
     logEvent("connect", { ua: request.headers["user-agent"]?.includes("Mobile") ? "phone" : "desktop" });
 
     socket.on("message", (raw) => {
@@ -920,6 +950,7 @@ export function attachRealtime(
         spectators.leave(socket);
         return;
       }
+      if ((parsed.type === "choose" || parsed.type === "rematch" || parsed.type === "leave_game") && !sessionOk(socket)) return; // R87
       if (parsed.type === "rematch") {
         handleRematch(parsed as { code?: unknown; player?: unknown; seatToken?: unknown });
         return;
@@ -930,6 +961,7 @@ export function attachRealtime(
       }
 
       if (parsed.type === "choose") {
+        if (!sessionOk(socket)) return; // R87
         handleChoose(parsed as ChooseMessage);
         return;
       }
@@ -946,6 +978,7 @@ export function attachRealtime(
         roster.set(code, seats);
       }
       const personId = options.identify?.(request) ?? null;
+      if (personId) socketPersons.set(socket, personId);
 
       // Who sits where, and who watches, is decided here and nowhere else (R36). The first request the server handles
       // takes a free seat, so two people arriving at the same moment for the last seat give one player and one spectator.
@@ -1015,6 +1048,11 @@ export function attachRealtime(
       if (personId && !computerGames.has(code)) {
         if (!game.getGame(code)) game.createGame(code); // the row must exist before it can record a seat
         db.seatPlayer(code, player, personId);
+        // Remember in memory whose seat this is, as a restart would from the database (R36), so the seat can follow a guest who
+        // signs in to an account (R89) and a stranger can never take it while its person is away.
+        const owned = holders.get(code) ?? { A: null, B: null };
+        if (!owned[player]) owned[player] = personId;
+        holders.set(code, owned);
       }
       // Create the game before this connection is registered, so its
       // broadcast (sent to whichever connections already exist) cannot also
@@ -1033,6 +1071,8 @@ export function attachRealtime(
     });
 
     socket.on("close", () => {
+      socketPersons.delete(socket);
+      socketRequests.delete(socket);
       spectators.leave(socket);
       for (const [connectionKey, connectionSocket] of connections) {
         if (connectionSocket === socket) {
@@ -1051,6 +1091,17 @@ export function attachRealtime(
       }
     });
   });
+
+  // R89: a guest signed in to an account, so the seats the guest holds in live games are the account's from now on, in memory as
+  // well as in the database, and the guest's sockets are counted as the account's.
+  function movePerson(from: string, to: string): void {
+    for (const owned of holders.values()) {
+      if (owned.A === from) owned.A = to;
+      if (owned.B === from) owned.B = to;
+    }
+    for (const [code, creator] of [...creators]) if (creator === from) creators.set(code, to);
+    for (const [socket, person] of socketPersons) if (person === from) socketPersons.set(socket, to);
+  }
 
   function dispose(): void {
     for (const timer of timers.values()) clearTimeout(timer);
@@ -1076,6 +1127,7 @@ export function attachRealtime(
     createComputerGame,
     createQuickGame,
     createLinkGame,
+    movePerson,
     liveCount: () => liveWatchable().length, // R80: live quick match games, never link games or computer games
     spectatorState: () => spectators.sizes(),
     retained: () => ({ kinds: kinds.size, creators: creators.size, holders: holders.size, rematchGone: rematchGone.size, rematchAsked: rematchAsked.size, rematchTimers: rematchTimers.size }), // for tests: every map empties as games are forgotten (R84)

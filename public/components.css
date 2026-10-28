@@ -2475,7 +2475,7 @@ input {
 
 .quick .subtitle {
   width: min(480px, 100%);
-  margin: 0;
+  margin: 24px 0 0; /* clear of the title's falling chips (U5a) */
   text-align: center;
 }
 
@@ -2755,4 +2755,490 @@ input {
 
 .popup-actions:has(.btn[hidden]) {
   grid-template-columns: 1fr;
+}
+
+/* ---- The account page (docs/design/account.md U114 to U122) ---- */
+.account {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 16px;
+}
+
+.account .subtitle {
+  width: min(480px, 100%);
+  margin: 24px 0 0; /* clear of the title's falling chips (U5a) */
+  text-align: center;
+}
+
+.account-card {
+  display: grid;
+  gap: 16px;
+  width: min(480px, 100%);
+  margin: 0;
+}
+
+.account-who {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "avatar names" "edit edit";
+  align-items: center;
+  gap: 12px;
+}
+
+.account-who > .avatar {
+  grid-area: avatar;
+}
+
+.account-names {
+  grid-area: names;
+}
+
+.account-edit {
+  grid-area: edit;
+}
+
+@media (min-width: 480px) {
+  .account-who {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "avatar names edit";
+  }
+}
+
+.account-names {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.account-nickname {
+  font: 700 1.15rem/1.2 var(--font-display);
+  overflow-wrap: anywhere;
+}
+
+.account-edit {
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .account-edit {
+    width: auto;
+  }
+}
+
+.account-username,
+.account-status {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.account-hint {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.account-hint[hidden],
+.account-actions .btn[hidden],
+.account-edit[hidden],
+.account-username[hidden] {
+  display: none;
+}
+
+.account-actions {
+  display: grid;
+  gap: 16px;
+}
+
+.account-actions:not(:has(.btn:not([hidden]))) {
+  display: none;
+}
+
+.account-edit {
+  min-width: 0;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.account-actions .btn {
+  white-space: nowrap;
+}
+
+.account .card-message {
+  margin: 0;
+}
+
+.forgot-link {
+  justify-self: start;
+  padding: 0;
+  color: var(--link);
+  text-decoration: underline;
+}
+
+/* Your record: two small stats cards and the list of the last 20 games, in the same column as the card (U118). */
+.record {
+  display: grid;
+  gap: 16px;
+  width: min(480px, 100%);
+  margin-top: 16px; /* with the page's 16px gap, 32px between the card and the record (Q4) */
+}
+
+.record h2 {
+  margin: 0;
+}
+
+.record-stats {
+  display: grid;
+  gap: 16px;
+}
+
+.record-card {
+  margin: 0;
+}
+
+.record-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.record-card dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.record-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.record-card dt {
+  color: var(--text-muted);
+}
+
+.record-card dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.record-none {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.history-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "who name" "who result" "who detail";
+  align-items: center;
+  gap: 2px 12px;
+}
+
+@media (min-width: 400px) {
+  .history-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "who name result" "who detail detail";
+  }
+}
+
+.history-row > .avatar {
+  grid-area: who;
+}
+
+.history-row .row-name {
+  grid-area: name;
+}
+
+.history-result {
+  grid-area: result;
+  font-weight: 700;
+}
+
+.history-detail {
+  grid-area: detail;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.history-row[data-abandoned="true"] {
+  opacity: 0.7;
+}
+
+.history-empty {
+  text-align: center;
+}
+
+@media (min-width: 560px) {
+  .record-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Home under the record: 32px from the last section (Q4). The page's 16px gap plus this. */
+.account > .stack {
+  width: min(480px, 100%);
+  margin: 16px 0 0;
+}
+
+.dialog-hint {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.record-error {
+  margin: 0;
+  color: var(--error);
+  font-weight: 700;
+}
+
+/* ---- The leaderboard (docs/design/leaderboard.md U123 to U130) ---- */
+.leaderboard {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 16px;
+  max-width: var(--list-width);
+}
+
+.leaderboard .subtitle {
+  width: min(var(--list-width), 100%);
+  margin: 24px 0 0; /* clear of the title's falling chips (U5a) */
+  text-align: center;
+}
+
+.board-column {
+  display: grid;
+  gap: 16px;
+  width: min(var(--list-width), 100%);
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tab {
+  min-height: 48px;
+  padding: 0 8px;
+  font: 700 1rem/1 var(--font-display);
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--panel);
+  border: var(--outline);
+  border-radius: var(--radius-button);
+  box-shadow: var(--shadow-small);
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  color: var(--ink);
+  background: var(--yellow);
+  box-shadow: var(--shadow);
+}
+
+.board-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.board-loading {
+  margin: 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.board-loading[hidden],
+.podium[hidden],
+.board-rows[hidden],
+.board-empty[hidden],
+.board-error[hidden] {
+  display: none;
+}
+
+/* The podium: second on the left, first in the middle and tallest, third on the right. */
+.podium {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* First place is always in the middle column, second on the left and third on the right, whoever is missing (U125). */
+.podium-place[data-place="2"] {
+  grid-column: 1;
+}
+
+.podium-place[data-place="1"] {
+  grid-column: 2;
+}
+
+.podium-place[data-place="3"] {
+  grid-column: 3;
+}
+
+.podium-place {
+  grid-row: 1;
+  display: grid;
+  align-content: end;
+  gap: 8px;
+  min-width: 0;
+  text-align: center;
+}
+
+.podium-who {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.podium-name {
+  max-width: 100%;
+  font: 700 0.85rem/1.15 var(--font-display);
+  overflow-wrap: anywhere;
+}
+
+.podium-step {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  color: var(--ink);
+  background: var(--blue);
+  border: var(--outline);
+  border-radius: var(--radius-button) var(--radius-button) 0 0;
+  box-shadow: var(--shadow);
+}
+
+.podium-place[data-place="1"] .podium-step {
+  min-height: 132px;
+  background: var(--yellow);
+}
+
+.podium-place[data-place="2"] .podium-step {
+  min-height: 100px;
+  color: var(--text);
+}
+
+.podium-place[data-place="3"] .podium-step {
+  min-height: 76px;
+  color: var(--text);
+  background: var(--red);
+}
+
+.podium-rank {
+  font: 700 1.6rem/1 var(--font-display);
+}
+
+.podium-score {
+  font: 700 0.8rem/1.1 var(--font-display);
+}
+
+.podium-place[data-you="true"] .podium-step {
+  outline: 4px solid var(--text);
+  outline-offset: 2px;
+}
+
+.you-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 8px;
+  color: var(--ink);
+  font: 700 0.75rem/1.4 var(--font-display);
+  background: var(--yellow);
+  border: var(--outline-thin);
+  border-radius: var(--radius-pill);
+}
+
+.podium-who .you-tag {
+  margin: 0;
+}
+
+/* Compact rows from fourth place, 12px apart. */
+.board-rows {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.board-row {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+}
+
+.board-row .row-name {
+  overflow-wrap: anywhere;
+}
+
+.board-row[data-you="true"] {
+  outline: 4px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.board-row .row-value {
+  white-space: nowrap;
+}
+
+.board-empty {
+  display: grid;
+  gap: 16px;
+  width: min(480px, 100%); /* an explanation and two buttons is a form-size card (Q3), centred in the column */
+  margin: 0 auto;
+  text-align: center;
+}
+
+.board-empty-text,
+.board-error p {
+  margin: 0;
+}
+
+.board-empty-actions {
+  display: grid;
+  gap: 16px;
+}
+
+.board-error {
+  display: grid;
+  gap: 16px;
+  width: min(480px, 100%);
+  margin: 0 auto;
+  color: var(--error);
+  text-align: center;
+  font-weight: 700;
+}
+
+.your-best {
+  min-height: 1.4em;
+  margin: 0;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.leaderboard > .stack {
+  width: min(var(--list-width), 100%);
+  margin: 16px 0 0;
+}
+
+/* A round button's label is one line (Q2). From 360 to 479px five buttons share a row, so the words are a little smaller there. */
+.round-item > span:last-child {
+  white-space: nowrap;
+}
+
+@media (min-width: 360px) and (max-width: 479px) {
+  .round-item {
+    font-size: 0.72rem;
+  }
 }

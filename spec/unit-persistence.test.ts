@@ -301,7 +301,7 @@ describe("S: what happens is kept (promise 5)", () => {
       // The tutorial flag was the tenth migration, applied once; the Earthquake migration (S4) is the 11th
       // and the shrinking board's (S5) the 12th and the walls' removal (S6) the 13th.
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
       raw.close();
       // An existing player has not seen the tutorial, so it is due for them.
       expect(upgraded.playerById("p-old")?.tutorialSeen).toBe(false);
@@ -348,7 +348,7 @@ describe("R53 a game saved before Earthquake is upgraded", () => {
       expect(games.NEW11.earthquakesLeft).toEqual({ A: false, B: true });
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
       raw.close();
     } finally {
       rmSync(path, { force: true });
@@ -397,7 +397,7 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
       expect(games.NEW12.rows).toBe(5); // never overwritten
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
       raw.close();
       const again = openDb(path); // opening again runs nothing a second time
       expect(again.loadGames().find((g) => g.code === "NEW12")?.state.rows).toBe(5);
@@ -424,7 +424,7 @@ describe("R69 a game saved before the shrinking board is upgraded", () => {
       expect((state.board as string[][])[1]).toEqual(["A", "B"]);
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
       raw.close();
     } finally {
       clean(path);
@@ -464,7 +464,7 @@ describe("R71 which games are watchable is saved", () => {
       expect(upgraded.loadGames().find((g) => g.code === "PLAIN1")?.kind).toBe("link"); // an unmarked game is a link game, never in Watch live
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
       raw.close();
       const again = openDb(path);
       expect(again.loadGames().find((g) => g.code === "NEWQCK")?.kind).toBe("quick");
@@ -517,7 +517,7 @@ describe("R36 and R71 the kind of a game and its creator are saved", () => {
       expect(upgraded.loadGames().find((g) => g.code === "NEWLNK")?.creator).toBe("person-1");
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(17);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(18);
       raw.close();
       const again = openDb(path);
       expect(again.loadGames().find((g) => g.code === "OLDQCK")?.kind).toBe("quick");

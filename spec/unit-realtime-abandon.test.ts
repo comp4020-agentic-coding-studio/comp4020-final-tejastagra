@@ -173,7 +173,7 @@ describe("R19 abandonment", () => {
     db.seatPlayer("ABN237", "A", "a7f3c1d2-1111-4222-8333-444455556666");
     db.seatPlayer("ABN237", "B", "b8e4d2c3-1111-4222-8333-444455556666");
     for (;;) if ((await a.next()).type === "game_over") break;
-    expect(leaderboardFrom(db, 10)).toEqual({ wins: [], rounds: [] });
+    expect(leaderboardFrom(db, 10)).toEqual({ wins: [], rounds: [], you: null }); // both lists empty (R19); no asking player (R92)
     a.socket.close();
   });
 

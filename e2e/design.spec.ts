@@ -447,8 +447,9 @@ test.describe("Tutorial", () => {
     // Other checks finish games while this one runs, so the whole list is not compared (it is
     // global and shared): this player's own name must be on neither list (correction C18).
     const me = (await (await page.request.get("/api/me")).json()).player.displayName as string;
-    const board = (await (await page.request.get("/api/leaderboard?limit=1000")).json()) as Record<string, Array<{ name: string }>>;
-    for (const list of Object.values(board)) expect(list.map((row) => row.name)).not.toContain(me);
+    const board = (await (await page.request.get("/api/leaderboard?limit=1000")).json()) as { wins: Array<{ name: string }>; rounds: Array<{ name: string }>; you: { wins: number; bestRounds: number | null } | null };
+    for (const list of [board.wins, board.rounds]) expect(list.map((row) => row.name)).not.toContain(me);
+    expect(board.you).toMatchObject({ wins: 0, bestRounds: null }); // R92: and the player's own line agrees: no wins, no best
     await context.close();
   });
 });
@@ -830,14 +831,16 @@ test.describe("Forms and lists stay narrow and centred (U60)", () => {
       expect(wide, `${path} has nothing wider than 560px`).toEqual([]);
     }
     await page.goto("/leaderboard");
-    for (const id of ["leaderboard-wins", "leaderboard-rounds"]) {
-      const box = (await page.locator(testid(id)).boundingBox())!;
-      expect(Math.abs(box.x + box.width / 2 - LAPTOP.width / 2), `${id} centred`).toBeLessThanOrEqual(8);
-    }
+    // U123: one column, centred, and the tabs, podium and rows share it (the two lists are tabs now, U124).
+    const column = (await page.locator(testid("leaderboard-column")).boundingBox())!;
+    expect(Math.abs(column.x + column.width / 2 - LAPTOP.width / 2), "leaderboard column centred").toBeLessThanOrEqual(8);
+    expect(column.width, "leaderboard column at most 560px").toBeLessThanOrEqual(561);
     await page.goto("/account");
-    const form = (await page.locator(testid("guest-form")).boundingBox())!;
-    expect(Math.abs(form.x + form.width / 2 - LAPTOP.width / 2), "account form centred").toBeLessThanOrEqual(8);
-    await expect(page.locator(`${testid("guest-form")} button`)).toHaveText("Save nickname");
+    const card = (await page.locator(testid("account-card")).boundingBox())!;
+    expect(Math.abs(card.x + card.width / 2 - LAPTOP.width / 2), "account card centred").toBeLessThanOrEqual(8);
+    expect(card.width, "account card at most 480px").toBeLessThanOrEqual(481);
+    await page.click(testid("edit-nickname"));
+    await expect(page.locator(`${testid("nickname-dialog")} ${testid("nickname-save")}`)).toHaveText("Save"); // U115: Save and Cancel
     await context.close();
   });
 

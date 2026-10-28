@@ -2,6 +2,7 @@
 // Use const baseUrl = inject("baseUrl") and real HTTP or WebSocket clients, so it also runs in CI.
 // Stubs: turn each it.todo into a real test as the feature lands. Keep the ID and rule in the name.
 import { describe, expect, inject, it } from "vitest";
+import { withQuickQueue } from "./quick-lock.ts";
 
 const base = () => inject("baseUrl");
 const unique = () => Math.random().toString(36).slice(2, 8);
@@ -73,12 +74,14 @@ async function newGameCode(path = "/api/games", creator?: { cookie: string }) {
 
 // Two people paired by Quick match, a game with no reserved seat: for a check whose players have no session at all.
 async function quickCode(): Promise<string> {
-  const ticket = () => `${base()}/api/quick/${crypto.randomUUID()}`;
-  const probe = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
-  if (probe.state === "waiting") await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } });
-  const first = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
-  const second = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
-  return (second.code ?? first.code) as string;
+  return withQuickQueue(async () => {
+    const ticket = () => `${base()}/api/quick/${crypto.randomUUID()}`;
+    const probe = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
+    if (probe.state === "waiting") await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } });
+    const first = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
+    const second = await (await fetch(ticket(), { method: "POST", headers: { "fly-client-ip": fakeAddress() } })).json();
+    return (second.code ?? first.code) as string;
+  });
 }
 
 const fakeAddress = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
@@ -136,4 +139,61 @@ describe("B: leaderboard (R37 to R39)", () => {
 
   it.todo("B3 (R39) a win where the opponent missed a round does not count for fewest rounds (rule covered in spec/unit-leaderboard.test.ts; needs a real 10 second timer here)");
   it.todo("B4 (R19) an abandoned game changes neither list (needs three real 10 second rounds here; covered in spec/unit-realtime-abandon.test.ts)");
+});
+
+describe("R92 the leaderboard says who is asking, and a full game puts the winner on both lists", () => {
+  async function boardAs(who: { cookie: string } | null) {
+    const res = await fetch(base() + "/api/leaderboard?limit=1000", { headers: { "fly-client-ip": fakeAddress(), ...(who ? { cookie: who.cookie } : {}) } });
+    return (await res.json()) as { wins: Array<{ name: string; value: number }>; rounds: Array<{ name: string; value: number }>; you: { name: string; wins: number; bestRounds: number | null } | null };
+  }
+
+  it("R92 a visitor with no player gets you: null, and the lists as before", async () => {
+    const board = await boardAs(null);
+    expect(board.you).toBeNull();
+    expect(Array.isArray(board.wins)).toBe(true);
+    expect(Array.isArray(board.rounds)).toBe(true);
+  });
+
+  it("R92 and item 25 two players play a full game: the winner is on both lists with their win and 4 rounds, the loser on neither, and each sees only their own line", async () => {
+    const winner = await guest("Champ" + unique());
+    const loser = await guest("Runner" + unique());
+    const code = await newGameCode("/api/games", winner);
+    const a = await seat(code, winner);
+    const b = await seat(code, loser);
+    const result = await playVertical(a, b, code);
+    expect(result.state.status).toBe("won");
+    const mine = await boardAs(winner);
+    expect(mine.wins.find((r) => r.name === winner.name)).toEqual({ name: winner.name, value: 1 });
+    expect(mine.rounds.find((r) => r.name === winner.name)).toEqual({ name: winner.name, value: 4 });
+    expect(mine.wins.find((r) => r.name === loser.name)).toBeUndefined();
+    expect(mine.rounds.find((r) => r.name === loser.name)).toBeUndefined();
+    expect(mine.you).toEqual({ name: winner.name, wins: 1, bestRounds: 4 });
+    // The loser asks: their own line shows no wins and no best; they learn nothing more about the winner than the lists show.
+    const theirs = await boardAs(loser);
+    expect(theirs.you).toEqual({ name: loser.name, wins: 0, bestRounds: null });
+    expect(JSON.stringify(theirs.you)).not.toContain(winner.name);
+    // Nobody can ask as someone else: a made-up cookie is a visitor.
+    expect((await boardAs({ cookie: "rubble_session=not-a-real-token" })).you).toBeNull();
+    a.socket.close();
+    b.socket.close();
+  });
+
+  it("R92 and R37 a win against the computer puts nothing on the lists and nothing in your line", async () => {
+    const solo = await guest("Solo" + unique());
+    const code = await newGameCode("/api/computer");
+    const a = await seat(code, solo);
+    a.socket.send(JSON.stringify({ type: "choose", code, player: a.you, seatToken: a.seatToken, column: 3, shield: false }));
+    await a.next();
+    const board = await boardAs(solo);
+    expect(board.you).toEqual({ name: solo.name, wins: 0, bestRounds: null });
+    expect(board.wins.find((r) => r.name === solo.name)).toBeUndefined();
+    a.socket.close();
+  });
+
+  it("R92 the answer carries no id, no seat token and no session", async () => {
+    const who = await guest("Private" + unique());
+    const res = await fetch(base() + "/api/leaderboard", { headers: { "fly-client-ip": fakeAddress(), cookie: who.cookie } });
+    const text = await res.text();
+    expect(text).not.toMatch(/seatToken|session|rubble_session|[0-9a-f]{8}-[0-9a-f]{4}-/);
+  });
 });

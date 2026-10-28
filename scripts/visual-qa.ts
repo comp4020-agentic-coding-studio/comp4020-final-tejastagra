@@ -99,16 +99,108 @@ const STATES: State[] = [
       await shot();
     },
   },
-  { name: "leaderboard", run: async ({ page, shot }) => { await page.goto("/leaderboard"); await settle(page); await shot(); } },
+  {
+    name: "leaderboard-empty",
+    run: async ({ page, shot }) => {
+      await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: [], rounds: [], you: null } }));
+      await page.goto("/leaderboard");
+      await settle(page);
+      await shot();
+    },
+  },
+  {
+    name: "leaderboard-filled",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      const names = ["Brave Wombat #a7f3", "Quick Otter #b2c1", "Pip Squeak #4f2a", "Calm Falcon #9d10", "Bold Badger #5e77", "Lucky Panda #31ab", "Sneaky Gecko #c0de"];
+      const wins = names.map((name, i) => ({ name, value: 14 - i * 2 }));
+      const rounds = names.map((name, i) => ({ name, value: 4 + i }));
+      await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins, rounds, you: { name: "Pip Squeak #4f2a", wins: 10, bestRounds: 6 } } }));
+      await page.goto("/leaderboard");
+      await settle(page);
+      await shot();
+    },
+  },
+  {
+    name: "leaderboard-fewest-rounds",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      const names = ["Brave Wombat #a7f3", "Quick Otter #b2c1", "Pip Squeak #4f2a", "Calm Falcon #9d10"];
+      const rounds = names.map((name, i) => ({ name, value: 4 + i }));
+      await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: [], rounds, you: { name: "Pip Squeak #4f2a", wins: 0, bestRounds: 6 } } }));
+      await page.goto("/leaderboard");
+      await page.locator(testid("tab-rounds")).click();
+      await settle(page);
+      await shot();
+    },
+  },
   { name: "account-guest", nickname: "Pip Squeak", run: async ({ page, shot }) => { await page.goto("/account"); await settle(page); await shot(); } },
   {
     name: "account-signed-in",
+    nickname: "Pip Squeak",
+    run: async ({ browser, v, page, shot }) => {
+      const username = `pip${Math.random().toString(36).slice(2, 8)}`;
+      await page.request.post("/api/account/signup", { data: { username, password: "correct horse battery" } });
+      // A real game against a person, so the record has something in it (R90, R91).
+      const { second } = await twoPlayers(browser, v, page);
+      await page.locator(testid("leave-game")).click();
+      await page.locator(testid("leave-confirm")).click();
+      await page.waitForURL(/\/$/);
+      await second.context.close();
+      await page.goto("/account");
+      await settle(page, 900);
+      await shot();
+    },
+  },
+  ...(["open-signup:signup-dialog", "open-signin:signin-dialog", "edit-nickname:nickname-dialog"] as const).map((pair): State => {
+    const [opener, dialog] = pair.split(":");
+    return {
+      name: `popup-${dialog}`,
+      nickname: "Pip Squeak",
+      run: async ({ page, shot }) => {
+        await page.goto("/account");
+        await page.locator(testid(opener)).click();
+        await page.locator(testid(dialog)).waitFor();
+        await settle(page, 500);
+        await shot();
+      },
+    };
+  }),
+  {
+    name: "popup-forgot-dialog",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      await page.goto("/account");
+      await page.locator(testid("open-signin")).click();
+      await page.locator(testid("forgot-link")).click();
+      await page.locator(testid("forgot-dialog")).waitFor();
+      await settle(page, 500);
+      await shot();
+    },
+  },
+  {
+    name: "popup-signin-error",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      await page.goto("/account");
+      await page.locator(testid("open-signin")).click();
+      await page.fill(testid("username-input"), "nobody_here");
+      await page.fill(testid("password-input"), "wrong password");
+      await page.locator(testid("signin-save")).click();
+      await page.locator(`${testid("signin-dialog")} .dialog-error:visible`).waitFor();
+      await shot();
+    },
+  },
+  {
+    name: "popup-password-dialog",
     nickname: "Pip Squeak",
     run: async ({ page, shot }) => {
       const username = `pip${Math.random().toString(36).slice(2, 8)}`;
       await page.request.post("/api/account/signup", { data: { username, password: "correct horse battery" } });
       await page.goto("/account");
-      await settle(page);
+      await page.locator(testid("open-password")).click();
+      await page.locator(testid("password-dialog")).waitFor();
+      await settle(page, 500);
       await shot();
     },
   },
