@@ -433,26 +433,20 @@ test.describe("Q7 and Q8 forms and controls", () => {
   });
 });
 
-// U33 and U33b: one line of subtext under each menu button, and the popups' own behaviour.
+// U33 and U33b: the menu buttons with no subtext (changed 29 October 2026), and the popups' own behaviour.
 test.describe("Home menu and its popups (U33, U33b)", () => {
   for (const viewport of VIEWPORTS) {
-    test(`each menu button has one line of subtext at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+    test(`the menu buttons have no subtext under them and are 16px apart at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await page.goto("/");
       await page.waitForTimeout(500);
-      const expected: Array<[string, string]> = [
-        ["hint-play-computer", "Practise against the computer"],
-        ["hint-play-friend", "Send a link to someone you know"],
-        ["hint-quick-match", "Play a random person online"],
-        ["hint-join", "Enter a friend's 6-letter code"],
-      ];
-      for (const [id, words] of expected) {
-        const hint = page.locator(testid(id));
-        await expect(hint).toHaveText(words);
-        const box = (await hint.boundingBox())!;
-        expect(box.height, `${id} is one line`).toBeLessThan(24);
-        expect(box.x, `${id} inside the screen`).toBeGreaterThanOrEqual(0);
-        expect(box.x + box.width, `${id} inside the screen`).toBeLessThanOrEqual(viewport.width);
+      await expect(page.locator(".menu-hint")).toHaveCount(0);
+      for (const id of ["hint-play-computer", "hint-play-friend", "hint-quick-match", "hint-join"]) await expect(page.locator(testid(id))).toHaveCount(0);
+      const boxes = [];
+      for (const id of ["play-computer", "play-friend", "quick-match", "join-toggle"]) boxes.push((await page.locator(testid(id)).boundingBox())!);
+      for (let i = 0; i < boxes.length - 1; i++) {
+        expect(boxes[i + 1].y - (boxes[i].y + boxes[i].height), "16px between stacked buttons (Q4)").toBeGreaterThanOrEqual(15.5);
+        expect(boxes[i + 1].y - (boxes[i].y + boxes[i].height), "and no gap left where a subtext was").toBeLessThanOrEqual(24);
       }
       await context.close();
     });
@@ -529,6 +523,35 @@ test.describe("Quick match page (U96 to U101)", () => {
       expect(cancel.y + cancel.height, "Cancel is on the first screen").toBeLessThanOrEqual(viewport.height);
       expect(cancel.height).toBeGreaterThanOrEqual(44);
       await expect(page.locator(testid("computer-offer"))).toBeHidden();
+      await context.close();
+    });
+  }
+
+  for (const viewport of VIEWPORTS) {
+    test(`U98 nothing on the quick match screen moves by more than 1px when the live count arrives at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } }));
+      // Hold the count back until the page has been measured without it, then let it arrive.
+      let release: () => void = () => {};
+      const held = new Promise<void>((r) => (release = r));
+      await page.route("**/api/live", async (route) => {
+        await held;
+        await route.fulfill({ json: { live: 3 } });
+      });
+      await page.goto("/play/quick");
+      await page.evaluate(() => document.fonts.ready);
+      await expect(page.locator(testid("quick-live"))).toHaveText("");
+      const before = await geometry(page);
+      release();
+      await expect(page.locator(testid("quick-live"))).toHaveText("6 people playing now");
+      const after = await geometry(page);
+      for (const [id, box] of Object.entries(before)) {
+        const now = after[id];
+        if (!now || id === "quick-live") continue;
+        expect(Math.abs(now.y - box.y), `${id} moved down when the count arrived`).toBeLessThanOrEqual(1);
+        expect(Math.abs(now.h - box.h), `${id} changed height when the count arrived`).toBeLessThanOrEqual(1);
+        expect(Math.abs(now.x - box.x), `${id} moved sideways`).toBeLessThanOrEqual(1);
+      }
       await context.close();
     });
   }

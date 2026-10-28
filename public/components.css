@@ -2370,7 +2370,7 @@ input {
 
   /* Tighter vertical rhythm so the whole right half fits a 768px-tall laptop. */
   .home-right .stack {
-    gap: 12px;
+    gap: 16px; /* Q4: 16px between stacked buttons */
     margin: 8px auto 12px;
   }
 
@@ -2514,21 +2514,6 @@ input {
 .dialog-actions .btn {
   min-width: 0;
   padding: 0 8px;
-  white-space: nowrap;
-}
-
-/* One line of subtext under each home menu button (U33). */
-.menu-item {
-  display: grid;
-  gap: 6px;
-}
-
-.menu-hint {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  line-height: 1.2;
-  text-align: center;
   white-space: nowrap;
 }
 
