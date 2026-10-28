@@ -23,8 +23,10 @@ describe("screens (docs/design.md)", () => {
     expect(html).toContain('href="/leaderboard"');
     expect(html).toContain('href="/account"');
     // U33 and U33b: one line of subtext under each button, and the code and nickname fields are in popups (Q1), not in the page.
-    for (const words of ["Practise against the computer", "Send a link to someone you know", "Play a random person online", "Enter a friend&#39;s 6-letter code", "Enter a friend's 6-letter code"].slice(0, 3)) expect(html, words).toContain(words);
-    expect(html).toMatch(/Enter a friend(&#39;|')s 6-letter code/);
+    // U33 (changed 29 October 2026): the menu buttons have no subtext under them.
+    for (const words of ["Practise against the computer", "Send a link to someone you know", "Play a random person online"]) expect(html, words).not.toContain(words);
+    expect(html).not.toContain("menu-hint");
+    expect(html).not.toMatch(/Enter a friend(&#39;|')s 6-letter code/); // U33: no subtext
     expect(html).not.toContain('data-testid="code-input"');
     expect(html).not.toContain('data-testid="nickname-input"');
     expect(html).toContain("Four in a row, with a twist.");

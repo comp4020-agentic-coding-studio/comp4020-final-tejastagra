@@ -40,6 +40,7 @@ export function tally(games: FinishedGame[]): Map<string, Tally> {
     if (g.vsComputer) continue; // R37
     if (!g.playerA || !g.playerB || g.playerA === g.playerB) continue; // needs two different people
     if (g.ended?.result === "abandoned") continue; // R19
+    if (g.round === 0) continue; // R98: a game that never started is never recorded, so a forfeit before round 1 is no win
     let winner: Player | null = null;
     let byLine = false;
     if (g.ended?.result === "forfeit") {

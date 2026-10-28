@@ -569,7 +569,7 @@ describe("R84 archiving a finished game for a rematch (no schema change: it uses
 
 describe("R93 and R95 player colours are saved with the game", () => {
   it("S8 (R95) migrations 19 and 20 give a game saved before colours seat A red and seat B yellow, once, and keep newer colours", () => {
-    expect(MIGRATION_COUNT, "the colours are migrations 19 and 20").toBe(20);
+    expect(MIGRATION_COUNT, "the colours are migrations 19 and 20, then migration 21 (R98)").toBe(21);
     const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration19.db`);
     try {
       const old = new DatabaseSync(path);
@@ -596,12 +596,56 @@ describe("R93 and R95 player colours are saved with the game", () => {
       upgraded.markLink("NEWCOL", newGame(), null, { A: "yellow", B: "red" });
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(20);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT);
       raw.close();
       const again = openDb(path); // opening again runs nothing a second time, so a newer game's colours are kept
       expect(again.loadGames().find((g) => g.code === "NEWCOL")!.colours).toEqual({ A: "yellow", B: "red" });
       expect(again.loadGames().find((g) => g.code === "OLDCOL")!.colours).toEqual({ A: "red", B: "yellow" });
       again.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
+});
+
+describe("R98 games that never started are removed once", () => {
+  it("S9 (R98) migration 21 deletes games that are over with no round played and their empty archives, and keeps everything else", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration21.db`);
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      for (const c of ["ended TEXT", "vs_computer INTEGER NOT NULL DEFAULT 0", "player_a TEXT", "player_b TEXT", "missed_a INTEGER NOT NULL DEFAULT 0", "missed_b INTEGER NOT NULL DEFAULT 0", "watchable INTEGER NOT NULL DEFAULT 0", "kind TEXT", "creator TEXT", "colours TEXT"]) old.exec(`ALTER TABLE games ADD COLUMN ${c}`);
+      old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE players ADD COLUMN must_change INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+      old.exec(`PRAGMA user_version = 20`); // the schema as shipped with colours, before R98
+      const insert = old.prepare("INSERT INTO games (code, state, updated_at, ended, kind, colours) VALUES (?, ?, ?, ?, 'link', '{\"A\":\"red\",\"B\":\"yellow\"}')");
+      const at = (round: number) => JSON.stringify({ ...newGame(), round });
+      insert.run("CANCEL", at(0), 1, JSON.stringify({ result: "abandoned" })); // cancelled before anyone joined: deleted
+      insert.run("EARLYF", at(0), 1, JSON.stringify({ result: "forfeit", winner: "A" })); // left before round 1: deleted
+      insert.run("WAITNG", at(0), 1, null); // still waiting for its second player: kept (R26)
+      insert.run("PLAYED", at(3), 1, JSON.stringify({ result: "forfeit", winner: "B" })); // three rounds: kept
+      insert.run("PLAYED#1", at(0), 1, JSON.stringify({ result: "abandoned" })); // an empty rematch archive: deleted
+      insert.run("PLAYED#2", at(5), 1, null); // an archive of a real game: kept
+      old.close();
+
+      const upgraded = openDb(path);
+      expect(upgraded.loadGames().map((g) => g.code).sort()).toEqual(["PLAYED", "PLAYED#2", "WAITNG"]);
+      upgraded.close();
+      const raw = new DatabaseSync(path);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(21);
+      raw.close();
+      // Run once: a game cancelled after the upgrade is left for history to ignore (R98), never deleted by a second open.
+      const again = openDb(path);
+      again.markLink("LATER", newGame(), null);
+      again.saveEnded("LATER", { result: "abandoned" });
+      again.close();
+      const third = openDb(path);
+      expect(third.loadGames().map((g) => g.code)).toContain("LATER");
+      third.close();
     } finally {
       rmSync(path, { force: true });
       rmSync(`${path}-wal`, { force: true });

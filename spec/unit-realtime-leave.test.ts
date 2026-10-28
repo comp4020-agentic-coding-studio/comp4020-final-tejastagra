@@ -90,6 +90,10 @@ describe("R81 leaving a game on purpose", () => {
     const a = await seat(url, "LEV002", "p1");
     const b = await seat(url, "LEV002", "p2");
     await a.next("opponent_joined");
+    // One round first: a forfeit before any round is played counts for nobody (R98).
+    a.send({ type: "choose", code: "LEV002", player: "A", seatToken: a.snap.seatToken, column: 0, shield: false });
+    b.send({ type: "choose", code: "LEV002", player: "B", seatToken: b.snap.seatToken, column: 1, shield: false });
+    await a.next("snapshot");
     a.send({ type: "leave_game", code: "LEV002", player: "A", seatToken: a.snap.seatToken });
     await b.next("game_over");
     const board = leaderboardFrom(db, 10);

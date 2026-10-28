@@ -154,6 +154,9 @@ const MIGRATIONS: string[] = [
   // seat A red and seat B yellow, which is what their spectators were shown.
   `ALTER TABLE games ADD COLUMN colours TEXT`,
   `UPDATE games SET colours = '{"A":"red","B":"yellow"}' WHERE colours IS NULL`,
+  // R98 (ADR 0015, asked for by Tejas on 29 October 2026): a game that never started is never recorded. Rows of games that are
+  // over with no round played are deleted, and their rematch archives with no round played; a game still waiting is kept (R26).
+  `DELETE FROM games WHERE json_extract(state, '$.round') = 0 AND (ended IS NOT NULL OR json_extract(state, '$.status') <> 'playing' OR instr(code, '#') > 0)`,
 ];
 
 // How many migrations there are: a database opened by this code has run exactly this many (`PRAGMA user_version`).

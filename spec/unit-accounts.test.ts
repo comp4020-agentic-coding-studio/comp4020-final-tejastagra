@@ -210,11 +210,12 @@ describe("R90 and R91 stats and history", () => {
 
   it("R90 a forfeit counts for the other player, an abandoned game appears in the history but not in the stats, and a game in play is not shown", () => {
     const { db, add } = seed();
-    add("F1", newGame(), { ended: { result: "forfeit", winner: "B" } }); // I am A and left: a loss
-    add("F2", newGame(), { ended: { result: "forfeit", winner: "A" }, me: "B" }); // they left: I'd be B... A wins, a loss for me
-    add("F3", newGame(), { ended: { result: "forfeit", winner: "A" } }); // they left, I won
-    add("AB", newGame(), { ended: { result: "abandoned" } });
-    add("LIVE", newGame());
+    const played = { ...newGame(), round: 3 }; // a game that started: R98 leaves out games with no rounds
+    add("F1", played, { ended: { result: "forfeit", winner: "B" } }); // I am A and left: a loss
+    add("F2", played, { ended: { result: "forfeit", winner: "A" }, me: "B" }); // they left: I'd be B... A wins, a loss for me
+    add("F3", played, { ended: { result: "forfeit", winner: "A" } }); // they left, I won
+    add("AB", played, { ended: { result: "abandoned" } });
+    add("LIVE", played);
     const h = historyFor(db, "me", Date.now());
     expect(h.stats.people).toEqual({ played: 3, wins: 1, losses: 2, draws: 0, winRate: 33 });
     expect(h.history.map((g) => g.code)).not.toContain("LIVE");
@@ -226,7 +227,7 @@ describe("R90 and R91 stats and history", () => {
 
   it("R90 with no finished games there is no win rate, not a divide by zero", () => {
     const { db, add } = seed();
-    add("AB", newGame(), { ended: { result: "abandoned" } });
+    add("AB", { ...newGame(), round: 3 }, { ended: { result: "abandoned" } });
     const h = historyFor(db, "me", Date.now());
     expect(h.stats.people).toEqual({ played: 0, wins: 0, losses: 0, draws: 0, winRate: null });
     expect(h.stats.computer.winRate).toBeNull();
@@ -265,6 +266,42 @@ describe("R90 and R91 stats and history", () => {
     const h = historyFor(db, "me", Date.now());
     expect(h.stats.people.played).toBe(2);
     expect(h.stats.people.wins).toBe(2);
+  });
+});
+
+describe("R98 a game that never started is never recorded", () => {
+  it("R98 a game with 0 rounds is in no history and no stats, however it ended, and a game with rounds still is", () => {
+    const db = openDb(":memory:");
+    db.createPlayer("me", "Pip");
+    db.createPlayer(OTHER, "Sam");
+    const add = (code: string, round: number, ended: any, computer = false) => {
+      const state = { ...newGame(), round };
+      if (computer) db.markComputer(code, state);
+      else db.markLink(code, state, "me");
+      db.seatPlayer(code, "A", "me");
+      if (!computer) db.seatPlayer(code, "B", OTHER);
+      db.saveRound(code, state, false, false);
+      if (ended) db.saveEnded(code, ended);
+    };
+    add("Z1", 0, { result: "abandoned" }); // a friend game cancelled before anyone joined
+    add("Z2", 0, { result: "forfeit", winner: "A" }); // the other left before round 1
+    add("Z3", 0, { result: "forfeit", winner: "B" }, false);
+    add("Z4", 0, { result: "abandoned" }, true); // against the computer, left at once
+    add("R1", 1, { result: "forfeit", winner: "A" }); // one round played: recorded
+    const h = historyFor(db, "me", Date.now());
+    expect(h.history.map((g) => g.code)).toEqual(["R1"]);
+    expect(h.stats.people).toEqual({ played: 1, wins: 1, losses: 0, draws: 0, winRate: 100 });
+    expect(h.stats.computer).toEqual({ played: 0, wins: 0, losses: 0, draws: 0, winRate: null });
+  });
+
+  it("R91 an opponent whose person is not known is A guest, never Another player", () => {
+    const db = openDb(":memory:");
+    db.createPlayer("me", "Pip");
+    const state = { ...won, round: 4 };
+    db.markLink("G1", state, "me");
+    db.seatPlayer("G1", "A", "me"); // seat B was a visitor with no session
+    db.saveRound("G1", state, false, false);
+    expect(historyFor(db, "me", Date.now()).history[0].opponent).toBe("A guest");
   });
 });
 

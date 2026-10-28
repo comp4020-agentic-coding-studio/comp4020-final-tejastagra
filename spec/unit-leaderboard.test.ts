@@ -37,6 +37,12 @@ describe("B: leaderboard rules", () => {
     expect(t.get("p1")).toBeUndefined();
   });
 
+  it("R98 R38 a forfeit before any round was played counts for neither list", () => {
+    const t = tally([game({ status: "playing", winner: null, round: 0, ended: { result: "forfeit", winner: "B" } })]);
+    expect(t.size).toBe(0);
+    expect(tally([game({ status: "playing", winner: null, round: 1, ended: { result: "forfeit", winner: "B" } })]).get("p2")?.wins).toBe(1);
+  });
+
   it("B3 (R39) a win where the opponent missed a round does not count for fewest rounds", () => {
     const t = tally([game({ missedB: 1 })]);
     expect(t.get("p1")?.wins).toBe(1); // still a win for R38

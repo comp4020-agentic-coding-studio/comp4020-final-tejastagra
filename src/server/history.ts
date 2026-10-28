@@ -34,7 +34,7 @@ export function historyFor(db: Db, playerId: string, _now: number): History {
   const rows: HistoryRow[] = [];
   const nameOf = (id: string | null): string => {
     const row = id ? db.playerById(id) : undefined;
-    return row ? publicPlayer(row).displayName : "Another player";
+    return row ? publicPlayer(row).displayName : "A guest"; // R91: a seat with no known person
   };
   for (const g of db.loadGamesOf(playerId)) {
     const seat = g.playerA === playerId ? "A" : g.playerB === playerId ? "B" : null;
@@ -42,6 +42,7 @@ export function historyFor(db: Db, playerId: string, _now: number): History {
     const finishedByLine = g.state.status !== "playing";
     const ended = g.ended;
     if (!finishedByLine && !ended) continue; // still being played: not shown (R91)
+    if (g.state.round === 0) continue; // R98: a game that never started is never recorded
     const abandoned = ended?.result === "abandoned";
     const winner = ended?.result === "forfeit" ? ended.winner : g.state.winner;
     let result: HistoryRow["result"];
