@@ -205,4 +205,38 @@ test.describe("Rematch after a quick match (R82, R84)", () => {
     await one.context.close();
     await two.context.close();
   });
+
+  test("R83 after a quick match the other player leaves: the winner's Play again says they left at once, and only Home remains", async ({ browser }) => {
+    const { one, two } = await withQuickQueue(async () => {
+      const drain = await newPlayer(browser, PHONE);
+      const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
+      if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+      await drain.context.close();
+      const one = await newPlayer(browser, PHONE, { reducedMotion: true });
+      const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+      await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+      await two.page.request.post("/api/guest", { data: { nickname: "Sam Wombat" } });
+      await one.page.goto("/play/quick");
+      await two.page.goto("/play/quick");
+      await one.page.waitForURL(/\/g\/[A-Z0-9]{6}$/, { timeout: 10_000 });
+      await two.page.waitForURL(/\/g\/[A-Z0-9]{6}$/, { timeout: 10_000 });
+      return { one, two };
+    });
+    try {
+      await waitForRound(one.page, 1);
+      await waitForRound(two.page, 1);
+      await two.page.locator(testid("header-home")).click();
+      await two.page.locator(testid("leave-confirm")).click(); // a forfeit (R81)
+      await expect(one.page.locator(testid("end-title"))).toHaveText("YOU WIN!", { timeout: 4_000 });
+      const tappedAt = Date.now();
+      await one.page.locator(testid("play-again")).click();
+      await expect(status(one.page)).toHaveText(/^Sam Wombat #\w+ left$/, { timeout: 3_000 });
+      expect(Date.now() - tappedAt, "answered at once, not after the 30 second offer").toBeLessThan(3_000);
+      await expect(one.page.locator(testid("play-again"))).toBeHidden();
+      await expect(one.page.locator(`${testid("end-popup")} ${testid("go-home")}`)).toBeVisible();
+    } finally {
+      await one.context.close();
+      await two.context.close();
+    }
+  });
 });

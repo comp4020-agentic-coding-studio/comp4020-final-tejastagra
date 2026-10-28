@@ -451,8 +451,8 @@ describe("R83 a quick match that ended by a forfeit never starts a new game or a
 });
 
 describe("R83 a player who forfeited by not coming back cannot be waited for", () => {
-  it("R83 after a forfeit by timeout, the winner's Play again is answered left at once", async () => {
-    const s = start({ graceMs: 150 });
+  it("R83 R84 after a forfeit by timeout, the winner's Play again is answered left at once, and the entry is forgotten with the game", async () => {
+    const s = start({ graceMs: 150, retainMs: 100 });
     s.rt.createQuickGame("RMQ003");
     const a = await seat(s.url, "RMQ003", "q5");
     const b = await seat(s.url, "RMQ003", "q6");
@@ -461,5 +461,8 @@ describe("R83 a player who forfeited by not coming back cannot be waited for", (
     await a.next("game_over");
     ask(a, "RMQ003", "A", a.token);
     expect(await a.next("rematch_ended")).toEqual({ type: "rematch_ended", reason: "left" });
+    expect(s.rt.retained().rematchGone).toBe(1);
+    await new Promise((r) => setTimeout(r, 2300)); // the sweep runs once a second: it notes the game is over, then forgets it (R84)
+    expect(s.rt.retained().rematchGone).toBe(0);
   });
 });
