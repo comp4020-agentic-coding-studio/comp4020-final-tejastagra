@@ -60,3 +60,9 @@ These replace the inline badges and the help text that opened over the board (U1
 ## Tighter vertical layout (added 31 October 2026, Q15, Q16)
 
 - **U149** Under U132 the empty space between the versus bar and the board is small (at most 8px), and the result line under the power-ups has room below it (at least 16px between it and the bottom edge of the screen), so it never sits against the edge. The whole screen, including the result line and every button, fits at 390 x 844, 1366 x 768 and 320 x 568 with no vertical scrolling (Q15). Gaps shrink first, then sizes, never below the 44px tap target. This replaces the allowance in U107 that the screen may scroll at 320 x 568.
+
+## Popups, the result and names (added 31 October 2026, Part A of the second fix list)
+
+- **U150** The end popup follows Q18 (`popups.md` U87, U87a): 16px of padding inside the card, buttons 16px apart side by side or, where they do not fit with 12px of clearance round each label and its icon (always on a phone), stacked full-width 12px apart with Play again first. The icons are never hidden to make room. The title's shadow is one clean shadow behind its letters.
+- **U151** While the end popup shows, the result line (`result-line`) under the power-ups is hidden (kept in the layout so nothing moves, but not visible), so the result's words appear once, in the popup (Q19).
+- **U152** A player's name in a card (versus bar) is the nickname and its tag as two pieces: the nickname, cut with an ellipsis, and the tag (`#` and four characters) which is always whole. On a phone a name never takes more than two lines (Q20): a name with a tag is the nickname on one line (ellipsis) and the tag under it; a name with no tag is cut with an ellipsis after two lines. The text of the name element is still the whole name.

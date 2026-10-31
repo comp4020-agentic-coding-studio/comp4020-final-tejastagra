@@ -57,7 +57,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 - Take every colour, font, radius, shadow and duration from `public/theme.css`.
 - Follow `docs/design/` and everything else in `docs/design.md`.
 - Show only real product copy to players: no preview or developer text.
-- Pass every rule in `docs/design/qa-checklist.md` (Q1 to Q17):
+- Pass every rule in `docs/design/qa-checklist.md` (Q1 to Q20):
   - **No layout shift (Q1):** nothing ever expands inline and pushes other elements. Editing, joining with a code, info explanations, sign up, sign in and confirmations all open in a centred popup dialog over a dimmed page, with a close button and Escape to close.
   - **Button text never wraps (Q2):** every button label fits on one line at both viewports. Shorten the label or widen the button instead.
   - **Boxes fit their content (Q3):** a card is only as wide as its content needs, at most 480px for forms and status messages and 560px for lists, and centred.
@@ -74,6 +74,9 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
   - **No scrolling on game, tutorial and popup screens (Q15):** everything, including every button, fits on one screen at both marking viewports and at 320 x 568. If space is short, reduce empty gaps first, then sizes, but never below the 44px tap target minimum.
   - **Nothing overlaps (Q16):** no button, caption or card ever overlaps the board or another element.
   - **Even spacing in stacks (Q17):** in any vertical stack of cards and buttons, every gap is the same size.
+  - **Popups are not cramped (Q18):** inside every popup at least 16px between the card's edge and its content, at least 16px between side-by-side buttons and at least 12px between a button's label (with its icon) and its edge; if two buttons cannot fit side by side with that, stack them full-width 12px apart.
+  - **A result is shown once (Q19):** while the end popup shows, the result line under the power-ups is hidden.
+  - **A name never takes more than two lines (Q20)** in a player card on a phone; it is cut with an ellipsis and the tag stays visible.
   - **No page looks plain (Q11):** every page has a header with the Rubble title and a short subtitle and uses the toy style from `docs/design/look-and-feel.md` (icons, outlined cards, hard shadows), not bare text boxes.
 - Run `/visual-qa` on the screens you changed before declaring screen work finished. If the command is not available in the current session, read `.claude/commands/visual-qa.md` and carry out its steps directly.
 
