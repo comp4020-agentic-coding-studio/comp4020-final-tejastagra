@@ -56,3 +56,7 @@ These replace the inline badges and the help text that opened over the board (U1
   7. The result line (`result-line`) and the message line (`game-message`) under that.
   On a laptop the column is as wide as the board, whose height is set so that the header, the versus bar, the board, the timer and the power-up row all fit 1366 x 768. On a phone the board is the screen's width. Nothing sits beside the board.
 - **U135** The friend waiting screen uses the same layout: the header bar (Home cancels the game) and the board centred, dimmed, with the waiting card (`waiting-panel`) centred over the board. The versus bar, the timer and the power-up row are hidden while waiting.
+
+## Tighter vertical layout (added 31 October 2026, Q15, Q16)
+
+- **U149** Under U132 the empty space between the versus bar and the board is small (at most 8px), and the result line under the power-ups has room below it (at least 16px between it and the bottom edge of the screen), so it never sits against the edge. The whole screen, including the result line and every button, fits at 390 x 844, 1366 x 768 and 320 x 568 with no vertical scrolling (Q15). Gaps shrink first, then sizes, never below the 44px tap target. This replaces the allowance in U107 that the screen may scroll at 320 x 568.

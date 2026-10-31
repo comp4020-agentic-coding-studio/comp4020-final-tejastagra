@@ -118,6 +118,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | AC7 | Migration 18 upgrades an old database once; the reset works while the server process has the database open (two processes) | R87 | passing |
 | AC8 | No response and no log line from any account call contains a password, a temporary password or a hash | R30 | passing |
 | LB1 | `GET /api/leaderboard` carries the asker's own line only, null for no session, never an id; a full game puts the winner on both lists | R92, R38, R39 | passing |
+| LB3 | The page shows at most 10 players: the podium holds exactly the top 3 (fewer if fewer players) and the list starts at 4 and has at most 7 rows, given 15 players | R99, U131b | todo |
 | LB2 | The page: tabs, podium of three, compact rows 12px apart, your row highlighted with a tag, Your best under each list, an empty state that explains itself, an error with Try again | U123 to U130 | passing |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
@@ -153,7 +154,7 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only op
 | --- | --- | --- | --- |
 | U1 to U9, U30, U49, U50 | One theme file; no colour, font, outline, radius or duration outside it; contrast; reduced motion; no preview or developer text; `/style-preview` only in development | `spec/unit-theme.test.ts`, `spec/app-screens.test.ts` | passing |
 | R47 to R50 | The tutorial is shown once, saved with the player, replayable, and never touches the leaderboard | `spec/app-tutorial.test.ts` | passing |
-| R47, U136 to U147 | The tutorial never opens on home load; it opens before the first match from each of the four home buttons and a game link, never twice; finishing or skipping starts the chosen match; every one of the 11 steps is reachable with its progress line; How to play replays it and starts nothing | `e2e/tutorial.spec.ts` | passing |
+| R47, U136 to U147 | The tutorial never opens on home load or for Quick match or a spectator; it opens before the first game from Play the computer, Play a friend, Join with a code and a game link, once per browser (local storage); finishing or skipping starts the chosen match; every one of the 11 steps is reachable with its progress line; How to play replays it and starts nothing | `e2e/tutorial.spec.ts` | passing |
 | U10 to U18 | Play on the board by tap, hover and keyboard; the shield badge | `e2e/design.spec.ts` | passing |
 | U19 to U30 | Reveal within one second, end popups, reduced motion | `e2e/design.spec.ts` | passing |
 | U31 to U40 | Home menu content and the phone and laptop layouts | `e2e/design.spec.ts` | passing |

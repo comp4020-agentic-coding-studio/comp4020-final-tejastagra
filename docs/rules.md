@@ -136,7 +136,7 @@ A **spectator** is a person watching a live game without playing in it (ADR 0012
 
 ## Tutorial
 
-- **R47** *Changed 29 October 2026.* The tutorial is shown **once, automatically, the first time a player starts any match**: Play the computer, Quick match, Play a friend, Join with a code, or opening a friend's game link (which is joining with a code by another route). It is shown **before that match begins**, and **never on the home screen by itself**. After it is finished or skipped, the match the player chose starts. It stays replayable from How to play (R49), which never starts a match. A player who has finished or skipped it is never shown it again (R48).
+- **R47** *Changed 31 October 2026.* The tutorial opens **automatically the first time a person starts a game in their browser**, on a phone or a laptop, **but only** when they choose Play the computer, Play a friend (creating a code), Join with a code or open a friend's link to play. It **never opens just from opening the site, the home screen, any other page, Quick match's page or opening a link as a spectator**. Whether it has been seen is stored in that browser (local storage, so each new browser shows it once), as well as with the player (R48). It is shown **before the game begins**; when it is finished or skipped, the game the person chose starts. It stays replayable from How to play (R49), which never starts a game.
 - **R48** Finishing or skipping the tutorial is saved with the player, so it does not return after a refresh, a new session, a restart or a redeploy.
 - **R49** The tutorial can be skipped at any step and replayed at any time from "How to play".
 - **R50** Tutorial games never change the leaderboard.
@@ -147,6 +147,7 @@ A **spectator** is a person watching a live game without playing in it (ADR 0012
 - **R38** **Most wins** counts wins against another person, including forfeits, except a forfeit in a game where no round was played (R98).
 - **R39** **Fewest rounds to win** counts only wins by four in a row against another person who made a choice in every round of that game, so a friend cannot hand you a fast win by sitting still.
 - **R92** `GET /api/leaderboard` answers the two lists as before and also says who is asking: `{ wins, rounds, you }`, where `you` is `null` for a visitor with no player, and otherwise `{ name, wins, bestRounds }` for the asking player alone: their public name (R31), their number of wins (0 if none) and their fewest rounds to win (`null` if none). It is worked out from the session cookie and carries nothing about any other player beyond what the lists already show, and no id. The browser highlights the asking player's row in either list by comparing names, and shows "Your best:" under each list from `you`; a name is public and may be shared by two guests only if their tags differ (R31), so the comparison is by the whole name and tag.
+- **R99** *Added 31 October 2026.* The leaderboard page shows **at most 10 players** per list. The **podium holds exactly the top 3** (or fewer when there are fewer players) and the **list below it starts at place 4** and ends at place 10 (design U131b). The page asks for 10; the endpoint's optional `limit` stays for checks.
 
 ## Computer player
 

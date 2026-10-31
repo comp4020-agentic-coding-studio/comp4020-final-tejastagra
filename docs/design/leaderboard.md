@@ -10,3 +10,7 @@ Added on 28 October 2026 (Part 7 of the fix list). It follows rules R37 to R39 a
 - **U128** With **no entries** the list shows, in the column and instead of the podium, **"No wins yet. Only games against other people count, so play a friend or try Quick match."** with two buttons, **Play a friend** and **Quick match**, 16px apart. The same words are used for the Fewest rounds tab with "No wins by four in a row yet." in front. Only games against another person count (R37).
 - **U129** A list that cannot be loaded shows "Could not load the leaderboard. Try again." in `--error`, with a **Try again** button, and the tabs and Home still work.
 - **U130** The home screen's **Top players** strip (U35) keeps its own, smaller look and is not changed by this page.
+
+## Top 10 only (added 31 October 2026)
+
+- **U131b** The page shows **at most 10 players** per tab. The **podium holds exactly the top 3** (or fewer when there are fewer players, U125) and the **list starts at place 4** and ends at place 10, so it never has more than 7 rows. The page asks the server for 10 (`/api/leaderboard?limit=10`); the home screen's Top players (U35) is separate and shows at most 3. This replaces the "up to the 20" of U126.

@@ -4,7 +4,7 @@ Rubble has rules a newcomer has never seen: both players move at once, matching 
 
 ## Rules (to add to docs/rules.md)
 
-- **R47** The tutorial is shown once, automatically, the first time a player starts any match, before that match begins (changed 29 October 2026; see docs/rules.md).
+- **R47** The tutorial is shown once, automatically, the first time a person starts a game in their browser (Play the computer, Play a friend, Join with a code or a friend's link), before that game begins (changed 31 October 2026; see docs/rules.md).
 - **R48** Finishing or skipping the tutorial is saved with the player, so it does not return after a refresh, a new session, a restart or a redeploy.
 - **R49** The tutorial can be skipped at any step and replayed at any time from "How to play".
 - **R50** Tutorial games never change the leaderboard.
@@ -13,7 +13,7 @@ Rubble has rules a newcomer has never seen: both players move at once, matching 
 
 The tutorial is an overlay over a practice board against a scripted computer. It is interactive wherever an action is involved: a step that asks for an action shows Next only once the action is done. A progress line (`tutorial-progress`) says **"Step N of 11"**. **Skip** (`tutorial-skip`) is always there. There is no disc left in the top hole.
 
-- **U136** **When it shows (R47).** It opens over the screen the player started from, before the match: on home when they tap Play the computer, Play a friend, Quick match or join with a code (after the code popup accepts a code), and on a game link (`/g/CODE`) before the page joins the game. Never on home by itself. The last step's main button reads **"Start the match"** (`tutorial-next`) and starts the match the player chose; Skip starts it too. From How to play the last button reads **"Done"** and Skip reads **"Close"**, and no match starts.
+- **U136** **When it shows (R47, changed 31 October 2026).** It opens the first time a person starts a game in this browser, over the screen they started from, before the game: on home when they tap Play the computer, Play a friend or join with a code (after the code popup accepts a code), and on a game link (`/g/CODE`) before the page joins the game. It does **not** open for Quick match, never on home or any other page by itself and never for a spectator (`/watch`). Whether it has been seen is kept in this browser's local storage (`rubble-tutorial-seen`), so every new browser shows it once, and is also saved with the player (R48). The last step's main button reads **"Start the match"** (`tutorial-next`) and starts the game the person chose; Skip starts it too. From How to play the last button reads **"Done"** and Skip reads **"Close"**, and no game starts.
 
 1. **U137 The goal.** "Get four of your discs in a row, across, down or diagonally." The practice board shows four red discs in a row glowing. No action: Next shows at once.
 2. **U138 Pick a column.** "Tap a column to choose it. Your choice locks in and cannot be changed this round." The player taps a column; the ghost disc locks in.
@@ -29,3 +29,7 @@ The tutorial is an overlay over a practice board against a scripted computer. It
 
 - **U47** Every caption is short, uses the words in `docs/glossary.md` and is readable on a 320px screen. Captions are announced in an `aria-live` region. The step's title is its name above ("The goal", "Pick a column", and so on).
 - **U48** The tutorial works by tap, mouse and keyboard, and under reduced motion every step still makes sense without animation.
+
+## Fitting one screen (added 31 October 2026, Q15 to Q17)
+
+- **U148** The tutorial card never scrolls, at 390 x 844, 1366 x 768 and 320 x 568, on every step. The gap between the caption and the practice board is small (8px), the board is sized from the height left over (never below what keeps the columns tappable), and under the board come, with at least 16px between each, the step's action button (Arm shield or Use Earthquake, when the step has one), Next and Skip. Nothing, including a caption, status line or button, overlaps the board (Q16). If space is short the gaps shrink first, then the board, never a button below 44px tall.
