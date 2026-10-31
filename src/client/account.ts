@@ -141,7 +141,6 @@ function nicknameDialog(): void {
       const r = await post("/api/guest", { nickname: field(dialog, "nickname").trim() });
       if (!r.ok) return dialog.error("nickname", r.data.error ?? "Could not save the nickname.");
       dialog.close();
-      say("Nickname saved.");
       await refresh();
     },
   });

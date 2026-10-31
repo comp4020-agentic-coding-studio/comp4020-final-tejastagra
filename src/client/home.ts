@@ -103,7 +103,6 @@ $("rename").addEventListener("click", () => {
           return;
         }
         d.close();
-        say("Nickname saved.", "ok");
         await showPlayer();
       } catch {
         d.error("nickname", "Could not reach the server. Check your connection.");
@@ -113,40 +112,6 @@ $("rename").addEventListener("click", () => {
   dialog.field("Nickname", "nickname", { value: currentName, maxlength: 16, autocomplete: "nickname" });
   dialog.actions(dialogButton("Save", "blue", "nickname-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => dialog.close() }));
 });
-
-// ---- Top players (U35) ----
-async function showTop(): Promise<void> {
-  const list = $("leaderboard-wins");
-  try {
-    const res = await fetch("/api/leaderboard?limit=3");
-    const rows: Array<{ name: string; value: number }> = res.ok ? (await res.json()).wins.slice(0, 3) : []; // U35: at most 3
-    list.replaceChildren();
-    if (rows.length === 0) {
-      const li = document.createElement("li");
-      li.className = "row";
-      li.textContent = "No wins yet. Be the first.";
-      list.append(li);
-      return;
-    }
-    rows.forEach((row, i) => {
-      const li = document.createElement("li");
-      li.className = "row";
-      const rank = document.createElement("span");
-      rank.className = "row-rank";
-      rank.textContent = String(i + 1);
-      const name = document.createElement("span");
-      name.className = "row-name";
-      name.textContent = row.name; // textContent, so a nickname cannot inject markup
-      const value = document.createElement("span");
-      value.className = "row-value";
-      value.textContent = `${row.value} ${row.value === 1 ? "win" : "wins"}`;
-      li.append(rank, avatar(row.name), name, value);
-      list.append(li);
-    });
-  } catch {
-    list.replaceChildren();
-  }
-}
 
 // ---- The demo board (U36): the twist without words ----
 async function demo(): Promise<void> {
@@ -186,7 +151,6 @@ $("how-to-play").addEventListener("click", () => void replayTutorial());
 // R47: the tutorial never opens on the home screen by itself; it runs when a match is started. The player card makes sure a
 // brand-new visitor has a session before then, so "finished" or "skipped" is saved with them (R48).
 void showPlayer();
-void showTop();
 void demo();
 
 // ---- The live count on "Watch live" (U76, R80) ----

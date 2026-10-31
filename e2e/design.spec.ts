@@ -212,7 +212,7 @@ test.describe("Motion and endings", () => {
 });
 
 test.describe("Home", () => {
-  test("U31 to U36 the home screen shows the title, player card, four menu buttons, the round icon row, top players and the demo board", async ({ browser }) => {
+  test("U31 to U36 the home screen shows the title, player card, four menu buttons, the round icon row and the demo board", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, LAPTOP);
     await page.goto("/");
     await expect(page.locator(testid("tagline"))).toHaveText("Four in a row, with a twist.");
@@ -220,7 +220,7 @@ test.describe("Home", () => {
     await expect(page.locator(testid("player-name"))).not.toHaveText("Choosing a name...");
     for (const id of ["play-computer", "play-friend", "quick-match", "join-toggle"]) await expect(page.locator(testid(id))).toBeVisible();
     for (const id of ["open-leaderboard", "how-to-play", "open-account", "open-about"]) await expect(page.locator(testid(id))).toBeVisible();
-    await expect(page.locator(testid("top-players"))).toBeVisible();
+    await expect(page.locator(testid("top-players")), "U35: no Top players on the home screen").toHaveCount(0);
     await expect(page.locator(testid("demo-board") + " .board")).toBeVisible();
     await context.close();
   });
@@ -595,7 +595,7 @@ test.describe("Screenshots", () => {
     test(`every screen matches its approved screenshot at ${name}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       // Top players and names change as people play, so hide the parts that depend on live data.
-      const mask = [page.locator(testid("top-players")), page.locator(testid("player-card")), page.locator(testid("leaderboard-wins")), page.locator(testid("leaderboard-rounds")), page.locator(testid("live-count"))]; // the live count is how many games happen to be live (U76)
+      const mask = [page.locator(testid("player-card")), page.locator(testid("leaderboard-wins")), page.locator(testid("leaderboard-rounds")), page.locator(testid("live-count"))]; // the live count is how many games happen to be live (U76)
       // The home and leaderboard screens change height with how many wins the app has recorded, and the right column is
       // centred, so the lists are answered here with a fixed empty one: the picture then never depends on what other
       // checks have played before it.
@@ -827,21 +827,9 @@ test.describe("Forms and lists stay narrow and centred (U60)", () => {
     await context.close();
   });
 
-  test("U35a the nickname confirmation appears inside the player card and fades after 3 seconds", async ({ browser }) => {
+  test("U35a the round icon row is centred under the buttons", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, LAPTOP);
     await page.goto("/");
-    await page.click(testid("rename"));
-    await page.fill(testid("nickname-input"), "Pip");
-    await page.keyboard.press("Enter");
-    const message = page.locator(testid("home-message"));
-    await expect(message).toHaveText("Nickname saved.");
-    const card = (await page.locator(testid("player-card")).boundingBox())!;
-    const box = (await message.boundingBox())!;
-    expect(box.x, "message inside the card, left").toBeGreaterThanOrEqual(card.x - 1);
-    expect(box.x + box.width, "message inside the card, right").toBeLessThanOrEqual(card.x + card.width + 1);
-    expect(box.y, "message inside the card, vertically").toBeGreaterThanOrEqual(card.y - 1);
-    expect(box.y + box.height, "message inside the card, vertically").toBeLessThanOrEqual(card.y + card.height + 1);
-    await expect(message).toHaveText("", { timeout: 5_000 }); // faded after 3 seconds
     const row = (await page.locator(testid("icon-row")).boundingBox())!;
     const stack = (await page.locator(testid("menu")).boundingBox())!;
     expect(Math.abs(row.x + row.width / 2 - (stack.x + stack.width / 2)), "icon row centred under the buttons").toBeLessThanOrEqual(8);

@@ -8,17 +8,18 @@ const get = async (path: string) => {
 };
 
 describe("screens (docs/design.md)", () => {
-  it("Home has its modes, player card, code entry, icon row, top players and the demo board (U31 to U36)", async () => {
+  it("Home has its modes, player card, code entry, icon row and the demo board, and no top players (U31 to U36)", async () => {
     const { status, html, type } = await get("/");
     expect(status).toBe(200);
     expect(type).toMatch(/text\/html/);
     for (const hook of [
       "play-computer", "play-friend", "quick-match", "join-toggle", "rename", "player-card",
-      "icon-row", "open-leaderboard", "how-to-play", "open-account", "open-about", "top-players", "leaderboard-wins",
+      "icon-row", "open-leaderboard", "how-to-play", "open-account", "open-about",
       "demo-board", "tutorial", "tutorial-next", "tutorial-skip",
     ]) {
       expect(html, hook).toContain(`data-testid="${hook}"`);
     }
+    expect(html, "U35: no Top players section on the home screen").not.toContain('data-testid="top-players"');
     expect(html).toContain('href="/readme/"');
     expect(html).toContain('href="/leaderboard"');
     expect(html).toContain('href="/account"');

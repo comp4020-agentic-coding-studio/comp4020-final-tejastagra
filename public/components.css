@@ -1239,9 +1239,14 @@ input {
   margin: 0 auto;
   width: 100%;
   max-width: var(--stack-width);
-  min-height: 56px; /* the same height as a menu button, outline included (Q17, U37) */
+  /* Q23, U37: taller than a menu button, with 16px above and below its content and a slightly larger avatar. */
   box-sizing: border-box;
-  padding-block: 0;
+  padding-block: 16px;
+}
+
+.player-card .avatar {
+  width: 52px;
+  height: 52px;
 }
 
 .nick-form,
@@ -1250,11 +1255,6 @@ input {
   gap: 8px;
   max-width: var(--stack-width);
   margin: 0 auto 12px;
-}
-
-.top {
-  max-width: var(--stack-width);
-  margin: 16px auto 0; /* a section: with the stack's 16px gap, 32px under the icon row (Q4) */
 }
 
 .demo {
@@ -4043,5 +4043,30 @@ input {
   /* U155: Round N is at least 16px from the screen's right edge. */
   .game .topbar {
     padding-right: 10px; /* with the page's own 6 to 8px, 16px or more to the edge */
+  }
+}
+
+
+/* Q23, U35a: at least 8px between each round icon's circle and its label (the circle's shadow is 4px, so the gap is larger),
+   and room for the labels not to touch at 320px. */
+.round-item {
+  gap: 12px;
+}
+
+@media (max-width: 379px) {
+  .round-item {
+    min-width: 0;
+    font-size: 0.72rem;
+  }
+}
+
+/* U38: with Top players gone, the right half is vertically centred beside the left half on a laptop. */
+@media (min-width: 900px) {
+  .home {
+    align-items: center;
+  }
+
+  .home-right {
+    align-self: center;
   }
 }

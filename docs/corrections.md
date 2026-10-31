@@ -291,3 +291,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** `e2e/player-colours.spec.ts` now compares the face's painted colour with the colour of that player's disc on the board, on both screens and the spectator's.
 - **Rule for the future:** measure the painted result (computed colour), not the attribute that was meant to cause it.
 - **Commits:** the commit that follows this entry.
+
+### C37. A confirmation message grew the home card, and a rule forced the player card to match a button
+- **Date:** 31 October 2026
+- **What went wrong:** the "Nickname saved." line was placed inside the player card, so saving a nickname made the card grow and pushed every button down: a layout shift (Q1) that the popup checks did not cover, because they measured the page behind the popup while it was open, not after it closed with a message. The earlier rule "the player card matches the buttons' height" (Q17) also squeezed the avatar and the two text lines.
+- **How it was caught:** Tejas reported both from using the app.
+- **Harness fix:** Q23 replaces "same height" with "taller, with 16px padding" and checks the gaps stay equal; `e2e/layout.spec.ts` saves a nickname on a phone and a laptop and checks nothing moved and no saved message exists; the message and the Top players section are removed from the rules, the design and the code.
+- **Rule for the future:** a confirmation that adds text to a page is a layout shift; the changed content itself is the confirmation. Measure after the popup closes as well as while it is open.
+- **Commits:** the commit that follows this entry.

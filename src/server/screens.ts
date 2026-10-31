@@ -53,10 +53,6 @@ export function homeScreen(ctx: ScreenContext): string {
           ${roundButton({ label: "Account", iconName: "user", href: "/account", testid: "open-account" })}
           ${roundButton({ label: "About", iconName: "book", href: "/readme/", testid: "open-about" })}
         </div>
-        <section class="top" data-testid="top-players">
-          <h2>Top players</h2>
-          <ol class="rows" data-testid="leaderboard-wins"><li class="row"><span class="row-name">Loading...</span></li></ol>
-        </section>
       </div>
     </main>
     ${tutorialOverlay()}

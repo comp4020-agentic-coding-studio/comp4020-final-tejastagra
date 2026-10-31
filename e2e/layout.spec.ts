@@ -469,7 +469,7 @@ test.describe("Home menu and its popups (U33, U33b)", () => {
     await host.context.close();
   });
 
-  test("the nickname popup saves, closes and shows the confirmation in the player card, and Cancel changes nothing", async ({ browser }) => {
+  test("the nickname popup saves and closes, the new name on the player card is the confirmation, and Cancel changes nothing", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
     await page.goto("/");
@@ -481,8 +481,8 @@ test.describe("Home menu and its popups (U33, U33b)", () => {
     await page.locator(testid("nickname-input")).fill("Pip Two");
     await page.locator(testid("nickname-save")).click();
     await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
-    await expect(page.locator(testid("home-message"))).toHaveText("Nickname saved.");
-    await expect(page.locator(testid("player-name"))).toContainText("Pip Two");
+    await expect(page.locator(testid("player-name")), "the new name is the confirmation (U32)").toContainText("Pip Two");
+    await expect(page.locator("body"), "no Nickname saved. text anywhere").not.toContainText("Nickname saved");
     await context.close();
   });
 
@@ -823,21 +823,6 @@ test("Q11 the tutorial's shield and Earthquake badges are outlined pills", async
   await context.close();
 });
 
-// Q4: page sections are 32px apart. The "Top players" strip is a section under the icon row, and was crowded against its labels.
-test("Q4 the Top players section is at least 32px under the icon row on the home screen (laptop only, U35)", async ({ browser }) => {
-  for (const viewport of [LAPTOP]) {
-    const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
-    await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: [], rounds: [], you: null } }));
-    await page.goto("/");
-    await page.waitForLoadState("networkidle");
-    await page.evaluate(() => document.fonts.ready);
-    const row = (await page.locator(testid("icon-row")).boundingBox())!;
-    const top = (await page.locator(testid("top-players")).boundingBox())!;
-    expect(top.y - (row.y + row.height), `at ${viewport.width}: space between the icon row and Top players`).toBeGreaterThanOrEqual(31);
-    await context.close();
-  }
-});
-
 // Found by the phone-tester on 29 October 2026: three phone-width defects the checks above did not reach.
 test.describe("Phone width: the watching screen and the game screen's first screen (E4, Q2, Q13, docs/design.md)", () => {
   test("E4 Q13 a link spectator at 320 x 568: no sideways scroll, and the board is centred", async ({ browser }) => {
@@ -947,12 +932,21 @@ test.describe("Q17 the home stack is evenly spaced", () => {
       const gaps = boxes.slice(1).map((b, i) => b.y - (boxes[i].y + boxes[i].h));
       for (const g of gaps) expect(Math.abs(g - gaps[0]), `gaps ${gaps.join(", ")}`).toBeLessThanOrEqual(2);
       expect(gaps[0], "at least 16px (Q4)").toBeGreaterThanOrEqual(15.5);
-      if (viewport.width < 600) {
-        for (const b of boxes) {
-          expect(Math.abs(b.w - boxes[0].w), "same width as the player card").toBeLessThanOrEqual(1);
-          expect(Math.abs(b.h - boxes[0].h), "same height as the player card").toBeLessThanOrEqual(1);
-        }
-      }
+      for (const b of boxes) expect(Math.abs(b.w - boxes[0].w), "same width as the player card").toBeLessThanOrEqual(1);
+      // Q23: the player card is taller than a menu button, with 16px of padding above and below its content.
+      expect(boxes[0].h, "the player card is taller than a menu button").toBeGreaterThan(boxes[1].h + 8);
+      for (const b of boxes.slice(2)) expect(Math.abs(b.h - boxes[1].h), "the four buttons are one height").toBeLessThanOrEqual(1);
+      const pad = await page.locator(testid("player-card")).evaluate((card) => {
+        const c = card.getBoundingClientRect();
+        const text = card.querySelector<HTMLElement>(".player-text")!.getBoundingClientRect();
+        const av = card.querySelector<HTMLElement>(".avatar")!.getBoundingClientRect();
+        const top = Math.min(text.top, av.top);
+        const bottom = Math.max(text.bottom, av.bottom);
+        return { above: top - c.top, below: c.bottom - bottom, avatar: av.width };
+      });
+      expect(pad.above, "16px above the card's content").toBeGreaterThanOrEqual(15.5);
+      expect(pad.below, "16px below the card's content").toBeGreaterThanOrEqual(15.5);
+      expect(pad.avatar, "a slightly larger avatar").toBeGreaterThanOrEqual(48);
       await context.close();
     });
   }
@@ -970,20 +964,16 @@ test.describe("Q17 the home stack is evenly spaced", () => {
     }
   });
 
-  test("U35 U36 U37 on a phone there is no demo board and no Top players; on a laptop Top players shows at most 3", async ({ browser }) => {
-    for (const viewport of [NARROW, PHONE]) {
+  test("U35 U36 U37 on a phone there is no demo board, and on no viewport is there a Top players section", async ({ browser }) => {
+    for (const viewport of FULL_SCREENS) {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await page.goto("/");
-      await expect(page.locator(testid("demo-board")), `demo at ${viewport.width}`).toBeHidden();
-      await expect(page.locator(testid("top-players")), `top players at ${viewport.width}`).toBeHidden();
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator(testid("top-players")), `no Top players at ${viewport.width}`).toHaveCount(0);
+      await expect(page.locator("body")).not.toContainText("Top players");
+      if (viewport.width < 600) await expect(page.locator(testid("demo-board")), `no demo board at ${viewport.width}`).toBeHidden();
       await context.close();
     }
-    const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
-    await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: Array.from({ length: 8 }, (_, i) => ({ name: `Player ${i} #000${i}`, value: 9 - i })), rounds: [], you: null } }));
-    await page.goto("/");
-    await expect(page.locator(testid("top-players"))).toBeVisible();
-    await expect(page.locator(`${testid("leaderboard-wins")} li`)).toHaveCount(3);
-    await context.close();
   });
 });
 
@@ -1401,4 +1391,76 @@ test.describe("Q22 the versus bar and the header bar on a phone", () => {
     await expect(page.locator(testid("header-home"))).toContainText("Home");
     await context.close();
   });
+});
+
+test.describe("Q23 the round icons and the laptop balance", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q23 each round icon's label is at least 8px below its circle and no two labels touch at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.goto("/");
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => document.fonts.ready);
+      const items = await page.locator(`${testid("icon-row")} .round-item`).evaluateAll((els) =>
+        els.map((el) => {
+          const circle = el.querySelector<HTMLElement>(".round")!.getBoundingClientRect();
+          const label = el.querySelector<HTMLElement>(".round")!.nextElementSibling as HTMLElement; // the word under the circle
+          const range = document.createRange();
+          range.selectNodeContents(label);
+          const text = range.getBoundingClientRect();
+          return { gap: text.top - circle.bottom, left: text.left, right: text.right, top: text.top };
+        }),
+      );
+      for (const [i, item] of items.entries()) expect(item.gap, `label ${i + 1} is 8px under its circle`).toBeGreaterThanOrEqual(7.5);
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          if (Math.abs(items[i].top - items[j].top) > 4) continue; // not on the same row
+          const apart = Math.max(items[j].left - items[i].right, items[i].left - items[j].right);
+          expect(apart, `labels ${i + 1} and ${j + 1} do not touch`).toBeGreaterThanOrEqual(2);
+        }
+      }
+      await context.close();
+    });
+  }
+
+  test("Q23 U38 on a laptop the right-hand column is vertically centred beside the left-hand one", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(500);
+    const left = (await page.locator(".home-left").boundingBox())!;
+    const card = (await page.locator(testid("player-card")).boundingBox())!;
+    const row = (await page.locator(testid("icon-row")).boundingBox())!;
+    const rightCentre = (card.y + row.y + row.height) / 2;
+    const leftCentre = left.y + left.height / 2;
+    expect(Math.abs(rightCentre - leftCentre), "the centres of the two columns are within 24px").toBeLessThanOrEqual(24);
+    await context.close();
+  });
+
+  for (const viewport of [PHONE, LAPTOP]) {
+    test(`Q23 U32 saving a nickname shows the new name, no message and moves nothing at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+      await page.goto("/");
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(600);
+      await page.mouse.move(1, 1);
+      const before = await geometry(page, ["nickname-dialog", "player-name"]);
+      await page.locator(testid("rename")).click();
+      await page.locator(testid("nickname-input")).fill("Pip Two");
+      await page.locator(testid("nickname-save")).click();
+      await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
+      await expect(page.locator(testid("player-name"))).toContainText("Pip Two");
+      await expect(page.locator("body")).not.toContainText("Nickname saved");
+      await page.mouse.move(1, 1);
+      await page.waitForTimeout(400);
+      const after = await geometry(page, ["nickname-dialog", "player-name"]);
+      for (const [id, box] of Object.entries(before)) {
+        const now = after[id];
+        if (!now) continue;
+        expect(Math.abs(now.y - box.y) + Math.abs(now.h - box.h), `${id} did not move or change height`).toBeLessThanOrEqual(1);
+      }
+      await context.close();
+    });
+  }
 });
