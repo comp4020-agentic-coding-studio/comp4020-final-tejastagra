@@ -57,7 +57,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 - Take every colour, font, radius, shadow and duration from `public/theme.css`.
 - Follow `docs/design/` and everything else in `docs/design.md`.
 - Show only real product copy to players: no preview or developer text.
-- Pass every rule in `docs/design/qa-checklist.md` (Q1 to Q22):
+- Pass every rule in `docs/design/qa-checklist.md` (Q1 to Q23):
   - **No layout shift (Q1):** nothing ever expands inline and pushes other elements. Editing, joining with a code, info explanations, sign up, sign in and confirmations all open in a centred popup dialog over a dimmed page, with a close button and Escape to close.
   - **Button text never wraps (Q2):** every button label fits on one line at both viewports. Shorten the label or widen the button instead.
   - **Boxes fit their content (Q3):** a card is only as wide as its content needs, at most 480px for forms and status messages and 560px for lists, and centred.
@@ -79,6 +79,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
   - **A name never takes more than two lines (Q20)** in a player card on a phone; it is cut with an ellipsis and the tag stays visible.
   - **The keyboard never covers a form (Q21):** on a phone, when the keyboard is open, the focused field and the form's buttons stay visible above it.
   - **Avatars carry the disc colour (Q22):** in a game and on the watching screen each avatar is red or yellow like the player's discs, with a ring or cross badge, the same on every screen; no VS badge on a phone.
+  - **The home stack (Q23):** the player card is taller than a menu button with at least 16px of vertical padding, the gaps from the card and between the buttons are equal, round icon labels sit 8px below their circles, and the home screen has no Top players and no "Nickname saved." message.
   - **No page looks plain (Q11):** every page has a header with the Rubble title and a short subtitle and uses the toy style from `docs/design/look-and-feel.md` (icons, outlined cards, hard shadows), not bare text boxes.
 - Run `/visual-qa` on the screens you changed before declaring screen work finished. If the command is not available in the current session, read `.claude/commands/visual-qa.md` and carry out its steps directly.
 

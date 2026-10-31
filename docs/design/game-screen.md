@@ -22,7 +22,7 @@ Added on 27 October 2026 from Tejas's fix list (ADR 0009). It extends `board-int
 ## Layout
 
 - **U59** *Replaced by U132 on 29 October 2026.* The game screen was one centred group: the player panels and the board together are centred on the page, with the round number above the board and centred with it. On a laptop the panels sit to the left of the board; on a phone they sit above it. There is no keyboard hint under the board (U18). The centre of the group is within 16px of the centre of the screen at both viewports.
-- **U60** Forms and lists are never wider than 560px and are centred: the account forms, the leaderboard lists, the join-with-code input and the home "Top players" list. The nickname button reads "Save nickname".
+- **U60** Forms and lists are never wider than 560px and are centred: the account forms, the leaderboard lists and the join-with-code input. The nickname button reads "Save nickname".
 
 ## Power-ups (added 28 October 2026, Part 4)
 
