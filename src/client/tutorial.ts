@@ -3,7 +3,7 @@
 // action is done. It runs on a practice board in the browser against a scripted computer. It never
 // opens a game on the server, so it can never change the leaderboard (R50): the only thing it
 // sends is "finished" or "skipped", which saves with the player (R48).
-import { buildBoard, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, themeNumber } from "./arcade.ts";
+import { avatar, buildBoard, ceilingAnimation, colourAvatar, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, themeNumber } from "./arcade.ts";
 import { $ } from "./common.ts";
 
 type Piece = "you" | "opponent" | "rubble";
@@ -36,6 +36,8 @@ interface Stage {
   // The practice round timer (U140): a bar under the board that drains, and never runs out on its own.
   timer(show: boolean): void;
   hint(text: string): void;
+  // U146: a picture in the practice board's place (the friends step), or the board back.
+  picture(show: boolean): void;
   pause(ms: number): Promise<void>;
   win(cells: Array<[number, number]>): void;
   wrap: HTMLElement;
@@ -221,11 +223,12 @@ const STEPS: Step[] = [
   },
   {
     title: "Playing with friends",
-    caption: "Play a friend gives you a link and a 6-letter code to send to anyone, anywhere in the world. The first person to open it plays you. Anyone after the first watches the game. Quick match pairs you with a random person who is online.",
+    caption: "Play a friend gives you a link and a 6-letter code to send to anyone, anywhere in the world. The first person to open it plays you. If you send it to more people, the second person to open it, and anyone after them, can watch the game live as a spectator.",
     async run(s) {
       s.reset();
       s.hideStatus();
       s.hint("");
+      s.picture(true); // you, the first friend as your opponent, the second friend watching (U146)
     },
   },
   {
@@ -294,6 +297,47 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   board.root.setAttribute("aria-hidden", "true");
   wrap.append(board.root, glows, hits);
 
+  // U146: three people drawn with shapes: you (a red ring disc), the first friend who plays you (a yellow cross disc), and the second
+  // friend who only watches (an eye). No words: the caption says it. Built with DOM calls, never innerHTML.
+  const friends = document.createElement("div");
+  friends.className = "tutorial-friends";
+  friends.dataset.testid = "tutorial-friends";
+  friends.hidden = true;
+  friends.setAttribute("role", "img");
+  friends.setAttribute("aria-label", "You and a friend playing each other, and a second friend watching");
+  const person = (role: "you" | "opponent" | "spectator", seed: string): HTMLElement => {
+    const wrapPerson = document.createElement("div");
+    wrapPerson.className = "friend";
+    wrapPerson.dataset.role = role;
+    const face = avatar(seed);
+    if (role !== "spectator") colourAvatar(face, role === "you" ? "red" : "yellow");
+    wrapPerson.append(face);
+    if (role === "spectator") {
+      const eye = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      eye.setAttribute("viewBox", "0 0 24 24");
+      eye.setAttribute("aria-hidden", "true");
+      eye.dataset.icon = "eye";
+      eye.classList.add("friend-eye");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", "M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z");
+      eye.append(path);
+      wrapPerson.append(eye);
+    } else {
+      const disc = document.createElement("span");
+      disc.className = "piece friend-disc";
+      disc.dataset.colour = role === "you" ? "red" : "yellow";
+      wrapPerson.append(disc);
+    }
+    return wrapPerson;
+  };
+  const link = document.createElement("span");
+  link.className = "friend-link";
+  link.setAttribute("aria-hidden", "true");
+  const players = document.createElement("div");
+  players.className = "friend-pair";
+  players.append(person("you", "tutorial-you"), link, person("opponent", "tutorial-friend-1"));
+  friends.append(players, person("spectator", "tutorial-friend-2"));
+
   const status = document.createElement("p");
   status.className = "tutorial-status";
   status.dataset.testid = "tutorial-status";
@@ -333,7 +377,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   hint.className = "tutorial-hint";
   hint.dataset.testid = "tutorial-hint";
   hint.setAttribute("role", "status");
-  host.replaceChildren(status, warning, wrap, timerBar, shield, quake, hint);
+  host.replaceChildren(status, warning, wrap, friends, timerBar, shield, quake, hint);
 
   const heights = new Array<number>(7).fill(0);
   const ghost = document.createElement("span");
@@ -355,6 +399,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
       return row;
     },
     reset() {
+      stage.picture(false);
       stage.timer(false);
       status.hidden = false;
       hint.hidden = false;
@@ -399,6 +444,10 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
       return new Promise((resolve) => {
         shieldWaiter = resolve;
       });
+    },
+    picture(show) {
+      friends.hidden = !show;
+      wrap.hidden = show;
     },
     warn(text) {
       warning.hidden = text === null;
@@ -625,19 +674,24 @@ function rememberSeen(): void {
 }
 export async function tutorialDue(): Promise<boolean> {
   try {
-    if (localStorage.getItem(SEEN_KEY) === "1") return false;
+    if (localStorage.getItem(SEEN_KEY) === "1") return false; // this browser has seen it
   } catch {
-    try {
-      const res = await fetch("/api/me");
-      return res.ok && (await res.json()).tutorialDue === true;
-    } catch {
-      return false;
-    }
+    // local storage is blocked: the account or the guest's own flag decides, below
   }
-  return true;
+  // R48: not seen in this browser. The server knows whether this player, or this account on any device, has (an account that has
+  // finished a game or has seen it is never offered it), and a brand-new visitor has not.
+  try {
+    const res = await fetch("/api/me");
+    if (!res.ok) return false; // if the server cannot say, the game starts; the tutorial can be played from How to play
+    const due = (await res.json()).tutorialDue === true;
+    if (!due) rememberSeen(); // an experienced account: this browser need not ask again
+    return due;
+  } catch {
+    return false;
+  }
 }
 
-// R47, U136: before a match starts, run the tutorial if it is due, then start the match whether it was finished or skipped.
+// R47, U136: before a game starts, run the tutorial if it is due, then start the game whether it was finished or skipped.
 export async function beforeFirstMatch(start: () => void | Promise<void>): Promise<void> {
   if (!(await tutorialDue())) {
     await start();
@@ -645,4 +699,18 @@ export async function beforeFirstMatch(start: () => void | Promise<void>): Promi
   }
   await new Promise<void>((resolve) => void showTutorial({ mode: "match", onClose: () => resolve() }));
   await start();
+}
+
+// R100, R47: what a join to this code would become, asked before the tutorial is considered. A person who would watch, or whose
+// game has ended, is never shown the tutorial; only someone about to play is. If the server cannot say, they are treated as a
+// player so the tutorial is not skipped by a failure (it is skippable at any step).
+export async function seatFor(code: string): Promise<"player" | "spectator" | "ended" | "unknown"> {
+  try {
+    const res = await fetch(`/api/seat?code=${encodeURIComponent(code)}`);
+    if (!res.ok) return "player";
+    const { role } = await res.json();
+    return role === "spectator" || role === "ended" || role === "unknown" ? role : "player";
+  } catch {
+    return "player";
+  }
 }

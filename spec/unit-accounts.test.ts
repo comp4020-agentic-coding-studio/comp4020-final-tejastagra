@@ -378,3 +378,44 @@ describe("R86 the reset while the server has the database open", () => {
     }
   }, 30_000);
 });
+
+describe("migration 22: accounts with a finished game have seen the tutorial", () => {
+  const clean = (path: string) => {
+    for (const suffix of ["", "-wal", "-shm"]) rmSync(`${path}${suffix}`, { force: true });
+  };
+  it("S11 (R48) a database saved before it is upgraded once: an account with a finished game is marked, one without and a guest are not", () => {
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration22.db`);
+    try {
+      // Build a database exactly as it was before migration 22 by running every earlier migration and stopping.
+      const fresh = openDb(path);
+      fresh.close();
+      const raw = new DatabaseSync(path);
+      raw.exec(`PRAGMA user_version = ${MIGRATION_COUNT - 1}`);
+      raw.exec(`UPDATE players SET tutorial_seen = 0`);
+      const now = Date.now();
+      const insertPlayer = raw.prepare(`INSERT INTO players (id, nickname, username, password_hash, created_at) VALUES (?, ?, ?, ?, ?)`);
+      insertPlayer.run("vet", "Vet", "vet", "hash", now); // an account that has finished a game
+      insertPlayer.run("new", "New", "newbie", "hash", now); // an account that has not
+      insertPlayer.run("gst", "Guest", null, null, now); // a guest with a finished game: only accounts are marked
+      insertPlayer.run("opp", "Opponent", null, null, now);
+      const finished = JSON.stringify({ board: [[], [], [], [], [], [], []], round: 4, status: "won", winner: "A", shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6 });
+      const insertGame = raw.prepare(`INSERT INTO games (code, state, updated_at, ended, kind, player_a, player_b) VALUES (?, ?, ?, ?, 'link', ?, ?)`);
+      insertGame.run("MIG221", finished, now, null, "vet", "opp");
+      insertGame.run("MIG222", finished, now, null, "gst", "opp");
+      raw.close();
+      const upgraded = openDb(path);
+      expect(upgraded.playerByUsername("vet")!.tutorialSeen, "an account with a finished game").toBe(true);
+      expect(upgraded.playerByUsername("newbie")!.tutorialSeen, "an account with no game").toBe(false);
+      upgraded.close();
+      const check = new DatabaseSync(path);
+      expect((check.prepare("SELECT tutorial_seen FROM players WHERE id = 'gst'").get() as { tutorial_seen: number }).tutorial_seen, "a guest is not marked").toBe(0);
+      expect((check.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT);
+      check.close();
+      const again = openDb(path); // a second open runs nothing
+      expect(again.playerByUsername("vet")!.tutorialSeen).toBe(true);
+      again.close();
+    } finally {
+      clean(path);
+    }
+  });
+});

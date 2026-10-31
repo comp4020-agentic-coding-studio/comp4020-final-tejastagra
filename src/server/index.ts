@@ -228,7 +228,13 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
   if (path === "/api/me" && req.method === "GET") {
     const player = currentPlayer(req);
     // R47: a visitor with no player yet, or a player who has not finished or skipped it, is due the tutorial.
-    json(res, 200, { player: player ? publicPlayer(player) : null, tutorialDue: !player || !player.tutorialSeen, ...(player?.mustChange ? { mustChange: true } : {}) });
+    // An account that has finished a game has seen how it works, so that is saved on the account once (and the scan never repeats).
+    let seen = !!player?.tutorialSeen;
+    if (player && !seen && player.username !== null && db.hasFinishedGame(player.id)) {
+      db.setTutorialSeen(player.id, true);
+      seen = true;
+    }
+    json(res, 200, { player: player ? publicPlayer(player) : null, tutorialDue: !player || !seen, ...(player?.mustChange ? { mustChange: true } : {}) });
     return true;
   }
   if (path === "/api/tutorial" && req.method === "POST") {
@@ -358,6 +364,10 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
     // R89: the guest history of this device moves into the account, then the guest is gone.
     const guest = currentPlayer(req);
     if (guest && guest.username === null && guest.id !== account.id) {
+      if (guest.tutorialSeen && !account.tutorialSeen) {
+        db.setTutorialSeen(account.id, true); // R48: a guest who has seen it brings that to the account
+        account.tutorialSeen = true;
+      }
       db.moveGames(guest.id, account.id);
       realtime.movePerson(guest.id, account.id); // a live seat of the guest is the account's from now on, in memory too
     }
@@ -496,6 +506,17 @@ const server = createServer((req, res) => {
     }
     res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     res.end(JSON.stringify(body));
+  } else if (path === "/api/seat" && req.method === "GET") {
+    // R100: what a join to this code would become, asked before joining and never seating anyone.
+    if (!allowRead(clientAddress(req))) {
+      res.writeHead(429, { "content-type": "text/plain; charset=utf-8", "retry-after": "60" });
+      res.end("Too many requests. Try again in a minute.");
+      return;
+    }
+    const wanted = new URL(req.url ?? "/", "http://localhost").searchParams.get("code") ?? "";
+    const known = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/.test(wanted);
+    const person = currentPlayer(req);
+    json(res, 200, { role: known ? realtime.seatRole(wanted, person && !person.mustChange ? person.id : null) : "unknown" }, { "cache-control": "no-store" });
   } else if (path === "/api/live" && req.method === "GET") {
     // How many watchable games are live (R80): a number only, never a code or a name, and never a friend game
     // or the exhibition game. Rate limited per client address like every read (R77).

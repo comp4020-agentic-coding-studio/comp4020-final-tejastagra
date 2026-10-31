@@ -376,9 +376,21 @@ test.describe("Tutorial", () => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await openTutorial(page);
     await toTutorialStep(page, 10);
-    await expect(page.locator(testid("tutorial-caption"))).toContainText("6-letter code");
-    await expect(page.locator(testid("tutorial-caption"))).toContainText("Anyone after the first watches");
-    await expect(page.locator(testid("tutorial-caption"))).toContainText("Quick match pairs you with a random person");
+    const caption = page.locator(testid("tutorial-caption"));
+    await expect(caption).toHaveText("Play a friend gives you a link and a 6-letter code to send to anyone, anywhere in the world. The first person to open it plays you. If you send it to more people, the second person to open it, and anyone after them, can watch the game live as a spectator.");
+    // U146: it says anyone anywhere, the first opener plays and the second opener watches.
+    await expect(caption).toContainText("anyone, anywhere in the world");
+    await expect(caption).toContainText("The first person to open it plays you");
+    await expect(caption).toContainText("the second person to open it, and anyone after them, can watch");
+    // The illustration: you, the first friend as the opponent, the second friend as a spectator with an eye.
+    const picture = page.locator(testid("tutorial-friends"));
+    await expect(picture).toBeVisible();
+    await expect(picture.locator('[data-role="you"]')).toHaveCount(1);
+    await expect(picture.locator('[data-role="opponent"]')).toHaveCount(1);
+    await expect(picture.locator('[data-role="spectator"]')).toHaveCount(1);
+    await expect(picture.locator('[data-role="spectator"] [data-icon="eye"]'), "the spectator wears an eye").toHaveCount(1);
+    await expect(picture.locator('[data-role="opponent"] .piece[data-colour="yellow"]')).toHaveCount(1);
+    await expect(picture.locator('[data-role="you"] .piece[data-colour="red"]')).toHaveCount(1);
     await page.click(testid("tutorial-next"));
     await expect(page.locator(testid("tutorial-caption"))).toHaveText("Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.");
     await context.close();

@@ -7,7 +7,7 @@
 import { avatar, buildBoard, colourAvatar, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView, type Colour } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 import { dialogButton, openDialog } from "./dialog.ts";
-import { beforeFirstMatch } from "./tutorial.ts";
+import { beforeFirstMatch, seatFor } from "./tutorial.ts";
 import { setPlayerName } from "./common.ts";
 
 type Player = "A" | "B";
@@ -101,8 +101,15 @@ void (async () => {
     await opened;
     socket.send(JSON.stringify({ type: "join", code, ...(saved ?? {}) }));
   };
-  if (saved) await join();
-  else await beforeFirstMatch(join);
+  if (saved) {
+    await join();
+    return;
+  }
+  // R47, R100: ask whether a player seat is free before deciding on the tutorial. Someone who would watch, or whose game has ended,
+  // goes straight to watching or to the result with no tutorial. The page still joins: the server decides what they are.
+  const role = await seatFor(code);
+  if (role === "player") await beforeFirstMatch(join);
+  else await join();
 })();
 
 function setText(id: string, text: string): void {

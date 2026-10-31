@@ -315,3 +315,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** Q24 and U156 now say the board is dimmed right back (opacity at most 0.2, no feet) whenever any of it shows round the card; the check measures the opacity whenever the board sticks out, and the card's centring either way.
 - **Rule for the future:** a check for how a thing looks needs a threshold for the looking-wrong case, not only for the geometric case; and always look at the picture.
 - **Commits:** the commit that follows this entry.
+
+### C40. The tutorial was offered to people who could not play and to accounts that knew the game
+- **Date:** 31 October 2026
+- **What went wrong:** the tutorial opened for anyone opening a friend's link, including the third person, who only watches, and for a game that had already ended; and a signed-in account that had played many games on another device saw it again in a fresh browser, because "seen" lived only with the player row of the device and in local storage. My first client change also asked only local storage, so an experienced account in a fresh browser still got it.
+- **How it was caught:** Tejas reported it; the browser check of an experienced account in an empty browser failed on my first fix.
+- **Harness fix:** R47, R48 and new R100 (`GET /api/seat`, the same decision a join makes, seating nobody); migration 22; `spec/app-tutorial.test.ts` (seat check answers, no leak, mark copied on sign-in, an account with a finished game, each seen to fail without the server code); `e2e/tutorial.spec.ts` (third opener, ended game, experienced account in a fresh browser, new guest).
+- **Rule for the future:** a flag decided in the browser must be checked in an empty browser; "who sees this" is a server question when it depends on the account.
+- **Commits:** the commit that follows this entry.

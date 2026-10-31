@@ -569,7 +569,7 @@ describe("R84 archiving a finished game for a rematch (no schema change: it uses
 
 describe("R93 and R95 player colours are saved with the game", () => {
   it("S8 (R95) migrations 19 and 20 give a game saved before colours seat A red and seat B yellow, once, and keep newer colours", () => {
-    expect(MIGRATION_COUNT, "the colours are migrations 19 and 20, then migration 21 (R98)").toBe(21);
+    expect(MIGRATION_COUNT, "the colours are migrations 19 and 20, then migration 21 (R98) and 22 (R48)").toBe(22);
     const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration19.db`);
     try {
       const old = new DatabaseSync(path);
@@ -636,7 +636,7 @@ describe("R98 games that never started are removed once", () => {
       expect(upgraded.loadGames().map((g) => g.code).sort()).toEqual(["PLAYED", "PLAYED#2", "WAITNG"]);
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(21);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(22); // 21 is this migration (R98); 22 (R48) ran after it
       raw.close();
       // Run once: a game cancelled after the upgrade is left for history to ignore (R98), never deleted by a second open.
       const again = openDb(path);

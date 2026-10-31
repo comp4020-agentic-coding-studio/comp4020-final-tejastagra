@@ -4090,3 +4090,62 @@ input {
 .game[data-waiting="true"] .board-wrap {
   padding-bottom: 0;
 }
+
+
+/* ---- The friends step's picture (U146): you, the first friend who plays you, the second friend who watches ---- */
+.tutorial-friends {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  /* the practice board's room, so the step takes no more space than the others (Q15) */
+  min-height: 140px;
+  margin: 8px 0;
+}
+
+.tutorial-friends[hidden] {
+  display: none;
+}
+
+.friend-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.friend {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.friend .avatar {
+  width: 52px;
+  height: 52px;
+}
+
+.friend-disc {
+  position: relative;
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+}
+
+.friend-link {
+  width: 28px;
+  height: 0;
+  border-top: var(--outline);
+}
+
+.friend-eye {
+  width: 28px;
+  height: 28px;
+  fill: var(--text);
+}
+
+.friend[data-role="spectator"] {
+  padding: 8px;
+  border: var(--outline);
+  border-style: dashed;
+  border-radius: var(--radius-panel);
+}

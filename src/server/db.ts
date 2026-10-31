@@ -62,6 +62,9 @@ export interface Db {
   // R89: gives every game of the guest `from` to the account `to` (either seat), hands the guest's sessions to the account (so a
   // connection that is already open keeps working) and removes the guest.
   moveGames(from: string, to: string): void;
+  // R47: whether this person has finished a game with a round played (a line, a draw or a forfeit, R98): an account that has is never
+  // offered the tutorial.
+  hasFinishedGame(id: string): boolean;
   playerByUsername(username: string): PlayerRow | undefined;
   createSession(tokenHash: string, playerId: string): void;
   // Sessions older than maxAgeMs are not honoured, whatever the cookie says.
@@ -157,6 +160,14 @@ const MIGRATIONS: string[] = [
   // R98 (ADR 0015, asked for by Tejas on 29 October 2026): a game that never started is never recorded. Rows of games that are
   // over with no round played are deleted, and their rematch archives with no round played; a game still waiting is kept (R26).
   `DELETE FROM games WHERE json_extract(state, '$.round') = 0 AND (ended IS NOT NULL OR json_extract(state, '$.status') <> 'playing' OR instr(code, '#') > 0)`,
+  // R48 (second fix list, 31 October 2026): an account that has finished at least one game has already seen how the game works, so
+  // it is never offered the tutorial. A finished game is one that is over (a line, a draw, a forfeit or an abandonment) with at least one round played (R98); only
+  // accounts are marked (a guest keeps the browser's own mark).
+  `UPDATE players SET tutorial_seen = 1 WHERE username IS NOT NULL AND tutorial_seen = 0 AND id IN (
+     SELECT player_a FROM games WHERE player_a IS NOT NULL AND json_extract(state, '$.round') > 0 AND (ended IS NOT NULL OR json_extract(state, '$.status') <> 'playing')
+     UNION
+     SELECT player_b FROM games WHERE player_b IS NOT NULL AND json_extract(state, '$.round') > 0 AND (ended IS NOT NULL OR json_extract(state, '$.status') <> 'playing')
+   )`,
 ];
 
 // How many migrations there are: a database opened by this code has run exactly this many (`PRAGMA user_version`).
@@ -223,6 +234,10 @@ export function openDb(path: string): Db {
   const moveSessions = db.prepare(`UPDATE sessions SET player_id = ? WHERE player_id = ?`);
   const insertPlayer = db.prepare(`INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)`);
   const updateNickname = db.prepare(`UPDATE players SET nickname = ? WHERE id = ?`);
+  const finishedGame = db.prepare(`
+    SELECT 1 FROM games
+    WHERE (player_a = ? OR player_b = ?) AND json_extract(state, '$.round') > 0 AND (ended IS NOT NULL OR json_extract(state, '$.status') <> 'playing')
+    LIMIT 1`);
   const updateTutorial = db.prepare(`UPDATE players SET tutorial_seen = ? WHERE id = ?`);
   const upgrade = db.prepare(`UPDATE players SET username = ?, password_hash = ? WHERE id = ? AND username IS NULL`);
   const selectByUsername = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen, must_change FROM players WHERE username = ?`);
@@ -297,6 +312,9 @@ export function openDb(path: string): Db {
     },
     setTutorialSeen(id: string, seen: boolean): void {
       updateTutorial.run(seen ? 1 : 0, id);
+    },
+    hasFinishedGame(id: string): boolean {
+      return finishedGame.get(id, id) !== undefined;
     },
     setNickname(id: string, nickname: string): void {
       updateNickname.run(nickname, id);

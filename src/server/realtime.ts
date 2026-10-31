@@ -156,6 +156,7 @@ export function attachRealtime(
   liveCount: () => number;
   createLinkGame: (code: string, creator: string | null) => void;
   movePerson: (from: string, to: string) => void;
+  seatRole: (code: string, person: string | null) => "player" | "spectator" | "ended" | "unknown";
   watchingIn: (code: string) => number;
   spectatorState: () => { watchers: number; watching: number; lastGame: number; addresses: number };
   retained: () => { kinds: number; creators: number; holders: number; rematchGone: number; rematchAsked: number; rematchTimers: number; colours: number; started: number };
@@ -1031,6 +1032,21 @@ export function attachRealtime(
     return wanted !== undefined ? "full" : "spectator";
   }
 
+  // R100: what a join by this person would become, asked before they are seated and never seating them. It is the same decision a
+  // join makes (decideSeat) on the same state, with nothing changed. A code that does not exist, a game against the computer and a
+  // seat named by a guess are all "unknown", as a join answers them (R32, R71): it teaches nothing a join would not.
+  function seatRole(code: string, person: string | null): "player" | "spectator" | "ended" | "unknown" {
+    const record = game.getGame(code);
+    if (!record) return "unknown";
+    if (kinds.get(code) === "computer" || computerGames.has(code)) return "unknown";
+    if (forfeited.has(code)) return "ended";
+    const seats = roster.get(code) ?? { A: false, B: false };
+    const decision = decideSeat(code, seats, undefined, undefined, person);
+    if (decision === "full") return "unknown";
+    if (decision === "spectator") return record.state.status !== "playing" ? "ended" : "spectator";
+    return record.state.status !== "playing" ? "ended" : "player";
+  }
+
   wss.on("connection", (socket, request) => {
     socketRequests.set(socket, request);
     logEvent("connect", { ua: request.headers["user-agent"]?.includes("Mobile") ? "phone" : "desktop" });
@@ -1250,6 +1266,7 @@ export function attachRealtime(
     createQuickGame,
     createLinkGame,
     movePerson,
+    seatRole,
     liveCount: () => liveWatchable().length, // R80: live quick match games, never link games or computer games
     spectatorState: () => spectators.sizes(),
     retained: () => ({ kinds: kinds.size, creators: creators.size, holders: holders.size, rematchGone: rematchGone.size, rematchAsked: rematchAsked.size, rematchTimers: rematchTimers.size, colours: colours.size, started: startedGames.size }), // for tests: every map empties as games are forgotten (R84)
