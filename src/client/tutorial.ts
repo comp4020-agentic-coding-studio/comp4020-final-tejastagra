@@ -552,7 +552,10 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     skip.removeEventListener("click", onSkip);
     document.removeEventListener("keydown", onKey);
     // Saved before the match starts, so it never shows again (R48), even if the next page loads at once.
-    if (mode === "match") await save(result);
+    if (mode === "match") {
+      rememberSeen();
+      await save(result);
+    }
     options.onClose?.(result);
   }
 
@@ -610,14 +613,28 @@ export async function replayTutorial(): Promise<void> {
   await showTutorial({ mode: "replay" });
 }
 
-// R47: whether this player is due the tutorial, asked of the server.
+// R47: whether it has been seen is kept in this browser, so each new browser shows it once. Where local storage is blocked,
+// the server's flag for the player (R48) decides instead.
+const SEEN_KEY = "rubble-tutorial-seen";
+function rememberSeen(): void {
+  try {
+    localStorage.setItem(SEEN_KEY, "1");
+  } catch {
+    // the server's flag still says it was seen
+  }
+}
 export async function tutorialDue(): Promise<boolean> {
   try {
-    const res = await fetch("/api/me");
-    return res.ok && (await res.json()).tutorialDue === true;
+    if (localStorage.getItem(SEEN_KEY) === "1") return false;
   } catch {
-    return false; // if the server cannot say, the match starts; the tutorial can be played from How to play
+    try {
+      const res = await fetch("/api/me");
+      return res.ok && (await res.json()).tutorialDue === true;
+    } catch {
+      return false;
+    }
   }
+  return true;
 }
 
 // R47, U136: before a match starts, run the tutorial if it is due, then start the match whether it was finished or skipped.

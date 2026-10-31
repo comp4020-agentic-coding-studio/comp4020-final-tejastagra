@@ -1,4 +1,4 @@
-// When the tutorial opens (R47, R48, docs/design/tutorial.md U136): the first time a player starts any match, before it begins,
+// When the tutorial opens (R47, R48, docs/design/tutorial.md U136): the first time a person starts a game in a browser (not Quick match), before it begins,
 // never on the home screen by itself and never twice; finishing or skipping it starts the match they chose. The steps themselves
 // are checked in e2e/design.spec.ts. Run with pnpm test:e2e.
 import { expect, test, type Page } from "@playwright/test";
@@ -55,16 +55,44 @@ test.describe("R47 the tutorial runs before the first match", () => {
     await context.close();
   });
 
-  test("R47 Quick match: it opens before the queue, and skipping it goes to Quick match", async ({ browser }) => {
+  test("R47 Quick match never opens it: the queue starts at once", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
     await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } })); // never paired with another check
     await page.goto("/");
     await page.locator(testid("quick-match")).click();
-    await expect(tutorial(page)).toBeVisible();
-    expect(new URL(page.url()).pathname, "not in the queue yet").toBe("/");
-    await page.locator(testid("tutorial-skip")).click();
     await page.waitForURL(/\/play\/quick$/);
     await expect(page.locator(testid("quick-status"))).toBeVisible();
+    await expect(tutorial(page)).toBeHidden();
+    await context.close();
+  });
+
+  test("R47 a new browser shows it once even for a player the server says has seen it, and the browser remembers", async ({ browser }) => {
+    const first = await newPlayer(browser, PHONE, { reducedMotion: true }); // seen: saved with the player and in this browser
+    await first.page.goto("/");
+    await first.page.locator(testid("play-computer")).click();
+    await first.page.waitForURL(/\/g\/[A-Z2-9]{6}$/);
+    await expect(tutorial(first.page)).toBeHidden();
+    // A second browser with the same player cookie but empty local storage.
+    const cookies = await first.context.cookies();
+    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
+    await context.addCookies(cookies);
+    await page.goto("/");
+    await page.locator(testid("play-computer")).click();
+    await expect(tutorial(page)).toBeVisible();
+    await page.locator(testid("tutorial-skip")).click();
+    await page.waitForURL(/\/g\/[A-Z2-9]{6}$/);
+    expect(await page.evaluate(() => localStorage.getItem("rubble-tutorial-seen"))).toBe("1");
+    await first.context.close();
+    await context.close();
+  });
+
+  test("R47 opening the watching screen never opens it", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
+    for (const path of ["/watch", "/leaderboard", "/account"]) {
+      await page.goto(path);
+      await page.waitForTimeout(500);
+      await expect(tutorial(page), path).toBeHidden();
+    }
     await context.close();
   });
 

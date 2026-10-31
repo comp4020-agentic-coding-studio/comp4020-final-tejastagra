@@ -43,13 +43,10 @@ async function start(endpoint: string): Promise<void> {
   }
 }
 
-// R47: the first time a player starts a match, the tutorial runs first, then the match they chose starts (U136).
+// R47: the first time a person starts a game in this browser, the tutorial runs first, then the game they chose starts (U136).
 $("play-friend").addEventListener("click", () => void beforeFirstMatch(() => start("/api/games")));
 $("play-computer").addEventListener("click", () => void beforeFirstMatch(() => start("/api/computer")));
-$("quick-match").addEventListener("click", (event) => {
-  event.preventDefault();
-  void beforeFirstMatch(() => void (location.href = "/play/quick"));
-});
+// Quick match never opens the tutorial (R47): its link goes straight to the queue.
 
 // "Join with a code" opens the code popup (U33b): nothing on the screen moves.
 function openCodeDialog(): void {

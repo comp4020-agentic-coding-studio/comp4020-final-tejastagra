@@ -26,6 +26,13 @@ export async function newPlayer(
   // endpoint. The tutorial checks ask for "new".
   if ((options.tutorial ?? "seen") === "seen") {
     await page.request.post("/api/tutorial", { data: { result: "finished" } });
+    await context.addInitScript(() => {
+      try {
+        localStorage.setItem("rubble-tutorial-seen", "1"); // R47: whether it was seen is kept in the browser
+      } catch {
+        // the server's flag still says it was seen
+      }
+    });
   }
   return { context, page };
 }
