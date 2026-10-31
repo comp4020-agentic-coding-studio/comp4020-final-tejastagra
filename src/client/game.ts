@@ -8,6 +8,7 @@ import { avatar, buildBoard, ceilingAnimation, confettiBurst, earthquakeIcon, ma
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 import { dialogButton, openDialog } from "./dialog.ts";
 import { beforeFirstMatch } from "./tutorial.ts";
+import { setPlayerName } from "./common.ts";
 
 type Player = "A" | "B";
 
@@ -518,6 +519,7 @@ async function finish(state: State): Promise<void> {
 
 function popupOpen(): void {
   $("end-popup").hidden = false;
+  gameRoot.dataset.ended = "true"; // Q19: the popup says the result, so the line under the power-ups is hidden
   ($("play-again") as HTMLElement).focus();
 }
 
@@ -550,8 +552,8 @@ socket.addEventListener("message", (event) => {
       seatToken = message.seatToken;
       opponentPresent = message.opponentPresent === true;
       if (typeof message.watching === "number") showWatching(message.watching);
-      if (typeof message.yourName === "string") setText("name-you", message.yourName);
-      if (typeof message.opponentName === "string") setText("name-opponent", message.opponentName);
+      if (typeof message.yourName === "string") setPlayerName($("name-you"), message.yourName);
+      if (typeof message.opponentName === "string") setPlayerName($("name-opponent"), message.opponentName);
       if (message.colours && (message.colours.A === "red" || message.colours.A === "yellow")) colours = message.colours;
       markStarted(message.started !== false);
       if (started) hideCountdown();
@@ -570,7 +572,7 @@ socket.addEventListener("message", (event) => {
     }
     case "opponent_joined":
       opponentPresent = true;
-      if (typeof message.name === "string") setText("name-opponent", message.name);
+      if (typeof message.name === "string") setPlayerName($("name-opponent"), message.name);
       showHeading(false);
       if (drawn) syncWaiting(drawn); // round 1 starts after the countdown the server sends next (R51, R97)
       break;
@@ -737,6 +739,7 @@ function clearForRematch(): void {
   rematch = "idle";
   renderRematch();
   $("end-popup").hidden = true;
+  delete gameRoot.dataset.ended;
   over = false;
   locked = false;
   armed = false;

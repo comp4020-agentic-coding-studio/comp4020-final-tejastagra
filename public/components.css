@@ -3847,3 +3847,63 @@ input {
 .game .powerup-row {
   flex: 0 0 auto;
 }
+
+
+/* ---- Popups, the result and names (Q18 to Q20, U150 to U152) ---- */
+
+/* Q18: 16px between the end popup's edge and its content; the two buttons are stacked full width 12px apart at every size, because
+   the 300px card cannot hold two with 12px of clearance round each label and its icon. */
+.popup-card {
+  padding: 16px;
+}
+
+.popup-actions {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.popup-actions .btn {
+  padding: 0 12px;
+}
+
+@media (max-width: 359px) {
+  .popup-actions .btn svg {
+    display: inline-block;
+  }
+
+  .popup-actions .btn {
+    padding: 0 12px;
+    font-size: 1.1rem;
+  }
+}
+
+/* Q19: while the end popup shows, the result line says nothing a second time (it keeps its room, so nothing moves). */
+.game[data-ended="true"] .result {
+  visibility: hidden;
+}
+
+.player-text {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Q20, U152: the nickname takes one line and is cut with an ellipsis; the tag stays whole under it. */
+.player-name[data-tagged="true"] .pn-nick {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.player-name[data-tagged="true"] .player-tag {
+  display: block;
+  white-space: nowrap;
+}
+
+.player-name:not([data-tagged="true"]) .pn-nick {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}

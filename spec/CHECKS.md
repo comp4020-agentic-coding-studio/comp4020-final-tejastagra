@@ -33,6 +33,9 @@ Status: **todo** (stub only), **written**, **passing**.
 | U33 | The home menu buttons have no subtext line under them (changed 29 October 2026) | `e2e/layout.spec.ts` | passing |
 | U98 | Nothing on the quick match screen moves by more than 1px when the live count arrives | `e2e/layout.spec.ts` | passing |
 | Q14 | A player's colour and marker are the same on both players' screens and a spectator's (`e2e/player-colours.spec.ts`) | Q14 | passing |
+| Q18 | Every popup (dialogs, the end popup) has 16px between its edge and its content, 16px between side-by-side buttons, 12px between stacked buttons and 12px between a label (with its icon) and its button's edge | `e2e/layout.spec.ts` | passing |
+| Q19 | With the end popup open, the result line under the power-ups is not visible | `e2e/layout.spec.ts` | passing |
+| Q20 | A name takes at most two lines and its tag stays whole inside its card at 320 and 390 | `e2e/layout.spec.ts` | passing |
 | Q15 | The game screen, every tutorial step and every popup fit one screen with no vertical scrolling at 390 x 844, 1366 x 768 and 320 x 568 | `e2e/layout.spec.ts` | passing |
 | Q16 | No button or caption's box intersects the board on the game screen or in the tutorial | `e2e/layout.spec.ts` | passing |
 | Q17 | On the home screen the gaps between the player card and each menu button are equal within 2px, on a phone and a laptop | `e2e/layout.spec.ts` | passing |

@@ -267,3 +267,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** `e2e/layout.spec.ts` checks that no power-up row's content is wider than the row (`scrollWidth`), at three sizes; it was seen to fail without the CSS fix.
 - **Rule for the future:** a box can be 44px wide and still be cut off by its parent; check clipping as well as size.
 - **Commits:** the commit that follows this entry.
+
+### C34. The end popup was cramped, the result showed twice, and a long name overflowed its card
+- **Date:** 31 October 2026
+- **What went wrong:** Tejas found the end popup's two buttons crowded on a phone (8px apart, labels touching their edges, icons hidden at 320px), the result's words shown both in the popup and in the result line under the power-ups, and a name that wrapped to many lines. The checks only measured that button text did not wrap, never the space inside the button or the card, never whether the result was repeated, and never how many lines a name took. My first regex for the tag also tripped the colour-code test, which reads `#` plus four hex characters as a colour.
+- **How it was caught:** Tejas reported it from using the app.
+- **Harness fix:** Q18, Q19 and Q20 in `docs/design/qa-checklist.md` and CLAUDE.md, and `e2e/layout.spec.ts` measures popup padding, the gap and clearance of buttons, the result shown once and a name's lines at three sizes; each was seen to fail before the fix. A name is now a nickname and a tag as two pieces (`setPlayerName`).
+- **Rule for the future:** a spacing complaint is a missing measurement: write the measurement for the clearance inside the box, not only for the box.
+- **Commits:** the commit that follows this entry.

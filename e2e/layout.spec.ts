@@ -1143,3 +1143,132 @@ test("U132 U149 the power-up row's info buttons are whole and on screen at every
     await context.close();
   }
 });
+
+// ---- Part A of the second fix list: Q18 popup spacing, Q19 one result, Q20 two-line names (31 October 2026) ----
+
+// A finished game as the server would send it, played into the real page: the end popup with its result.
+async function openEndPopup(page: Page, status: "draw" | "won" = "draw"): Promise<void> {
+  const state = { board: [[], [], [], [], [], [], []], round: 21, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 4, status, winner: status === "won" ? "B" : null };
+  await page.routeWebSocket(/\/ws$/, (ws) => {
+    ws.onMessage((raw) => {
+      if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Pip Squeak #4f2a", opponentName: "Brave Wombat #a7f3", colours: { A: "red", B: "yellow" }, opponentReady: false }));
+    });
+  });
+  await page.goto("/g/DRAW42");
+  await page.locator(testid("end-popup")).waitFor({ state: "visible", timeout: 6_000 });
+}
+
+// Q18: the clearances inside one popup card, measured in the page.
+async function popupSpacing(page: Page, cardSelector: string): Promise<{ edge: number; between: number; stacked: number; label: number }> {
+  return page.evaluate((sel) => {
+    const card = document.querySelector<HTMLElement>(sel)!;
+    const c = card.getBoundingClientRect();
+    const own = getComputedStyle(card);
+    // The card's own padding plus its border is the space between its edge and its content.
+    const edge = Math.min(parseFloat(own.paddingLeft), parseFloat(own.paddingRight), parseFloat(own.paddingTop), parseFloat(own.paddingBottom));
+    const buttons = [...card.querySelectorAll<HTMLElement>("button.btn, a.btn")].filter((b) => b.getClientRects().length > 0 && b.getBoundingClientRect().width > 0);
+    let between = Infinity;
+    let stacked = Infinity;
+    let label = Infinity;
+    for (let i = 0; i < buttons.length; i++) {
+      const a = buttons[i].getBoundingClientRect();
+      for (let j = i + 1; j < buttons.length; j++) {
+        const b = buttons[j].getBoundingClientRect();
+        const sameRow = Math.abs(a.top - b.top) < 4;
+        if (sameRow) between = Math.min(between, Math.max(b.left - a.right, a.left - b.right));
+        else stacked = Math.min(stacked, Math.max(b.top - a.bottom, a.top - b.bottom));
+      }
+      // The words and the icon inside the button, against the button's own edge.
+      const r = buttons[i].getBoundingClientRect();
+      let left = Infinity;
+      let right = -Infinity;
+      for (const part of buttons[i].querySelectorAll<HTMLElement | SVGElement>("span, svg")) {
+        const p = part.getBoundingClientRect();
+        if (p.width === 0 || (part instanceof HTMLElement && !part.textContent?.trim())) continue;
+        left = Math.min(left, p.left);
+        right = Math.max(right, p.right);
+      }
+      if (isFinite(left)) label = Math.min(label, left - r.left, r.right - right);
+    }
+    void c;
+    return { edge, between, stacked, label };
+  }, cardSelector);
+}
+
+test.describe("Q18 popups are not cramped", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q18 the end popup at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openEndPopup(page);
+      const m = await popupSpacing(page, `${testid("end-popup")} .popup-card`);
+      expect(m.edge, "16px between the card's edge and its content").toBeGreaterThanOrEqual(15.5);
+      expect(m.between, "buttons side by side are at least 16px apart").toBeGreaterThanOrEqual(15.5);
+      expect(m.stacked, "stacked buttons are at least 12px apart").toBeGreaterThanOrEqual(11.5);
+      expect(m.label, "12px between each label (with its icon) and its button's edge").toBeGreaterThanOrEqual(11.5);
+      expect(await overflowingLabels(page), "every label fits inside its button").toEqual([]);
+      await context.close();
+    });
+  }
+
+  for (const viewport of FULL_SCREENS) {
+    for (const popup of [
+      { name: "nickname", screen: "/", opener: "rename", dialog: "nickname-dialog" },
+      { name: "join with a code", screen: "/", opener: "join-toggle", dialog: "code-dialog" },
+      { name: "sign up", screen: "/account", opener: "open-signup", dialog: "signup-dialog" },
+      { name: "sign in", screen: "/account", opener: "open-signin", dialog: "signin-dialog" },
+    ]) {
+      test(`Q18 the ${popup.name} popup at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+        const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+        await page.goto(popup.screen);
+        await page.locator(testid(popup.opener)).click();
+        await page.locator(testid(popup.dialog)).waitFor();
+        const m = await popupSpacing(page, `${testid(popup.dialog)} .dialog-card`);
+        expect(m.edge).toBeGreaterThanOrEqual(15.5);
+        expect(m.between).toBeGreaterThanOrEqual(15.5);
+        expect(m.stacked).toBeGreaterThanOrEqual(11.5);
+        expect(m.label).toBeGreaterThanOrEqual(11.5);
+        await context.close();
+      });
+    }
+  }
+});
+
+test.describe("Q19 the result is shown once", () => {
+  for (const viewport of [NARROW, PHONE]) {
+    test(`Q19 with the end popup open the result line is not visible at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openEndPopup(page);
+      await expect(page.locator(testid("end-title"))).toHaveText("IT'S A DRAW!");
+      await expect(page.locator(testid("result-line"))).toBeHidden();
+      await context.close();
+    });
+  }
+});
+
+test.describe("Q20 a name takes at most two lines", () => {
+  for (const viewport of [NARROW, PHONE]) {
+    test(`Q20 the widest names at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      const state = { board: [[], [], [], [], [], [], []], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null };
+      await page.routeWebSocket(/\/ws$/, (ws) => {
+        ws.onMessage((raw) => {
+          if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Wmmmmmmmmmmmmmmm #4f2a", opponentName: "Mwwwwwwwwwwwwwww #a7f3", colours: { A: "red", B: "yellow" }, opponentReady: false }));
+        });
+      });
+      await page.goto("/g/NAMES2");
+      await page.locator(testid("name-you")).waitFor();
+      for (const [name, card] of [["name-you", "panel-you"], ["name-opponent", "panel-opponent"]] as const) {
+        const m = await page.locator(testid(name)).evaluate((el) => {
+          const line = parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.2;
+          return { lines: Math.round(el.getBoundingClientRect().height / line), right: el.getBoundingClientRect().right, tag: el.querySelector(".player-tag")?.getBoundingClientRect().right ?? 0 };
+        });
+        const box = (await page.locator(testid(card)).boundingBox())!;
+        expect(m.lines, `${name} is at most two lines`).toBeLessThanOrEqual(2);
+        expect(m.right, `${name} stays inside its card`).toBeLessThanOrEqual(box.x + box.width + 1);
+        expect(m.tag, `${name}'s tag stays inside its card`).toBeLessThanOrEqual(box.x + box.width + 1);
+        await expect(page.locator(`${testid(name)} .player-tag`), `${name}'s tag is shown`).toBeVisible();
+      }
+      await context.close();
+    });
+  }
+});

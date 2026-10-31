@@ -4,6 +4,7 @@
 // "Ready" status to show. The browser decides nothing about a result (R20).
 import { avatar, buildBoard, ceilingAnimation, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
+import { setPlayerName } from "./common.ts";
 
 type Kind = "quick" | "link";
 // A link game is watched at its own address, /watch?game=CODE&via=link (U92): it shows a notice in place of the banner, has only a
@@ -70,8 +71,8 @@ function colourSeats(colours: { A: "red" | "yellow"; B: "red" | "yellow" } | und
 }
 
 function names(n: Names): void {
-  setText("name-a", n.A ?? "Player 1");
-  setText("name-b", n.B ?? "Player 2");
+  setPlayerName($("name-a"), n.A ?? "Player 1");
+  setPlayerName($("name-b"), n.B ?? "Player 2");
   for (const [slot, seed] of [["a", `${code}-A`], ["b", `${code}-B`]] as const) {
     const fresh = avatar(seed);
     fresh.dataset.testid = `avatar-${slot}`;
