@@ -882,13 +882,20 @@ test.describe("Phone width: the watching screen and the game screen's first scre
 test("Q5 Q12 on a laptop the header bar's Home shares the left edge of the page's card, list or About text", async ({ browser }) => {
   const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
   await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } }));
-  for (const [path, column] of [["/account", "account-card"], ["/play/quick", "quick-panel"], ["/leaderboard", "leaderboard-column"], ["/readme/", "readme-panel"]] as const) {
+  for (const [path, column] of [["/play/quick", "quick-panel"], ["/leaderboard", "leaderboard-column"], ["/readme/", "readme-panel"]] as const) {
     await page.goto(path);
     await page.waitForTimeout(300);
     const home = (await page.locator(testid("header-home")).boundingBox())!;
     const card = (await page.locator(testid(column)).boundingBox())!;
     expect(Math.abs(home.x - card.x), `${path}: Home lines up with ${column}`).toBeLessThanOrEqual(4);
   }
+  // Q30, U114a (changed 31 October 2026): on a laptop /account is two columns, so Home lines up with the left edge of
+  // the whole two-column block, not either column alone.
+  await page.goto("/account");
+  await page.waitForTimeout(300);
+  const home = (await page.locator(testid("header-home")).boundingBox())!;
+  const block = (await page.locator(".account-columns").boundingBox())!;
+  expect(Math.abs(home.x - block.x), "/account: Home lines up with the two-column block").toBeLessThanOrEqual(4);
   await context.close();
 });
 

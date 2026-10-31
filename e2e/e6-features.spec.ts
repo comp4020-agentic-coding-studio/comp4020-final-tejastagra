@@ -88,7 +88,7 @@ test("E6 sign up, sign out and sign in again, with errors visible in the first s
   await page.fill(testid("password-input"), "a long enough password");
   await page.tap(testid("signup-save"));
   await expect(page.locator(testid("account-username"))).toHaveText(`@${username}`);
-  await expect(page.locator(testid("account-status"))).toHaveText("Signed in");
+  await expect(page.locator(testid("account-status"))).toHaveText("Logged in");
   await page.tap(testid("signout"));
   await expect(page.locator(testid("open-signin"))).toBeVisible();
   await page.tap(testid("open-signin"));

@@ -2914,7 +2914,20 @@ input:focus {
   display: grid;
   justify-items: center;
   align-content: start;
+}
+
+.account-columns {
+  display: grid;
+  justify-items: center;
   gap: 16px;
+  width: 100%;
+}
+
+.account-left {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  width: 100%;
 }
 
 .account .subtitle {
@@ -3132,12 +3145,6 @@ input:focus {
   }
 }
 
-/* Home under the record: 32px from the last section (Q4). The page's 16px gap plus this. */
-.account > .stack {
-  width: min(480px, 100%);
-  margin: 16px 0 0;
-}
-
 .dialog-hint {
   margin: 6px 0 0;
   color: var(--text-muted);
@@ -3148,6 +3155,49 @@ input:focus {
   margin: 0;
   color: var(--error);
   font-weight: 700;
+}
+
+/* U118, Q30 (changed 31 October 2026): one "No games yet" message under both stat cards, never inside a card. */
+.record-empty {
+  margin: 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.record-empty[hidden] {
+  display: none;
+}
+
+/* ---- Q30, U114a: the account page on a laptop is two columns, like the home screen ---- */
+@media (min-width: 900px) {
+  .account-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 64px;
+    max-width: 1100px;
+    min-height: calc(100vh - 160px);
+  }
+
+  .account-left {
+    justify-self: end;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .record {
+    justify-self: start;
+    align-self: center;
+    width: 100%;
+    max-width: var(--list-width);
+    max-height: calc(100vh - 160px);
+  }
+
+  .history-list {
+    overflow-y: auto;
+    max-height: calc(100vh - 160px - 220px); /* the heading and the two stat cards take the rest (Q15 does not force the page to scroll) */
+    padding-right: 4px;
+  }
 }
 
 /* ---- The leaderboard (docs/design/leaderboard.md U123 to U130) ---- */
@@ -3806,13 +3856,20 @@ input:focus {
 }
 
 /* Q5, Q12: the header bar shares its page's content column, so Home lines up with the card or list under it on a laptop. */
-.account > .topbar,
 .quick > .topbar {
   max-width: min(480px, 100%);
 }
 
 .leaderboard > .topbar {
   max-width: min(var(--list-width), 100%);
+}
+
+/* Q30, U114a (changed 31 October 2026): on a laptop the account page is two columns, so its header bar spans both,
+   sharing the left edge of the whole two-column block (not either column alone). */
+@media (min-width: 900px) {
+  .account > .topbar {
+    max-width: 1100px;
+  }
 }
 
 

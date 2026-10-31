@@ -44,7 +44,7 @@ async function refresh(): Promise<void> {
   $("account-avatar").replaceWith(fresh);
   $("account-username").hidden = !account;
   $("account-username").textContent = account ? `@${me!.displayName}` : "";
-  $("account-status").textContent = account ? "Signed in" : guest ? "Guest" : "";
+  $("account-status").textContent = account ? "Logged in" : guest ? "Guest" : "";
   $("edit-nickname").hidden = !me;
   $("edit-nickname").querySelector("span")!.textContent = account ? "Edit nickname" : "Edit";
   $("account-hint").hidden = !guest && !!me;
@@ -62,22 +62,20 @@ const ago = (ms: number): string => {
   return unit(Math.floor(s / 86400), "day");
 };
 
+// U118 (changed 31 October 2026): a stat card with no games shows a dash in place of each number, never its own
+// "No games yet" text; that message appears once, under both cards (showRecord).
 function fillStats(id: string, r: { played: number; wins: number; losses: number; draws: number; winRate: number | null }): void {
-  const list = $(id).querySelector("dl")!;
+  const card = $(id);
+  card.querySelector(".record-none")?.replaceWith(document.createElement("dl"));
+  const list = card.querySelector("dl")!;
   list.replaceChildren();
-  if (r.played === 0) {
-    const none = document.createElement("p");
-    none.className = "record-none";
-    none.textContent = "No games yet";
-    list.replaceWith(none);
-    return;
-  }
+  const dash = "—";
   for (const [label, value] of [["Played", r.played], ["Won", r.wins], ["Lost", r.losses], ["Drawn", r.draws], ["Win rate", `${r.winRate}%`]] as const) {
     const row = document.createElement("div");
     const dt = document.createElement("dt");
     const dd = document.createElement("dd");
     dt.textContent = label;
-    dd.textContent = String(value);
+    dd.textContent = r.played === 0 ? dash : String(value);
     row.append(dt, dd);
     list.append(row);
   }
@@ -85,16 +83,12 @@ function fillStats(id: string, r: { played: number; wins: number; losses: number
 
 async function showRecord(): Promise<void> {
   const res = await call("GET", "/api/me/history");
-  const panelFor = (id: string) => {
-    const card = $(id);
-    card.querySelector(".record-none")?.replaceWith(document.createElement("dl"));
-  };
-  panelFor("stats-people");
-  panelFor("stats-computer");
   const list = $("history-list");
+  const empty = $("record-empty");
   if (!res.ok) {
     // Q10: a record that could not be loaded says so. It never claims "No games yet", which would be untrue.
     for (const id of ["stats-people", "stats-computer"]) $(id).hidden = true;
+    empty.hidden = true;
     list.replaceChildren();
     const failed = document.createElement("li");
     failed.className = "record-error";
@@ -107,13 +101,10 @@ async function showRecord(): Promise<void> {
   fillStats("stats-people", data.stats.people);
   fillStats("stats-computer", data.stats.computer);
   list.replaceChildren();
-  if (data.history.length === 0) {
-    const li = document.createElement("li");
-    li.className = "row history-empty";
-    li.textContent = "No games yet. Play the computer or a friend and they will show up here.";
-    list.append(li);
-    return;
-  }
+  // U118 (changed 31 October 2026): with no finished games, both stat cards show dashes and one message appears once,
+  // under them, never inside a stat card and never repeated in the history list.
+  empty.hidden = data.history.length !== 0;
+  if (data.history.length === 0) return;
   for (const g of data.history as Array<{ opponent: string; result: string; rounds: number; endedAt: number }>) {
     const li = document.createElement("li");
     li.className = "row history-row";
@@ -175,16 +166,16 @@ function forgotDialog(): Dialog {
 function signInDialog(): Dialog {
   const d = openDialog({
     testid: "signin-dialog",
-    title: "Sign in",
+    title: "Log in",
     onSubmit: async (dialog) => {
       const r = await post("/api/account/signin", { username: field(dialog, "username"), password: field(dialog, "password") });
-      if (!r.ok) return dialog.error("password", r.data.error ?? "Could not sign in.");
+      if (!r.ok) return dialog.error("password", r.data.error ?? "Could not log in.");
       dialog.close();
       if (r.data.mustChange) {
         mustChangeDialog();
         return;
       }
-      say("Signed in.");
+      say("Logged in.");
       await refresh();
     },
   });
@@ -197,7 +188,7 @@ function signInDialog(): Dialog {
   forgot.textContent = "Forgot your password?";
   forgot.addEventListener("click", () => openFrom(() => void signInDialog(), forgotDialog));
   d.form.append(forgot);
-  d.actions(dialogButton("Sign in", "blue", "signin-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => d.close() }));
+  d.actions(dialogButton("Log in", "blue", "signin-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => d.close() }));
   return d;
 }
 
@@ -242,7 +233,7 @@ $("open-signin").addEventListener("click", () => void signInDialog());
 $("open-password").addEventListener("click", passwordDialog);
 $("signout").addEventListener("click", async () => {
   await post("/api/signout", {});
-  say("Signed out.");
+  say("Logged out.");
   await refresh();
 });
 

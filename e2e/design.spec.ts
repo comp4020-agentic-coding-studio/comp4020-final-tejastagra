@@ -832,7 +832,10 @@ test.describe("Forms and lists stay narrow and centred (U60)", () => {
     expect(column.width, "leaderboard column at most 560px").toBeLessThanOrEqual(561);
     await page.goto("/account");
     const card = (await page.locator(testid("account-card")).boundingBox())!;
-    expect(Math.abs(card.x + card.width / 2 - LAPTOP.width / 2), "account card centred").toBeLessThanOrEqual(8);
+    // Q30, U114a (changed 31 October 2026): on a laptop the account page is two columns, so the card sits in the left
+    // column, not centred on the page; the two-column block itself is centred instead.
+    const block = (await page.locator(".account-columns").boundingBox())!;
+    expect(Math.abs(block.x + block.width / 2 - LAPTOP.width / 2), "the two-column block is centred").toBeLessThanOrEqual(8);
     expect(card.width, "account card at most 480px").toBeLessThanOrEqual(481);
     await page.click(testid("edit-nickname"));
     await expect(page.locator(`${testid("nickname-dialog")} ${testid("nickname-save")}`)).toHaveText("Save"); // U115: Save and Cancel

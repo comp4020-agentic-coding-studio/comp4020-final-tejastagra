@@ -124,37 +124,42 @@ export function leaderboardScreen(ctx: ScreenContext): string {
 
 export function accountScreen(ctx: ScreenContext): string {
   const body = `
-    <main class="arena narrow account" data-testid="account-screen">
+    <main class="arena account" data-testid="account-screen">
       ${topbar({ href: "/" })}
-      ${title()}
-      <h2 class="subtitle">Your account</h2>
-      <section class="panel account-card" data-testid="account-card" aria-live="polite">
-        <div class="account-who">
-          <span class="avatar" data-testid="account-avatar"></span>
-          <span class="account-names">
-            <span class="account-nickname" data-testid="account-nickname">Your account</span>
-            <span class="account-username" data-testid="account-username" hidden></span>
-            <span class="account-status" data-testid="account-status"></span>
-          </span>
-          <button type="button" class="btn btn-blue account-edit" data-testid="edit-nickname" hidden><span>Edit</span></button>
+      <div class="account-columns">
+        <div class="account-left">
+          ${title()}
+          <h2 class="subtitle">Your account</h2>
+          <section class="panel account-card" data-testid="account-card" aria-live="polite">
+            <div class="account-who">
+              <span class="avatar" data-testid="account-avatar"></span>
+              <span class="account-names">
+                <span class="account-nickname" data-testid="account-nickname">Your account</span>
+                <span class="account-username" data-testid="account-username" hidden></span>
+                <span class="account-status" data-testid="account-status"></span>
+              </span>
+              <button type="button" class="btn btn-blue account-edit" data-testid="edit-nickname" hidden><span>Edit</span></button>
+            </div>
+            <p class="account-hint" data-testid="account-hint" hidden>Save your progress to keep your record on any device.</p>
+            <div class="account-actions" data-testid="account-actions">
+              <button type="button" class="btn btn-red" data-testid="open-signup" hidden><span>Save my progress</span></button>
+              <button type="button" class="btn btn-blue" data-testid="open-signin" hidden><span>Log in</span></button>
+              <button type="button" class="btn btn-blue" data-testid="open-password" hidden><span>Change password</span></button>
+              <button type="button" class="btn btn-yellow" data-testid="signout" hidden><span>Log out</span></button>
+            </div>
+            <p class="message card-message" id="account-message" data-testid="account-message" role="status"></p>
+          </section>
         </div>
-        <p class="account-hint" data-testid="account-hint" hidden>Save your progress to keep your record on any device.</p>
-        <div class="account-actions" data-testid="account-actions">
-          <button type="button" class="btn btn-red" data-testid="open-signup" hidden><span>Save my progress</span></button>
-          <button type="button" class="btn btn-blue" data-testid="open-signin" hidden><span>Sign in</span></button>
-          <button type="button" class="btn btn-blue" data-testid="open-password" hidden><span>Change password</span></button>
-          <button type="button" class="btn btn-yellow" data-testid="signout" hidden><span>Sign out</span></button>
-        </div>
-        <p class="message card-message" id="account-message" data-testid="account-message" role="status"></p>
-      </section>
-      <section class="record" data-testid="history" aria-labelledby="record-title">
-        <h2 id="record-title">Your record</h2>
-        <div class="record-stats">
-          <div class="panel record-card" data-testid="stats-people"><h3>Against people</h3><dl></dl></div>
-          <div class="panel record-card" data-testid="stats-computer"><h3>Against the computer</h3><dl></dl></div>
-        </div>
-        <ol class="rows history-list" data-testid="history-list"></ol>
-      </section>
+        <section class="record" data-testid="history" aria-labelledby="record-title">
+          <h2 id="record-title">Your record</h2>
+          <div class="record-stats">
+            <div class="panel record-card" data-testid="stats-people"><h3>Against people</h3><dl></dl></div>
+            <div class="panel record-card" data-testid="stats-computer"><h3>Against the computer</h3><dl></dl></div>
+          </div>
+          <p class="record-empty" data-testid="record-empty" role="status" hidden>No games yet. Play the computer or a friend and your results will show up here.</p>
+          <ol class="rows history-list" data-testid="history-list"></ol>
+        </section>
+      </div>
     </main>
   `;
   return shell(ctx, "Rubble: Your account", body, "/static/account.js");

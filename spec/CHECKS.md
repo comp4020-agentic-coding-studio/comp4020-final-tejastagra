@@ -49,6 +49,7 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q17 | On the home screen the gaps between the player card and each menu button are equal within 2px, on a phone and a laptop | `e2e/layout.spec.ts` | passing |
 | Q28, U51a, U9a | A focused field or button shows one yellow border at the same width and radius with no separate outline; nothing moves more than 1px; a button's focus border only shows on Tab, never on click or tap | `e2e/layout.spec.ts` | passing |
 | Q29, U52b | No popup card carries a light or white second ring; `--shadow-popup` is a plain dark offset | `e2e/layout.spec.ts`, `spec/unit-theme.test.ts` | passing |
+| Q30, U114a | On a laptop the account page is two columns, vertically centred within 24px, the page itself never scrolls and the history scrolls in its own card; on a phone it stays one column | `e2e/account.spec.ts` | passing |
 
 ## Hygiene (`spec/unit-check-isolation.test.ts`)
 

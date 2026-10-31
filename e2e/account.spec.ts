@@ -24,7 +24,7 @@ async function signedIn(page: Page, password = "first password here") {
 }
 
 test.describe("The account page (U114 to U122)", () => {
-  test("U115 a guest sees their nickname, Edit, Save my progress, Sign in and the line, and never Sign out or Change password", async ({ browser }) => {
+  test("U115 a guest sees their nickname, Edit, Save my progress, Log in and the line, and never Log out or Change password", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
     await page.goto("/account");
@@ -32,26 +32,26 @@ test.describe("The account page (U114 to U122)", () => {
     await expect(page.locator(testid("account-status"))).toHaveText("Guest");
     await expect(page.locator(testid("edit-nickname"))).toHaveText("Edit");
     await expect(page.locator(testid("open-signup"))).toHaveText("Save my progress");
-    await expect(page.locator(testid("open-signin"))).toHaveText("Sign in");
+    await expect(page.locator(testid("open-signin"))).toHaveText("Log in");
     await expect(page.locator(testid("account-hint"))).toHaveText("Save your progress to keep your record on any device.");
     for (const id of ["signout", "open-password"]) await expect(page.locator(testid(id))).toBeHidden();
     await context.close();
   });
 
-  test("U116 a signed-in player sees their nickname, username, Signed in, Edit nickname, Change password and Sign out, and no sign-in controls", async ({ browser }) => {
+  test("U116 a logged-in player sees their nickname, username, Logged in, Edit nickname, Change password and Log out, and no log-in controls", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     const { username } = await signedIn(page);
     await page.goto("/account");
     await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Squeak");
     await expect(page.locator(testid("account-username"))).toHaveText(`@${username}`);
-    await expect(page.locator(testid("account-status"))).toHaveText("Signed in");
+    await expect(page.locator(testid("account-status"))).toHaveText("Logged in");
     await expect(page.locator(testid("edit-nickname"))).toHaveText("Edit nickname");
     for (const id of ["open-password", "signout"]) await expect(page.locator(testid(id))).toBeVisible();
     for (const id of ["open-signup", "open-signin", "account-hint"]) await expect(page.locator(testid(id))).toBeHidden();
     await context.close();
   });
 
-  test("U120 the sign-in popup's Forgot your password? opens the words to email, sends nothing, and Close goes back", async ({ browser }) => {
+  test("U120 the log-in popup's Forgot your password? opens the words to email, sends nothing, and Close goes back", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
     await page.goto("/account");
@@ -67,11 +67,11 @@ test.describe("The account page (U114 to U122)", () => {
     await expect(page.locator(testid("signin-dialog"))).toHaveCount(0); // only one popup at a time (U90)
     expect(requests.filter((u) => /\/api\//.test(u))).toEqual([]); // nothing is sent from the app
     await dialog.locator(testid("dialog-cancel")).click();
-    await expect(page.locator(testid("signin-dialog"))).toBeVisible(); // back to sign in
+    await expect(page.locator(testid("signin-dialog"))).toBeVisible(); // back to log in
     await context.close();
   });
 
-  test("R88 after five wrong passwords the sign-in popup says to try again in a few minutes, under the password field", async ({ browser }) => {
+  test("R88 after five wrong passwords the log-in popup says to try again in a few minutes, under the password field", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     const { username } = await signedIn(page, "right password here");
     await page.request.post("/api/signout", { data: {} });
@@ -134,7 +134,7 @@ test.describe("The account page (U114 to U122)", () => {
     await device.page.fill(testid("next-input"), "my very own password");
     await device.page.locator(testid("must-change-save")).click();
     await expect(device.page.locator(testid("must-change-dialog"))).toHaveCount(0);
-    await expect(device.page.locator(testid("account-status"))).toHaveText("Signed in");
+    await expect(device.page.locator(testid("account-status"))).toHaveText("Logged in");
     // the temporary password is spent
     const third = await newPlayer(browser, PHONE);
     expect((await third.page.request.post("/api/account/signin", { data: { username, password: temporary } })).status()).toBe(401);
@@ -143,13 +143,17 @@ test.describe("The account page (U114 to U122)", () => {
     await context.close();
   });
 
-  test("U118 a new player's record says No games yet in both cards and in the list", async ({ browser }) => {
+  test("U118 a new player's record shows a dash in both stat cards and one No games yet message", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
     await page.goto("/account");
-    await expect(page.locator(`${testid("stats-people")} .record-none`)).toHaveText("No games yet");
-    await expect(page.locator(`${testid("stats-computer")} .record-none`)).toHaveText("No games yet");
-    await expect(page.locator(testid("history-list"))).toContainText("No games yet. Play the computer or a friend and they will show up here.");
+    for (const id of ["stats-people", "stats-computer"]) {
+      await expect(page.locator(`${testid(id)} dd`).first()).toHaveText("—");
+    }
+    const empty = page.locator(testid("record-empty"));
+    await expect(empty).toHaveText("No games yet. Play the computer or a friend and your results will show up here.");
+    // the message appears exactly once on the page (Q30)
+    expect((await page.getByText("No games yet", { exact: false }).all()).length).toBe(1);
     await context.close();
   });
 
@@ -181,7 +185,7 @@ test.describe("The account page (U114 to U122)", () => {
     await two.context.close();
   });
 
-  for (const viewport of [NARROW, PHONE, LAPTOP]) {
+  for (const viewport of [NARROW, PHONE]) {
     test(`U114 one centred card, no sideways scroll and a way home at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await signedIn(page);
@@ -200,6 +204,68 @@ test.describe("The account page (U114 to U122)", () => {
         expect(label.height, `${id} is one line`).toBeLessThan(26);
       }
       await expect(page.locator(testid("header-home"))).toBeVisible(); // Q12: Home is in the header bar, not at the bottom
+      await context.close();
+    });
+  }
+});
+
+// ---- Part 2 of the 31 October 2026 fix list: Q30, U114a the account page on a laptop ----
+
+test.describe("Q30 U114a the account page on a laptop is two columns", () => {
+  test("Q30 the title and card are in the left column, the record in the right, vertically centred within 24px", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await signedIn(page);
+    await page.goto("/account");
+    await expect(page.locator(testid("account-card"))).toBeVisible();
+    const card = (await page.locator(testid("account-card")).boundingBox())!;
+    const record = (await page.locator(testid("history")).boundingBox())!;
+    expect(record.x, "the record sits to the right of the card").toBeGreaterThan(card.x + card.width);
+    const left = (await page.locator(".account-left").boundingBox())!;
+    const leftCentre = left.y + left.height / 2;
+    const rightCentre = record.y + record.height / 2;
+    expect(Math.abs(leftCentre - rightCentre), "the two columns are vertically centred against each other").toBeLessThanOrEqual(24);
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight), "the page itself does not scroll").toBeLessThanOrEqual(0);
+    await context.close();
+  });
+
+  test("Q30 a long history scrolls inside its own card, not the page", async ({ browser }) => {
+    test.setTimeout(120_000); // 20 full games played through the UI take longer than the default 60s
+    const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await signedIn(page);
+    // One opponent context reused for all 20 games, so the test does not pay for 20 browser contexts.
+    const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await two.page.request.post("/api/guest", { data: { nickname: "Opp" } });
+    for (let i = 0; i < 20; i++) {
+      const code = await makeGameCode(page);
+      await page.goto(`/g/${code}`);
+      await two.page.goto(`/g/${code}`);
+      await waitForRound(page, 1);
+      await page.locator(testid("column-0")).click();
+      await two.page.locator(testid("column-1")).click();
+      await waitForRound(page, 2);
+      await page.locator(testid("header-home")).click();
+      await page.locator(testid("leave-confirm")).click();
+      await page.waitForURL(/\/$/);
+    }
+    await two.context.close();
+    await page.goto("/account");
+    await expect(page.locator(testid("history-list")).locator(".history-row")).toHaveCount(20, { timeout: 10_000 });
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight), "the page itself does not scroll with 20 games").toBeLessThanOrEqual(0);
+    const listScrolls = await page.locator(testid("history-list")).evaluate((el) => el.scrollHeight > el.clientHeight || (el.closest(".record")?.scrollHeight ?? 0) > (el.closest(".record")?.clientHeight ?? 0));
+    expect(listScrolls, "the history scrolls inside its own card instead").toBe(true);
+    await context.close();
+  });
+});
+
+test.describe("Q30 the account page stays one column on a phone", () => {
+  for (const viewport of [NARROW, PHONE]) {
+    test(`Q30 the record sits under the card, not beside it, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await signedIn(page);
+      await page.goto("/account");
+      const card = (await page.locator(testid("account-card")).boundingBox())!;
+      const record = (await page.locator(testid("history")).boundingBox())!;
+      expect(record.y, "the record is under the card, not beside it").toBeGreaterThanOrEqual(card.y + card.height);
       await context.close();
     });
   }
