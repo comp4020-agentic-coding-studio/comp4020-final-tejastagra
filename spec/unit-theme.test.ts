@@ -191,6 +191,14 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
     expect(ratio("--text", "--panel"), "text in a card").toBeGreaterThanOrEqual(4.5);
   });
 
+  it("U160 the end popup title's shadow is a small offset, so it never reads as a doubled word", () => {
+    const offset = Number(token("--shadow-title-popup").match(/^(\d+)px/)?.[1]);
+    expect(offset, "no more than 3px").toBeLessThanOrEqual(3);
+    expect(offset).toBeGreaterThanOrEqual(1);
+    const css = readFileSync("public/components.css", "utf8");
+    expect(css.match(/\.popup-title\s*{[^}]*}/)?.[0] ?? "").toMatch(/text-shadow:\s*var\(--shadow-title-popup\)/);
+  });
+
   it("U3 bubbles are faint: no bubble colour is more than 22% opaque", () => {
     for (const name of ["--bubble-red", "--bubble-yellow", "--bubble-blue", "--bubble-rim"]) {
       const alpha = Number(token(name).match(/,\s*([0-9.]+)\)$/)?.[1]);

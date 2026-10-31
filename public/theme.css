@@ -104,6 +104,7 @@
   --shadow-pressed: 0 0 0 var(--ink);
   --shadow-small: 0 2px 0 var(--ink);
   --shadow-title: 6px 6px 0 var(--red);
+  --shadow-title-popup: 2px 2px 0 var(--red); /* the end popup's title: small, so it is not read as a doubled word (U160) */
 
   /* Radii */
   --radius-button: 14px;

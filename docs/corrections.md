@@ -339,3 +339,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** the layer is laid by the board's wrapper (`:has()`), `spec/unit-theme.test.ts` checks the card-against-backdrop contrast (1.5:1 over the page ground; 1.2:1 and the 5px outline over the board, where no 75% dim can reach 1.5:1) and `e2e/layout.spec.ts` checks all nine overlays at two sizes, each seen to fail without the styles. `/visual-qa` gains the sign-up popup, the account nickname popup and "That game has ended".
 - **Rule for the future:** a check of a layer's colour says nothing about what is painted above it; look at the picture. A change to a shared border width must be run against the narrowest tap-target check.
 - **Commits:** the commit that follows this entry.
+
+### C43. The end popup's title shadow looked like a second word
+- **Date:** 31 October 2026
+- **What went wrong:** the popup title used the big logo's 6px red shadow, so at 24px it read as "YOU WIN!" printed twice. Part A of the second list asked me to check it; the layout checks measure the gap to the buttons (U29), never how the title looks, and the first `/visual-qa` pass of the end popup did not catch it either.
+- **How it was caught:** the design-reviewer's note that only a picture can judge a doubled shadow, then looking at the picture.
+- **Harness fix:** `--shadow-title-popup` (2px) and U160, with a unit check that its offset is at most 3px and that the popup title uses it.
+- **Rule for the future:** a shared token sized for a large element must not be reused on a small one without looking at it.
+- **Commits:** the commit that follows this entry.

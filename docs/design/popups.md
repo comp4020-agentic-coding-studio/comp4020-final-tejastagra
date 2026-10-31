@@ -33,3 +33,7 @@ The end-of-game popup, the tutorial and the watching screen's result card are ol
 
 - **U91** On a phone a popup is sized and placed to the **visible area**, using `window.visualViewport` (updated on its `resize` and `scroll` events) and written to `--vv-top` and `--vv-height` on the popup. When the keyboard opens the popup shrinks to the space above it; its heading and fields scroll inside the card if they must, and **the action buttons stay pinned at the bottom of the card**, just above the keyboard. The page's viewport meta also carries `interactive-widget=resizes-content` where supported. The safe-area padding stays.
 - **U92** The keyboard's own key finishes the form: a field that is followed by another has `enterkeyhint="next"` and Enter moves focus to the next field instead of submitting; the last field has `enterkeyhint="go"` and Enter submits. Usernames use `autocomplete="username"`; Save my progress and Change password (and the forced change) use `autocomplete="new-password"` for the new password; Sign in, and the current password of Change password, use `autocomplete="current-password"`.
+
+## The end popup's title shadow (added 31 October 2026, Part A item 1)
+
+- **U160** The end popup's title ("YOU WIN!", "SO CLOSE!", "IT'S A DRAW!") has one clean shadow right behind its letters, `--shadow-title-popup` (a 2px offset in `--red`), so it never reads as a second, doubled word. The large RUBBLE logo keeps `--shadow-title`.

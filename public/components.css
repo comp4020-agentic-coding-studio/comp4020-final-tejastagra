@@ -1993,7 +1993,7 @@ input {
   color: var(--yellow);
   -webkit-text-stroke: 0.04em var(--ink);
   paint-order: stroke fill;
-  text-shadow: var(--shadow-title);
+  text-shadow: var(--shadow-title-popup);
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
