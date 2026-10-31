@@ -99,8 +99,13 @@ Known limits, recorded so nobody has to rediscover them:
 ## Forms, panels and overlays
 
 - **U51** Text inputs are `--panel` fields with the `--outline`, `--radius-button` corners and at least 44px of height, with a visible label above each. The focus ring is `--focus`. An error or confirmation appears directly under the heading of the form it belongs to (`docs/design.md`), in `--error` or `--ok`, as text, never as colour alone.
-- **U52** The tutorial and the end-of-game popup are `--panel` cards over a dimmed screen. The dim is `--scrim`, which is faint enough that the page behind stays recognisable. Cards are at most `--stack-width` wide, centred, and scroll inside themselves if the screen is short, so a small phone can always reach every button.
+- **U52** The tutorial and the end-of-game popup are `--panel` cards over a dimmed screen. The dim is the shared `--backdrop` (U52a), which pushes the page back while it stays recognisable. Cards are at most `--stack-width` wide, centred, and scroll inside themselves if the screen is short, so a small phone can always reach every button.
 - **U53** The "waiting" and "loading" states use a small spinning ring (`--spinner`). Under reduced motion the ring does not spin and the words say what is happening.
+
+## The shared backdrop and popup edges (added 31 October 2026, Part L of the second fix list)
+
+- **U52a** **One shared backdrop colour**, `--backdrop`, a deep navy at about **75%** opacity (`rgba` of `--ink-navy` at 0.75, defined once in `public/theme.css`), is used behind **every** popup and overlay: the friend waiting card, the end popup, the "Get ready" countdown, the tutorial, the info popups, the nickname, code, sign-up, sign-in, change-password and forced-change popups, the leave confirmation and "That game has ended" (the watching screen's result card and the "No live games" card). `--scrim` and `--scrim-light` are removed. The board and the page behind stay visible but clearly pushed back.
+- **U52b** **A popup card's edge stands out**: every popup card uses `--outline-popup` (a thicker outline than a normal card's) and `--shadow-popup` (a stronger hard shadow) so its edge reads against the backdrop. Text inside a card keeps a contrast of at least **4.5:1** (U8), and the card's background against the backdrop it sits on is at least **1.5:1**.
 
 ## Words on screen
 

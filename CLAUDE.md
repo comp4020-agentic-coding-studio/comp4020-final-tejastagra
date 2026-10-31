@@ -57,7 +57,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 - Take every colour, font, radius, shadow and duration from `public/theme.css`.
 - Follow `docs/design/` and everything else in `docs/design.md`.
 - Show only real product copy to players: no preview or developer text.
-- Pass every rule in `docs/design/qa-checklist.md` (Q1 to Q26):
+- Pass every rule in `docs/design/qa-checklist.md` (Q1 to Q27):
   - **No layout shift (Q1):** nothing ever expands inline and pushes other elements. Editing, joining with a code, info explanations, sign up, sign in and confirmations all open in a centred popup dialog over a dimmed page, with a close button and Escape to close.
   - **Button text never wraps (Q2):** every button label fits on one line at both viewports. Shorten the label or widen the button instead.
   - **Boxes fit their content (Q3):** a card is only as wide as its content needs, at most 480px for forms and status messages and 560px for lists, and centred.
@@ -83,6 +83,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
   - **The waiting card sits within the board (Q24):** its edges are inside the board's, centred on it; if it is taller than the board, the board is fully dimmed behind it and the card is centred on the page.
   - **Room for the chosen disc (Q25):** the ghost disc has its own lane above the board, in the game and in every tutorial step, and never overlaps text, a card, a badge or a button; the gaps follow the fixed order in `docs/design/game-screen.md` U157 and `docs/design/tutorial.md` U159.
   - **The laptop game screen is uniform (Q26):** one column width, a board of at least 60% of the screen height, equal player cards and equal power-up buttons.
+  - **One backdrop behind every popup (Q27):** every popup and overlay uses the shared `--backdrop` token and a card with `--outline-popup` and `--shadow-popup`; the card against the backdrop is at least 1.5:1 and text 4.5:1.
   - **No page looks plain (Q11):** every page has a header with the Rubble title and a short subtitle and uses the toy style from `docs/design/look-and-feel.md` (icons, outlined cards, hard shadows), not bare text boxes.
 - Run `/visual-qa` on the screens you changed before declaring screen work finished. If the command is not available in the current session, read `.claude/commands/visual-qa.md` and carry out its steps directly.
 
