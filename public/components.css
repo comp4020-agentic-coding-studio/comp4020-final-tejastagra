@@ -3837,3 +3837,13 @@ input {
     min-height: 44px;
   }
 }
+
+/* The power-up rows keep their natural width (the info buttons are never clipped); if the board column is narrower than the row,
+   the centred row overflows it evenly on both sides (U132, U149). */
+.game .powerups {
+  min-width: 0;
+}
+
+.game .powerup-row {
+  flex: 0 0 auto;
+}

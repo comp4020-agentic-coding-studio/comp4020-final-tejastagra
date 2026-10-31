@@ -259,3 +259,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** rules Q15 (no scrolling on the game, the tutorial and popups at 390 x 844, 1366 x 768 and 320 x 568), Q16 (nothing overlaps the board) and Q17 (even gaps in a stack) in CLAUDE.md and `docs/design/qa-checklist.md`; `e2e/layout.spec.ts` measures all three on the game screen, every tutorial step and seven popups, each seen to fail before the fix. A 320 x 568 allowance in U107 is withdrawn (U149).
 - **Rule for the future:** "it fits one screen" is a measurement, not a hope; a screen that is allowed to scroll needs a rule that says so, and an accepted overflow in a handover is a missing rule.
 - **Commits:** the commit that follows this entry.
+
+### C33. The laptop power-up row clipped its info buttons, and no check looked
+- **Date:** 31 October 2026
+- **What went wrong:** after the game screen was tightened, the laptop power-up row was narrower than its two buttons and clipped each info button (the "i" was cut off). The Q15 and Q16 checks measure scrolling and overlap, and the tap-target checks measured the buttons' boxes, which were still 44px wide in the DOM.
+- **How it was caught:** looking at the `/visual-qa` screenshot of the computer game on a laptop.
+- **Harness fix:** `e2e/layout.spec.ts` checks that no power-up row's content is wider than the row (`scrollWidth`), at three sizes; it was seen to fail without the CSS fix.
+- **Rule for the future:** a box can be 44px wide and still be cut off by its parent; check clipping as well as size.
+- **Commits:** the commit that follows this entry.

@@ -1125,3 +1125,21 @@ test.describe("Q15 popups fit one screen", () => {
     }
   }
 });
+
+test("U132 U149 the power-up row's info buttons are whole and on screen at every size", async ({ browser }) => {
+  for (const viewport of FULL_SCREENS) {
+    const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+    await openComputerGame(page);
+    for (const id of ["shield-info", "earthquake-info"]) {
+      const b = (await page.locator(testid(id)).boundingBox())!;
+      const row = (await page.locator(testid(id === "shield-info" ? "shield-badge" : "earthquake-badge")).boundingBox())!;
+      expect(b.x + b.width, `${id} at ${viewport.width}: inside the screen`).toBeLessThanOrEqual(viewport.width);
+      expect(b.width, `${id} at ${viewport.width}: whole`).toBeGreaterThanOrEqual(43.5);
+      expect(b.x, `${id} sits right of its button`).toBeGreaterThanOrEqual(row.x + row.width - 1);
+    }
+    const clipped = await page.locator(`${testid("powerups")} .powerup-row`).evaluateAll((rows) => rows.filter((r) => r.scrollWidth > r.clientWidth + 1).length);
+    expect(clipped, `no power-up row clips its info button at ${viewport.width}`).toBe(0);
+    expect(await pageOverflow(page), `no scrolling at ${viewport.width}`).toBe(0);
+    await context.close();
+  }
+});
