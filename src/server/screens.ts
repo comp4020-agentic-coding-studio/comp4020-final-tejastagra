@@ -173,7 +173,7 @@ export function readmeScreen(ctx: ScreenContext, renderedReadme: string): string
   const body = `
     <main class="arena readme" data-testid="readme-screen">
       ${topbar({ href: "/" })}
-      <div class="panel prose">${renderedReadme}</div>
+      <div class="panel prose" data-testid="readme-panel">${renderedReadme}</div>
     </main>
   `;
   return shell(ctx, "Rubble: About", body, "");

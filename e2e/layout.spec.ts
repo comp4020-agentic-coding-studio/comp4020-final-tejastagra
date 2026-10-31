@@ -893,3 +893,17 @@ test.describe("Phone width: the watching screen and the game screen's first scre
     await two.context.close();
   });
 });
+
+// Q5, Q12: Home in the header bar lines up with the page's own column on a laptop (found by /visual-qa, 29 October 2026).
+test("Q5 Q12 on a laptop the header bar's Home shares the left edge of the page's card, list or About text", async ({ browser }) => {
+  const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+  await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } }));
+  for (const [path, column] of [["/account", "account-card"], ["/play/quick", "quick-panel"], ["/leaderboard", "leaderboard-column"], ["/readme/", "readme-panel"]] as const) {
+    await page.goto(path);
+    await page.waitForTimeout(300);
+    const home = (await page.locator(testid("header-home")).boundingBox())!;
+    const card = (await page.locator(testid(column)).boundingBox())!;
+    expect(Math.abs(home.x - card.x), `${path}: Home lines up with ${column}`).toBeLessThanOrEqual(4);
+  }
+  await context.close();
+});

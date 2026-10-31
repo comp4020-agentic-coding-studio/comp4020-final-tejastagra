@@ -3724,3 +3724,13 @@ input {
     overflow-wrap: anywhere;
   }
 }
+
+/* Q5, Q12: the header bar shares its page's content column, so Home lines up with the card or list under it on a laptop. */
+.account > .topbar,
+.quick > .topbar {
+  max-width: min(480px, 100%);
+}
+
+.leaderboard > .topbar {
+  max-width: min(var(--list-width), 100%);
+}
