@@ -1,5 +1,5 @@
 // The leaderboard screen (/leaderboard, docs/design/leaderboard.md U123 to U130): most wins and fewest rounds as two tabs, a podium
-// for the top three, compact rows for the rest, the asking player's row highlighted and "Your best:" under each list. The server
+// for the top three, compact rows for places 4 to 10 (R99), the asking player's row highlighted and "Your best:" under each list. The server
 // computes both lists and the asker's own line (R38, R39, R92); this only shows them. Names are set with textContent, never
 // innerHTML, so a nickname cannot inject markup.
 import { avatar } from "./arcade.ts";
@@ -15,6 +15,7 @@ interface Board {
   you: { name: string; wins: number; bestRounds: number | null } | null;
 }
 
+const MAX_PLAYERS = 10;
 type Tab = "wins" | "rounds";
 let board: Board | null = null;
 let tab: Tab = "wins";
@@ -41,7 +42,7 @@ function render(): void {
     $("your-best").textContent = "";
     return;
   }
-  const list = tab === "wins" ? board.wins : board.rounds;
+  const list = (tab === "wins" ? board.wins : board.rounds).slice(0, MAX_PLAYERS); // R99: at most 10
   const you = board.you;
   const isYou = (name: string) => !!you && you.name === name; // the whole name and tag (R92)
   if (list.length === 0) {
@@ -92,7 +93,7 @@ function render(): void {
 async function load(): Promise<void> {
   show("leaderboard-loading", true);
   try {
-    const res = await fetch("/api/leaderboard?limit=20");
+    const res = await fetch("/api/leaderboard?limit=10");
     board = res.ok ? ((await res.json()) as Board) : null;
   } catch {
     board = null;

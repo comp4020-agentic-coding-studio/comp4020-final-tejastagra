@@ -824,8 +824,8 @@ test("Q11 the tutorial's shield and Earthquake badges are outlined pills", async
 });
 
 // Q4: page sections are 32px apart. The "Top players" strip is a section under the icon row, and was crowded against its labels.
-test("Q4 the Top players section is at least 32px under the icon row on the home screen, at every width", async ({ browser }) => {
-  for (const viewport of VIEWPORTS) {
+test("Q4 the Top players section is at least 32px under the icon row on the home screen (laptop only, U35)", async ({ browser }) => {
+  for (const viewport of [LAPTOP]) {
     const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
     await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: [], rounds: [], you: null } }));
     await page.goto("/");
@@ -925,3 +925,64 @@ for (const viewport of VIEWPORTS) {
     await context.close();
   });
 }
+
+// ---- Q15 to Q17 and the home changes of 31 October 2026 (Parts 1 and 2 of the fix list) ----
+
+const FULL_SCREENS = [NARROW, PHONE, LAPTOP];
+
+// Q17, U33, U37: the player card and the four menu buttons are one stack with equal gaps; on a phone they are also one size.
+test.describe("Q17 the home stack is evenly spaced", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q17 gaps between the player card and each menu button are equal within 2px at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.goto("/");
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(500);
+      const ids = ["player-card", "play-computer", "play-friend", "quick-match", "join-toggle"];
+      const boxes: Box[] = [];
+      for (const id of ids) {
+        const b = (await page.locator(testid(id)).boundingBox())!;
+        boxes.push({ x: b.x, y: b.y, w: b.width, h: b.height });
+      }
+      const gaps = boxes.slice(1).map((b, i) => b.y - (boxes[i].y + boxes[i].h));
+      for (const g of gaps) expect(Math.abs(g - gaps[0]), `gaps ${gaps.join(", ")}`).toBeLessThanOrEqual(2);
+      expect(gaps[0], "at least 16px (Q4)").toBeGreaterThanOrEqual(15.5);
+      if (viewport.width < 600) {
+        for (const b of boxes) {
+          expect(Math.abs(b.w - boxes[0].w), "same width as the player card").toBeLessThanOrEqual(1);
+          expect(Math.abs(b.h - boxes[0].h), "same height as the player card").toBeLessThanOrEqual(1);
+        }
+      }
+      await context.close();
+    });
+  }
+
+  test("U33 no subtext under any menu button on any viewport", async ({ browser }) => {
+    for (const viewport of FULL_SCREENS) {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.goto("/");
+      for (const id of ["play-computer", "play-friend", "quick-match", "join-toggle"]) {
+        const b = (await page.locator(testid(id)).boundingBox())!;
+        expect(b.height, `${id} at ${viewport.width}`).toBeLessThan(80);
+      }
+      expect(await page.locator(`${testid("menu")} .btn-sub, ${testid("menu")} small, ${testid("menu")} .sub`).count()).toBe(0);
+      await context.close();
+    }
+  });
+
+  test("U35 U36 U37 on a phone there is no demo board and no Top players; on a laptop Top players shows at most 3", async ({ browser }) => {
+    for (const viewport of [NARROW, PHONE]) {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.goto("/");
+      await expect(page.locator(testid("demo-board")), `demo at ${viewport.width}`).toBeHidden();
+      await expect(page.locator(testid("top-players")), `top players at ${viewport.width}`).toBeHidden();
+      await context.close();
+    }
+    const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: Array.from({ length: 8 }, (_, i) => ({ name: `Player ${i} #000${i}`, value: 9 - i })), rounds: [], you: null } }));
+    await page.goto("/");
+    await expect(page.locator(testid("top-players"))).toBeVisible();
+    await expect(page.locator(`${testid("leaderboard-wins")} li`)).toHaveCount(3);
+    await context.close();
+  });
+});

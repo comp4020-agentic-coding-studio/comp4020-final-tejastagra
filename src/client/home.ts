@@ -119,7 +119,7 @@ async function showTop(): Promise<void> {
   const list = $("leaderboard-wins");
   try {
     const res = await fetch("/api/leaderboard?limit=3");
-    const rows: Array<{ name: string; value: number }> = res.ok ? (await res.json()).wins : [];
+    const rows: Array<{ name: string; value: number }> = res.ok ? (await res.json()).wins.slice(0, 3) : []; // U35: at most 3
     list.replaceChildren();
     if (rows.length === 0) {
       const li = document.createElement("li");

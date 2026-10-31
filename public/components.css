@@ -1236,8 +1236,12 @@ input {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  margin: 8px auto;
+  margin: 0 auto;
+  width: 100%;
   max-width: var(--stack-width);
+  min-height: 56px; /* the same height as a menu button, outline included (Q17, U37) */
+  box-sizing: border-box;
+  padding-block: 0;
 }
 
 .nick-form,
@@ -1250,7 +1254,7 @@ input {
 
 .top {
   max-width: var(--stack-width);
-  margin: 32px auto 0; /* a section: 32px under the icon row (Q4), where the two margins collapse into one */
+  margin: 16px auto 0; /* a section: with the stack's 16px gap, 32px under the icon row (Q4) */
 }
 
 .demo {
@@ -1265,22 +1269,39 @@ input {
   flex-direction: column;
 }
 
-.home-left,
-.home-right {
+.home-left {
   display: contents;
 }
 
-.home .title,
-.home .tagline {
-  order: 1;
+/* U37, Q17: the player card, the four buttons and the icon row are one stack with one gap. */
+.home-right {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  max-width: var(--stack-width);
+  margin: 0 auto;
 }
 
-.home-right > * {
-  order: 2;
+.home-right .stack,
+.home-right .menu {
+  gap: 16px;
+  margin: 0 auto;
+  width: 100%;
 }
 
-.home .demo {
-  order: 3;
+.home-right .btn {
+  min-height: 56px;
+  box-sizing: border-box;
+}
+
+.home-right .round-row {
+  margin: 0 auto;
+}
+
+/* U35, U36: the demo board and Top players are for the laptop only. */
+.home .demo,
+.home .top {
+  display: none;
 }
 
 /* ---- The game screen (U10 to U18, U54 to U60) ---- */
@@ -2384,14 +2405,12 @@ input {
     max-width: 1100px;
   }
 
-  /* Tighter vertical rhythm so the whole right half fits a 768px-tall laptop. */
-  .home-right .stack {
-    gap: 16px; /* Q4: 16px between stacked buttons */
-    margin: 8px auto 12px;
+  .home .demo {
+    display: block;
   }
 
-  .home-right .round-row {
-    margin: 4px auto 8px; /* auto sides, so the capped row stays centred under the buttons (U35a) */
+  .home .top {
+    display: block;
   }
 
   .home-right .top h2 {
@@ -2402,17 +2421,20 @@ input {
     gap: 6px;
   }
 
-  .home-left,
-  .home-right {
+  .home-left {
     display: block;
     min-width: 0;
   }
 
-  .home .title,
-  .home .tagline,
-  .home-right > *,
-  .home .demo {
-    order: 0;
+  /* The right half is the full half so the two halves stay balanced; its stack is centred in it at the stack width. */
+  .home-right {
+    max-width: none;
+    justify-items: center;
+  }
+
+  .home-right > * {
+    width: 100%;
+    max-width: var(--stack-width);
   }
 
   .home-left {

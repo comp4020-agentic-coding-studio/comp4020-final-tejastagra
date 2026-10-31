@@ -251,12 +251,11 @@ test.describe("Home", () => {
     await context.close();
   });
 
-  test("U37 and U38 the phone layout is one column with the menu above the demo board; the laptop splits in two halves, nothing stretched", async ({ browser }) => {
+  test("U37 and U38 the phone layout is one column with no demo board; the laptop splits in two halves, nothing stretched", async ({ browser }) => {
     const phone = await newPlayer(browser, PHONE);
     await phone.page.goto("/");
     const menu = (await phone.page.locator(testid("menu")).boundingBox())!;
-    const demo = (await phone.page.locator(testid("demo-board")).boundingBox())!;
-    expect(menu.y, "phone: the menu is above the demo board").toBeLessThan(demo.y);
+    await expect(phone.page.locator(testid("demo-board")), "phone: no demo board (U36, changed 31 October 2026)").toBeHidden();
     expect(menu.y + menu.height, "phone: the whole menu is on the first screen").toBeLessThan(PHONE.height + 200);
 
     const laptop = await newPlayer(browser, LAPTOP);

@@ -44,6 +44,25 @@ test.describe("The leaderboard page (U123 to U130)", () => {
     });
   }
 
+  test("LB3 R99 U131b at most 10 players: the podium holds exactly the top 3 and the list runs from 4 to 10", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const requested: string[] = [];
+    page.on("request", (req) => {
+      if (req.url().includes("/api/leaderboard")) requested.push(req.url());
+    });
+    await withBoard(page, rows(15), rows(15).map((r, i) => ({ ...r, value: 4 + i })));
+    await page.goto("/leaderboard");
+    await expect(page.locator(`${testid("podium")} [data-place]`)).toHaveCount(3);
+    await expect(page.locator(`${testid("leaderboard-wins")} li`)).toHaveCount(7);
+    await expect(page.locator(`${testid("leaderboard-wins")} .row-rank`).first()).toHaveText("4");
+    await expect(page.locator(`${testid("leaderboard-wins")} .row-rank`).last()).toHaveText("10");
+    await expect(page.locator(testid("leaderboard-column"))).not.toContainText("Player 11");
+    await page.locator(testid("tab-rounds")).click();
+    await expect(page.locator(`${testid("leaderboard-rounds")} li`)).toHaveCount(7);
+    expect(requested.every((u) => new URL(u).searchParams.get("limit") === "10"), "the page asks for 10").toBe(true);
+    await context.close();
+  });
+
   test("U124 the tabs switch lists, one selected at a time, each at least 44px tall with its label on one line", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, NARROW, { reducedMotion: true });
     await withBoard(page, rows(5, "Win"), rows(5, "Fast").map((r, i) => ({ ...r, value: 4 + i })));

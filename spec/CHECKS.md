@@ -118,7 +118,7 @@ Written in Phase 2 from `docs/rules.md`, one rule at a time.
 | AC7 | Migration 18 upgrades an old database once; the reset works while the server process has the database open (two processes) | R87 | passing |
 | AC8 | No response and no log line from any account call contains a password, a temporary password or a hash | R30 | passing |
 | LB1 | `GET /api/leaderboard` carries the asker's own line only, null for no session, never an id; a full game puts the winner on both lists | R92, R38, R39 | passing |
-| LB3 | The page shows at most 10 players: the podium holds exactly the top 3 (fewer if fewer players) and the list starts at 4 and has at most 7 rows, given 15 players | R99, U131b | todo |
+| LB3 | The page shows at most 10 players: the podium holds exactly the top 3 (fewer if fewer players) and the list starts at 4 and has at most 7 rows, given 15 players | R99, U131b | passing (`e2e/leaderboard.spec.ts`) |
 | LB2 | The page: tabs, podium of three, compact rows 12px apart, your row highlighted with a tag, Your best under each list, an empty state that explains itself, an error with Try again | U123 to U130 | passing |
 
 ## No peeking (`spec/app-no-peek.test.ts`)
