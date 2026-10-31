@@ -105,8 +105,8 @@ export function roundButton(o: { label: string; iconName: string; href?: string;
 // in the middle and an optional item on the right. On the game screen the middle and the right are filled in by the page.
 export function topbar(o: { middle?: string; right?: string; href?: string } = {}): string {
   const home = o.href === undefined
-    ? `<button class="btn btn-blue topbar-home" type="button" data-testid="header-home">${icon("home")}<span>Home</span></button>`
-    : `<a class="btn btn-blue topbar-home" href="${o.href}" data-testid="header-home">${icon("home")}<span>Home</span></a>`;
+    ? `<button class="btn btn-blue topbar-home" type="button" data-testid="header-home" aria-label="Home">${icon("home")}<span class="topbar-home-word">Home</span></button>`
+    : `<a class="btn btn-blue topbar-home" href="${o.href}" data-testid="header-home" aria-label="Home">${icon("home")}<span class="topbar-home-word">Home</span></a>`;
   return `<header class="topbar" data-testid="topbar">${home}<p class="topbar-title" data-testid="topbar-title">${o.middle ?? ""}</p><p class="topbar-right" data-testid="topbar-right">${o.right ?? ""}</p></header>`;
 }
 

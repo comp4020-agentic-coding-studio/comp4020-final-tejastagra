@@ -1343,3 +1343,62 @@ test.describe("U92 the keyboard's own keys finish the form", () => {
     await context.close();
   });
 });
+
+// ---- Part C of the second fix list: Q22, U154, U155 (31 October 2026) ----
+
+test.describe("Q22 the versus bar and the header bar on a phone", () => {
+  for (const viewport of [NARROW, PHONE]) {
+    test(`Q22 U154 U155 no VS badge, Home is an icon, Round is 16px from the edge, nothing wraps past two lines at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      const state = { board: [[], [], [], [], [], [], []], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null };
+      await page.routeWebSocket(/\/ws$/, (ws) => {
+        ws.onMessage((raw) => {
+          if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Wmmmmmmmmmmmmmmm #4f2a", opponentName: "Mwwwwwwwwwwwwwww #a7f3", colours: { A: "red", B: "yellow" }, opponentReady: false }));
+        });
+      });
+      await page.goto("/g/HDRBAR");
+      await page.locator(testid("name-you")).waitFor();
+      await expect(page.locator(`${testid("players")} .vs`), "no VS badge on a phone").toBeHidden();
+      // Home is only its icon, at least 44px, with "Home" as its accessible name.
+      const home = page.locator(testid("header-home"));
+      await expect(home).toHaveAttribute("aria-label", "Home");
+      const hb = (await home.boundingBox())!;
+      expect(hb.width, "Home is at least 44px wide").toBeGreaterThanOrEqual(43.5);
+      expect(hb.height).toBeGreaterThanOrEqual(43.5);
+      expect(await home.locator("span:visible").count(), "no visible word on Home").toBe(0);
+      // Round N is at least 16px from the screen's right edge.
+      const round = (await page.locator(testid("round-line")).boundingBox())!;
+      expect(viewport.width - (round.x + round.width), "Round is at least 16px from the right edge").toBeGreaterThanOrEqual(15.5);
+      // The middle line is one line cut with an ellipsis.
+      const title = (await page.locator(testid("opponent-heading")).boundingBox())!;
+      expect(title.height, "the heading is one line").toBeLessThan(30);
+      expect(title.x + title.width, "the heading stays left of Round").toBeLessThanOrEqual(round.x + 1);
+      // The two cards: same size, even gap, nothing overlapping.
+      const a = (await page.locator(testid("panel-you")).boundingBox())!;
+      const b = (await page.locator(testid("panel-opponent")).boundingBox())!;
+      expect(Math.abs(a.width - b.width), "cards are the same width").toBeLessThanOrEqual(2);
+      expect(b.x - (a.x + a.width), "a gap between the cards").toBeGreaterThanOrEqual(7.5);
+      for (const card of ["panel-you", "panel-opponent"]) {
+        const over = await page.locator(testid(card)).evaluate((el) => {
+          const c = el.getBoundingClientRect();
+          return [...el.querySelectorAll<HTMLElement>(".player-text > *, .avatar")].filter((e) => e.getBoundingClientRect().right > c.right + 1 || e.getBoundingClientRect().bottom > c.bottom + 1).length;
+        });
+        expect(over, `${card}: nothing sticks out of the card`).toBe(0);
+        const status = page.locator(testid(card)).locator(".player-meta");
+        expect((await status.boundingBox())!.height, `${card}: one compact status line`).toBeLessThan(32);
+      }
+      // Names are at most two lines (Q20) and the shield and Earthquake are icons with accessible names, not visible words.
+      await expect(page.locator(`${testid("opponent-powerups")} .opp-power-word:visible`), "no visible power-up words").toHaveCount(0);
+      await expect(page.locator(testid("opponent-shield"))).toHaveText("Shield available");
+      await context.close();
+    });
+  }
+
+  test("U154 on a laptop the VS badge stays between the cards", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await openComputerGame(page);
+    await expect(page.locator(`${testid("players")} .vs`)).toBeVisible();
+    await expect(page.locator(testid("header-home"))).toContainText("Home");
+    await context.close();
+  });
+});

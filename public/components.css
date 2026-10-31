@@ -3935,3 +3935,113 @@ input {
   bottom: 0;
   background: var(--panel);
 }
+
+
+/* ---- Colour avatars, no VS badge and a tidy header on phones (Q22, U153 to U155) ---- */
+
+/* U153: in a game an avatar wears its player's disc colour, with the disc's marker as a badge in its corner. The avatar is not
+   clipped any more, so the badge can sit on its corner; the face is clipped by its own svg. */
+.avatar[data-colour] {
+  position: relative;
+  overflow: visible;
+}
+
+.avatar[data-colour="red"] {
+  background: var(--red);
+}
+
+.avatar[data-colour="yellow"] {
+  background: var(--yellow);
+}
+
+.avatar[data-colour] svg {
+  border-radius: var(--radius-pill);
+}
+
+.avatar-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 16px;
+  height: 16px;
+  border: var(--outline-thin);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+}
+
+.avatar-badge[data-marker="ring"] {
+  background: var(--red);
+}
+
+.avatar-badge[data-marker="cross"] {
+  background: var(--yellow);
+}
+
+.avatar-badge[data-marker="ring"]::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: var(--radius-pill);
+  border: var(--outline-marker-small);
+}
+
+.avatar-badge[data-marker="cross"]::before,
+.avatar-badge[data-marker="cross"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  right: 2px;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--ink);
+}
+
+.avatar-badge[data-marker="cross"]::before {
+  transform: rotate(45deg);
+}
+
+.avatar-badge[data-marker="cross"]::after {
+  transform: rotate(-45deg);
+}
+
+.game .player-meta {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 599px) {
+  /* U154: no VS badge on a phone; the two cards sit side by side with an even gap. */
+  .game .players.versus {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .game .versus .vs {
+    display: none;
+  }
+
+  /* The power-ups' names are accessible labels, not visible words: small icons, crossed out once used. */
+  .game .opp-power-word {
+    display: none;
+  }
+
+  .game .opponent-powerups {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  /* U155: Home is its house icon only, at least 44px. */
+  .topbar-home .topbar-home-word {
+    display: none;
+  }
+
+  .topbar-home {
+    min-width: 44px;
+    padding: 0 10px;
+  }
+
+  /* U155: Round N is at least 16px from the screen's right edge. */
+  .game .topbar {
+    padding-right: 10px; /* with the page's own 6 to 8px, 16px or more to the edge */
+  }
+}

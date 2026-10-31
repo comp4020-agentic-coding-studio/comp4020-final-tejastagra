@@ -283,3 +283,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** Q21 and U91 and U92; `e2e/layout.spec.ts` shrinks the page to 300px tall with a field focused and measures the field and the button, for five form popups at two phone sizes, and checks Enter and the autocomplete attributes; seen to fail before the fix. The popup follows `window.visualViewport`, its fields scroll and its buttons stay pinned.
 - **Rule for the future:** an on-screen keyboard is a viewport size; test the popup at the height a keyboard leaves.
 - **Commits:** the commit that follows this entry.
+
+### C36. A style set inline cannot be changed by the stylesheet
+- **Date:** 31 October 2026
+- **What went wrong:** the first version of the colour avatar (Q22) set `data-colour` and a stylesheet rule for the face's colour, but `avatar()` writes the face's colour inline, so the stylesheet never won and the faces kept their random colours while the checks on the badge passed. A screenshot showed it; the first check measured the badge and the attribute, not the colour painted.
+- **How it was caught:** looking at the `/visual-qa` screenshot of the game screen.
+- **Harness fix:** `e2e/player-colours.spec.ts` now compares the face's painted colour with the colour of that player's disc on the board, on both screens and the spectator's.
+- **Rule for the future:** measure the painted result (computed colour), not the attribute that was meant to cause it.
+- **Commits:** the commit that follows this entry.

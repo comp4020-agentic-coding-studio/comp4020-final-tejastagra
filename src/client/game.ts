@@ -4,7 +4,7 @@
 // sends (R20): it never works out a result itself. Discs drop the moment the result
 // arrives, with no countdown (U19), so nothing can show a choice early (R22) or hold a
 // result back past the one second promise (U23).
-import { avatar, buildBoard, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView, type Colour } from "./arcade.ts";
+import { avatar, buildBoard, colourAvatar, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView, type Colour } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 import { dialogButton, openDialog } from "./dialog.ts";
 import { beforeFirstMatch } from "./tutorial.ts";
@@ -384,10 +384,9 @@ function applyColours(): void {
   ghost.dataset.colour = colours[you];
   $("panel-you").dataset.colour = colours[you];
   $("panel-opponent").dataset.colour = colours[other(you)];
-  for (const [selector, seat] of [['[data-testid="panel-you"] .mini-disc', you], ['[data-testid="panel-opponent"] .mini-disc', other(you)]] as const) {
-    const disc = document.querySelector<HTMLElement>(selector);
-    if (disc) disc.dataset.colour = colours[seat];
-  }
+  // U153: each avatar wears its player's disc colour and a ring or cross badge.
+  colourAvatar($("avatar-you"), colours[you]);
+  colourAvatar($("avatar-opponent"), colours[other(you)]);
   setText("my-colour", colours[you] === "red" ? "Red" : "Yellow");
 }
 
@@ -558,7 +557,6 @@ socket.addEventListener("message", (event) => {
       markStarted(message.started !== false);
       if (started) hideCountdown();
       saveSeat();
-      applyColours();
       if (firstTime && you) {
         const mine = avatar(`${code}-${you}`);
         mine.dataset.testid = "avatar-you";
@@ -567,6 +565,7 @@ socket.addEventListener("message", (event) => {
         theirs.dataset.testid = "avatar-opponent";
         $("avatar-opponent").replaceWith(theirs);
       }
+      applyColours();
       showResult(message.state, message.opponentReady);
       break;
     }

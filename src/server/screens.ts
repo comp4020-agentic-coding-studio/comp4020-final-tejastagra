@@ -218,7 +218,7 @@ export function watchScreen(ctx: ScreenContext): string {
             <span data-testid="avatar-a"></span>
             <span class="player-text">
               <span class="player-name" data-testid="name-a">Player</span>
-              <span class="player-meta"><span class="mini-disc" data-piece="you"></span><span class="shield-state" data-shield="ready" data-testid="shield-a"></span><span class="quake-state" data-quake="ready" data-testid="quake-a">${QUAKE_ICON}</span></span>
+              <span class="player-meta"><span class="shield-state" data-shield="ready" data-testid="shield-a"></span><span class="quake-state" data-quake="ready" data-testid="quake-a">${QUAKE_ICON}</span></span>
             </span>
           </div>
           <span class="vs" aria-hidden="true">VS</span>
@@ -226,7 +226,7 @@ export function watchScreen(ctx: ScreenContext): string {
             <span data-testid="avatar-b"></span>
             <span class="player-text">
               <span class="player-name" data-testid="name-b">Player</span>
-              <span class="player-meta"><span class="mini-disc" data-piece="opponent"></span><span class="shield-state" data-shield="ready" data-testid="shield-b"></span><span class="quake-state" data-quake="ready" data-testid="quake-b">${QUAKE_ICON}</span></span>
+              <span class="player-meta"><span class="shield-state" data-shield="ready" data-testid="shield-b"></span><span class="quake-state" data-quake="ready" data-testid="quake-b">${QUAKE_ICON}</span></span>
             </span>
           </div>
         </div>
@@ -271,7 +271,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <span data-testid="avatar-you"></span>
             <span class="player-text">
               <span class="player-name" data-testid="name-you">Player</span><span class="visually-hidden">, your colour is </span><span class="visually-hidden" data-testid="my-colour">Red</span>
-              <span class="player-meta"><span class="mini-disc" data-piece="you"></span><span data-testid="chosen-label" role="status"></span></span>
+              <span class="player-meta"><span data-testid="chosen-label" role="status"></span></span>
               <span class="visually-hidden" data-testid="my-shield">available</span>
             </span>
           </div>
@@ -280,7 +280,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
             <span data-testid="avatar-opponent"></span>
             <span class="player-text">
               <span class="player-name" data-testid="name-opponent">Opponent</span>
-              <span class="player-meta" data-testid="opponent-status-row"><span class="mini-disc" data-piece="opponent"></span><span data-testid="opponent-status">Choosing</span></span>
+              <span class="player-meta" data-testid="opponent-status-row"><span data-testid="opponent-status">Choosing</span></span>
               <span class="opponent-powerups" data-testid="opponent-powerups"><span class="opp-power"><span class="shield-state" data-shield="ready" data-testid="opponent-shield-state"></span><span class="opp-power-word" aria-hidden="true">Shield</span><span class="visually-hidden" data-testid="opponent-shield">Shield available</span></span><span class="opp-power"><span class="quake-state" data-quake="ready" data-testid="opponent-earthquake-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span><span class="opp-power-word" aria-hidden="true">Quake</span><span class="visually-hidden" data-testid="opponent-earthquake">Earthquake available</span></span></span>
             </span>
           </div>

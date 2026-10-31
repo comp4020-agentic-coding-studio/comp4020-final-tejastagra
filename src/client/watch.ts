@@ -2,7 +2,7 @@
 // can do nothing to it (R74): this page sends only "spectate" and "leave", and never a choice. It shows what
 // the server sends after each round resolves and nothing before (R72), so it has no choice, no timer and no
 // "Ready" status to show. The browser decides nothing about a result (R20).
-import { avatar, buildBoard, ceilingAnimation, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
+import { avatar, buildBoard, colourAvatar, ceilingAnimation, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 import { setPlayerName } from "./common.ts";
 
@@ -64,10 +64,7 @@ function colourSeats(colours: { A: "red" | "yellow"; B: "red" | "yellow" } | und
   board.setSeats({ you: "A", colours: { A: c.A, B: c.B } });
   $("panel-a").dataset.colour = c.A;
   $("panel-b").dataset.colour = c.B;
-  for (const [slot, seat] of [["a", "A"], ["b", "B"]] as const) {
-    const disc = document.querySelector<HTMLElement>(`[data-testid="panel-${slot}"] .mini-disc`);
-    if (disc) disc.dataset.colour = c[seat];
-  }
+  for (const [slot, seat] of [["a", "A"], ["b", "B"]] as const) colourAvatar($(`avatar-${slot}`), c[seat]); // U153
 }
 
 function names(n: Names): void {

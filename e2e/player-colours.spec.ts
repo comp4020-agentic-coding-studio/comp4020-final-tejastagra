@@ -93,3 +93,57 @@ test.describe("Q14 players look the same to everyone, and each is told their col
     await context.close();
   });
 });
+
+// Q22, U153: the avatar wears the player's disc colour and a ring or cross badge, on every screen of one game.
+async function avatarLook(page: Page, avatar: string): Promise<{ colour: string; background: string; badge: string }> {
+  return page.locator(testid(avatar)).evaluate((el) => {
+    const badge = el.querySelector<HTMLElement>(".avatar-badge");
+    return { colour: (el as HTMLElement).dataset.colour ?? "", background: getComputedStyle(el).backgroundColor, badge: badge?.dataset.marker ?? "none" };
+  });
+}
+
+test.describe("Q22 the avatar carries the disc colour and marker (U153)", () => {
+  test("Q22 U153 both players' screens and a spectator's show each avatar in its disc colour with a ring or cross badge", async ({ browser }) => {
+    const one = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const two = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const code = await makeGameCode(one.page);
+    await one.page.goto(`/g/${code}`);
+    await two.page.goto(`/g/${code}`);
+    await expect(one.page.locator(testid("get-ready"))).toBeHidden({ timeout: 8_000 });
+    await chooseColumn(one.page, 0);
+    await chooseColumn(two.page, 4);
+    await waitForRound(one.page, 2);
+    const spectator = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await spectator.page.goto(`/g/${code}`);
+    await spectator.page.waitForURL(/\/watch\?game=/);
+
+    const mineOnOne = await avatarLook(one.page, "avatar-you");
+    const theirsOnOne = await avatarLook(one.page, "avatar-opponent");
+    const mineOnTwo = await avatarLook(two.page, "avatar-opponent"); // player one, seen from player two's screen
+    const spectatorA = await avatarLook(spectator.page, "avatar-a");
+    const spectatorB = await avatarLook(spectator.page, "avatar-b");
+    expect(["red", "yellow"]).toContain(mineOnOne.colour);
+    expect(theirsOnOne.colour, "the two players differ").not.toBe(mineOnOne.colour);
+    expect(mineOnTwo, "player one looks the same on player two's screen").toEqual(mineOnOne);
+    expect([spectatorA, spectatorB], "and on the spectator's screen").toContainEqual(mineOnOne);
+    for (const look of [mineOnOne, theirsOnOne]) {
+      expect(look.badge, "a ring for red, a cross for yellow").toBe(look.colour === "red" ? "ring" : "cross");
+    }
+    expect(mineOnOne.background, "the face is a different colour from the other player's").not.toBe(theirsOnOne.background);
+    // The face really is the disc's colour: it matches the colour of that player's discs on the board.
+    const disc = await one.page.locator(testid("cell-0-0")).evaluate((el) => getComputedStyle(el.querySelector(".piece")!).backgroundColor);
+    const youIsAtColumn0 = true; // player one chose column 0, so cell-0-0 is player one's disc
+    expect(youIsAtColumn0 && mineOnOne.background, "player one's face is the colour of player one's disc").toBe(disc);
+    // No separate colour marker next to the name any more.
+    await expect(one.page.locator(`${testid("players")} .mini-disc`)).toHaveCount(0);
+    for (const c of [one, two, spectator]) await c.context.close();
+  });
+
+  test("Q22 outside a game avatars keep their usual colours and have no badge", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await page.goto("/");
+    await expect(page.locator(`${testid("player-card")} .avatar`)).toBeVisible();
+    await expect(page.locator(`${testid("player-card")} .avatar-badge`)).toHaveCount(0);
+    await context.close();
+  });
+});

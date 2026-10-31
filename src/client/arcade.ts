@@ -45,6 +45,19 @@ export function avatar(seed: string): HTMLElement {
   return wrap;
 }
 
+// Q22, U153: in a game an avatar wears its player's disc colour, with a ring or cross badge in its corner, so colour is never the
+// only signal. `avatarEl` is the span `avatar()` made; calling it again with another colour recolours it.
+export function colourAvatar(avatarEl: HTMLElement, colour: Colour): void {
+  avatarEl.dataset.colour = colour;
+  avatarEl.style.background = `var(--${colour})`; // the face takes the disc's colour (avatar() set its own inline)
+  avatarEl.querySelector(".avatar-badge")?.remove();
+  const badge = document.createElement("span");
+  badge.className = "avatar-badge";
+  badge.dataset.marker = colour === "red" ? "ring" : "cross";
+  badge.setAttribute("aria-hidden", "true");
+  avatarEl.append(badge);
+}
+
 export function shieldIcon(): SVGElement {
   const svg = el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true", focusable: "false" });
   svg.append(el("path", { d: "M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z" }));
