@@ -2626,10 +2626,6 @@ input {
   margin: 0;
 }
 
-.quick-actions {
-  width: min(480px, 100%);
-}
-
 /* The pair of discs swings together and parts again, with only transform. The ring disc and the cross disc differ by shape. */
 .quick-discs {
   position: relative;
@@ -4069,4 +4065,28 @@ input {
   .home-right {
     align-self: center;
   }
+}
+
+
+/* ---- The waiting screen (Q9, Q12, Q24, U156): Cancel game is the way out, so there is no Home button ---- */
+.game[data-waiting="true"] .topbar-home {
+  visibility: hidden; /* kept in the bar so the middle line and the round stay where they are; it cannot be seen or tapped */
+  pointer-events: none;
+}
+
+
+/* ---- The waiting card sits within the board (Q24, U156) ---- */
+/* The card is about as tall as the board, so a board peeking out above and below it looks like a mistake. While waiting the board
+   is dimmed right back (a faint shape, not a second card) and the card is centred on the page and on the board, whose centre it is. */
+.game[data-waiting="true"] .board {
+  opacity: 0.12;
+}
+
+.game[data-waiting="true"] .board-wrap::before,
+.game[data-waiting="true"] .board-wrap::after {
+  display: none; /* the stand's feet stick out under the board; they have no place behind a card */
+}
+
+.game[data-waiting="true"] .board-wrap {
+  padding-bottom: 0;
 }

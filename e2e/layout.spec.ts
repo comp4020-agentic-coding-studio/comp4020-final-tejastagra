@@ -3,6 +3,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
 import { doTutorialStep, makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, waitForStart } from "./helpers.ts";
+import { withQuickQueue } from "./quick-lock.ts";
 
 // A failing check should fail in seconds, not wait a minute for a dialog that is not there.
 test.use({ actionTimeout: 5_000 });
@@ -214,6 +215,7 @@ interface Screen {
   name: string;
   open: (page: Page) => Promise<void>;
   exit: boolean; // Q9: every screen except home has a way to leave
+  noHome?: boolean; // the friend waiting screen has Cancel game and no Home button (Q9, Q12, U156)
 }
 
 const SCREENS: Screen[] = [
@@ -236,6 +238,7 @@ const SCREENS: Screen[] = [
       await p.goto(`/g/${await makeGameCode(p)}`);
     },
     exit: true,
+    noHome: true,
   },
   {
     name: "computer game",
@@ -284,7 +287,7 @@ for (const viewport of VIEWPORTS) {
 // Q13: on the game screen and the friend waiting screen the board is centred on the page.
 test.describe("Q12 Home is always visible and Q13 the board is centred", () => {
   for (const viewport of VIEWPORTS) {
-    for (const screen of SCREENS.filter((s) => s.exit)) {
+    for (const screen of SCREENS.filter((s) => s.exit && !s.noHome)) {
       test(`Q12 ${screen.name}: Home is in the header bar and on screen on load at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
         const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
         await screen.open(page);
@@ -505,7 +508,7 @@ test.describe("Home menu and its popups (U33, U33b)", () => {
 // U96 to U101: the Quick match waiting card.
 test.describe("Quick match page (U96 to U101)", () => {
   for (const viewport of VIEWPORTS) {
-    test(`one compact centred card with the discs, the words and Cancel under it at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+    test(`one compact centred card with the discs and the words, and no Cancel button, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       // Nobody else is waiting: the check's own server has an empty lobby, but a shared app may not, so the ticket is never paired here.
       await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } }));
@@ -517,11 +520,8 @@ test.describe("Quick match page (U96 to U101)", () => {
       const card = (await page.locator(testid("quick-panel")).boundingBox())!;
       expect(card.width).toBeLessThanOrEqual(FORM_MAX + 1);
       expect(Math.abs(card.x + card.width / 2 - viewport.width / 2), "the card is centred").toBeLessThanOrEqual(2);
-      const cancel = (await page.locator(testid("quick-cancel")).boundingBox())!;
-      expect(cancel.y - (card.y + card.height), "Cancel is 16px under the card").toBeGreaterThanOrEqual(15.5);
-      expect(cancel.y - (card.y + card.height), "and no further than 32px").toBeLessThanOrEqual(32);
-      expect(cancel.y + cancel.height, "Cancel is on the first screen").toBeLessThanOrEqual(viewport.height);
-      expect(cancel.height).toBeGreaterThanOrEqual(44);
+      await expect(page.locator(testid("quick-cancel")), "U96: no Cancel button").toHaveCount(0);
+      expect(card.y + card.height, "the card is on the first screen").toBeLessThanOrEqual(viewport.height);
       await expect(page.locator(testid("computer-offer"))).toBeHidden();
       await context.close();
     });
@@ -572,8 +572,7 @@ test.describe("Quick match page (U96 to U101)", () => {
     expect(inside.y + inside.height).toBeLessThanOrEqual(card.y + card.height + 1);
     const after = (await page.locator(testid("quick-status")).boundingBox())!;
     expect(Math.abs(after.y - before.y), "the status line did not move").toBeLessThanOrEqual(1);
-    const cancel = (await page.locator(testid("quick-cancel")).boundingBox())!;
-    expect(cancel.y + cancel.height, "Cancel is still on the first screen with the offer showing").toBeLessThanOrEqual(PHONE.height);
+    expect(card.y + card.height, "the card, with the offer showing, is on the first screen").toBeLessThanOrEqual(PHONE.height);
     await context.close();
   });
 });
@@ -730,11 +729,11 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, U132, R81)
     await two.context.close();
   });
 
-  test("the waiting screen has Cancel game and the header bar's Home, and Cancel game goes Home", async ({ browser }) => {
+  test("the waiting screen has Cancel game and no Home button (U156, Q9), and Cancel game goes Home", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.goto(`/g/${await makeGameCode(page)}`);
     await expect(page.locator(testid("waiting-panel"))).toBeVisible();
-    await expect(page.locator(testid("header-home"))).toBeVisible();
+    await expect(page.locator(testid("header-home")), "U156: no Home button while waiting").toBeHidden();
     await expect(page.locator(testid("opponent-heading"))).toHaveText(""); // U135: the card says it
     const card = (await page.locator(testid("waiting-panel")).boundingBox())!;
     expect(Math.abs(card.x + card.width / 2 - PHONE.width / 2), "the card is centred sideways").toBeLessThanOrEqual(2);
@@ -1463,4 +1462,99 @@ test.describe("Q23 the round icons and the laptop balance", () => {
       await context.close();
     });
   }
+});
+
+
+// ---- Parts E and H of the second fix list: the waiting screen and Quick match (Q9, Q12, Q24, R35, U96, U156) ----
+
+test.describe("Q24 the friend waiting screen", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q9 Q12 U156 it has Cancel game and no Home button, and the card sits within the board at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.goto(`/g/${await makeGameCode(page)}`);
+      await page.locator(testid("waiting-panel")).waitFor();
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator(testid("cancel-game")), "Cancel game is there").toBeVisible();
+      await expect(page.locator(testid("header-home")), "and no Home button").toBeHidden();
+      await expect(page.getByRole("button", { name: "Home" }).or(page.getByRole("link", { name: "Home" })), "no visible control named Home").toBeHidden();
+      const box = (await page.locator(`${testid("board-wrap")} .board`).boundingBox())!;
+      const card = (await page.locator(testid("waiting-panel")).boundingBox())!;
+      const cardCentre = card.x + card.width / 2;
+      expect(Math.abs(cardCentre - (box.x + box.width / 2)), "the card is centred on the board").toBeLessThanOrEqual(2);
+      const pageCentreY = await page.evaluate(() => window.innerHeight / 2);
+      const dimmed = await page.locator(`${testid("board-wrap")} .board`).evaluate((el) => Number(getComputedStyle(el).opacity));
+      // U156: whether or not the card fits inside the board, a board that shows above or below it must be dimmed right back.
+      const sticksOut = card.y > box.y + 0.5 || card.y + card.height < box.y + box.height - 0.5;
+      if (sticksOut) expect(dimmed, "a board showing round the card is dimmed right back").toBeLessThanOrEqual(0.2);
+      if (card.height <= box.height) {
+        expect(Math.abs(card.y + card.height / 2 - (box.y + box.height / 2)), "inside the board: centred on it vertically").toBeLessThanOrEqual(2);
+        expect(card.y, "the card's top edge is inside the board").toBeGreaterThanOrEqual(box.y - 0.5);
+        expect(card.y + card.height, "the card's bottom edge is inside the board").toBeLessThanOrEqual(box.y + box.height + 0.5);
+        expect(card.x, "the card's left edge is inside the board").toBeGreaterThanOrEqual(box.x - 0.5);
+        expect(card.x + card.width, "the card's right edge is inside the board").toBeLessThanOrEqual(box.x + box.width + 0.5);
+      } else {
+        // Taller than the board: the card is centred on the page and the board is fully dimmed behind it.
+        const width = await page.evaluate(() => document.documentElement.clientWidth);
+        expect(Math.abs(cardCentre - width / 2), "the card is centred on the page").toBeLessThanOrEqual(2);
+        const dim = await page.locator(`${testid("board-wrap")} .board`).evaluate((el) => Number(getComputedStyle(el).opacity));
+        expect(dim, "the board is fully dimmed behind the taller card").toBeLessThanOrEqual(0.2);
+        expect(Math.abs(card.y + card.height / 2 - pageCentreY), "the card is centred on the page vertically, within the header bar's room").toBeLessThanOrEqual(60);
+      }
+      expect(await pageOverflow(page), "no scrolling").toBe(0);
+      await context.close();
+    });
+  }
+
+  test("U108 Cancel game ends the game and goes Home", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await page.goto(`/g/${await makeGameCode(page)}`);
+    await page.locator(testid("cancel-game")).click();
+    await page.waitForURL((url) => url.pathname === "/");
+    await context.close();
+  });
+});
+
+test.describe("R35 U96 Quick match has Home and no Cancel button", () => {
+  test("U96 R35 Home leaves the queue and goes home, and a second player who arrives afterwards is not paired with the one who left", async ({ browser }) =>
+    withQuickQueue(async () => {
+      const one = await newPlayer(browser, PHONE, { reducedMotion: true });
+      const two = await newPlayer(browser, PHONE, { reducedMotion: true });
+      // Clear a ticket another run may have left waiting, so the first of these two really waits.
+      const probe = await two.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+      if ((await probe.json()).state === "waiting") await two.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+      await one.page.goto("/play/quick");
+      await expect(one.page.locator(testid("quick-status"))).toHaveText("Finding you a random opponent");
+      await expect(one.page.locator(testid("quick-cancel"))).toHaveCount(0);
+      await expect(one.page.locator(testid("header-home"))).toBeVisible();
+      await one.page.locator(testid("header-home")).click();
+      await one.page.waitForURL((url) => url.pathname === "/");
+      // The second player arrives afterwards: nobody is waiting, so they wait, and are not sent to a game.
+      await two.page.goto("/play/quick");
+      await expect(two.page.locator(testid("quick-status"))).toHaveText("Finding you a random opponent");
+      await two.page.waitForTimeout(2_500); // two polls
+      expect(new URL(two.page.url()).pathname, "the second player is not paired with the one who left").toBe("/play/quick");
+      await two.page.locator(testid("header-home")).click();
+      await two.page.waitForURL((url) => url.pathname === "/");
+      await one.context.close();
+      await two.context.close();
+    }));
+
+  test("R35 leaving the Quick match page by the browser's back button also leaves the queue", async ({ browser }) =>
+    withQuickQueue(async () => {
+      const one = await newPlayer(browser, PHONE, { reducedMotion: true });
+      const two = await newPlayer(browser, PHONE, { reducedMotion: true });
+      const probe = await two.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+      if ((await probe.json()).state === "waiting") await two.page.request.post(`/api/quick/${crypto.randomUUID()}`);
+      await one.page.goto("/");
+      await one.page.goto("/play/quick");
+      await expect(one.page.locator(testid("quick-status"))).toHaveText("Finding you a random opponent");
+      await one.page.goBack(); // the browser's own back button
+      await one.page.waitForURL((url) => url.pathname === "/");
+      await two.page.goto("/play/quick");
+      await two.page.waitForTimeout(2_500);
+      expect(new URL(two.page.url()).pathname, "not paired with the player who went back").toBe("/play/quick");
+      await two.page.locator(testid("header-home")).click();
+      await one.context.close();
+      await two.context.close();
+    }));
 });

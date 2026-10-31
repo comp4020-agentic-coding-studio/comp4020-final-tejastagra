@@ -78,9 +78,6 @@ export function quickScreen(ctx: ScreenContext): string {
           ${button({ label: "Play the computer", iconName: "computer", kind: "red", block: true, testid: "computer-offer-play" })}
         </div>
       </section>
-      <div class="quick-actions">
-        ${button({ label: "Cancel", iconName: "join", kind: "blue", block: true, testid: "quick-cancel" })}
-      </div>
     </main>
   `;
   return shell(ctx, "Rubble: Quick match", body, "/static/quick.js");

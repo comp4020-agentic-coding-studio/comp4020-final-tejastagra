@@ -61,14 +61,33 @@ $("computer-offer-play").addEventListener("click", async () => {
   status.textContent = "Could not start a game against the computer. You are still waiting.";
 });
 
-// Cancel and the header bar's Home (Q12) both leave the queue before going Home (U100).
-for (const id of ["quick-cancel", "header-home"]) {
-  $(id).addEventListener("click", async () => {
-    finished = true;
-    await call("DELETE");
-    location.href = "/";
-  });
+// The header bar's Home (Q12) leaves the queue before going Home (U100). There is no Cancel button (U96).
+$("header-home").addEventListener("click", async () => {
+  finished = true;
+  await call("DELETE");
+  location.href = "/";
+});
+
+// R35: leaving the page in any other way (the browser's back button, closing the tab, following another link) removes the ticket
+// from the queue as well, so a player who has gone is never matched afterwards. sendBeacon cannot send DELETE, so the leave is a
+// keepalive fetch, which the browser finishes after the page has gone. A page that is only hidden (another tab, the phone's
+// lock screen) keeps its place: `pagehide` is for a page being left, and a page restored from the cache joins again.
+function leaveQueue(): void {
+  if (finished) return;
+  finished = true;
+  try {
+    void fetch(`/api/quick/${ticket}`, { method: "DELETE", keepalive: true });
+  } catch {
+    // the server forgets a ticket that stops asking within 10 seconds anyway
+  }
 }
+window.addEventListener("pagehide", (event) => {
+  leaveQueue();
+  if (event.persisted) return; // handled by pageshow below
+});
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) location.reload(); // restored by the back button: start again rather than hold a ticket that has gone
+});
 
 // The live count (U98): twice the number of live quick match games, asked for now and every 10 seconds while open (R77).
 async function showLive(): Promise<void> {

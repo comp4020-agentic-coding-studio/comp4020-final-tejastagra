@@ -307,3 +307,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** the two properties are defined with defaults in `public/theme.css`, the comment is reworded, and from now on a `check:fast` result is read for its failure count (`grep -E "Tests |FAIL"`), never from a truncated tail.
 - **Rule for the future:** read the count of failed tests, not the last lines; a script that sets a custom property the stylesheet uses must have it defined with a default in `theme.css`.
 - **Commits:** the commit that follows this entry.
+
+### C39. A waiting-card check that passed while the picture showed a sliver of board
+- **Date:** 31 October 2026
+- **What went wrong:** my first "card sits within the board" check passed at all three sizes, but the screenshot showed a strip of the board above and below the card, the awkward look Tejas asked to remove: the card was a few pixels shorter than the board, so "inside" was true and looked wrong. A second form of the check only asserted the board was dimmed somewhat, which also passed.
+- **How it was caught:** looking at the `/visual-qa` screenshots (correction C28 again).
+- **Harness fix:** Q24 and U156 now say the board is dimmed right back (opacity at most 0.2, no feet) whenever any of it shows round the card; the check measures the opacity whenever the board sticks out, and the card's centring either way.
+- **Rule for the future:** a check for how a thing looks needs a threshold for the looking-wrong case, not only for the geometric case; and always look at the picture.
+- **Commits:** the commit that follows this entry.
