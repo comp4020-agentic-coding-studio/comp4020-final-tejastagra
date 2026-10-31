@@ -2,6 +2,40 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## The third fix list of 31 October 2026 (Parts 1 to 4, read this first)
+
+A background general-purpose agent was first asked to run this whole fix list and the full finishing suites unsupervised. It made real progress on Parts 1 and 2 in the working tree but committed nothing, and was stopped after it had used a large share of the week's budget with no commit to show for it (correction C44). CLAUDE.md now bans general-purpose and background subagents for this project's work, requires each finished fix to be committed straight away, caps retries on a failing check at 3 attempts, and limits testing to the individual checks changed unless Tejas asks for the full suites (`7098289`). The rest of the list was then done in the foreground, one part at a time, salvaging the agent's sound Part 1 and 2 work and building Parts 3 and 4 from scratch, each part as harness first (rules, design docs, `spec/CHECKS.md`), then tests, then code, one commit per part.
+
+**Only `pnpm check:fast` and the individual browser checks named below were run, by Tejas's instruction for this list.** `pnpm check`, `pnpm test:e2e` in full, `/visual-qa` and the Docker check were **not run**: Tejas said he would run the full suites himself and send back any failures. Nothing is pushed or deployed. The working tree is clean.
+
+### The commits, in order
+
+| Commit | Part | What |
+| --- | --- | --- |
+| `7098289` | (harness) | CLAUDE.md: no background agents, commit each fix straight away, 3-attempt cap, individually-named checks only; correction C44 |
+| `caf630f` | 1 | One clean yellow focus border on fields and buttons, with a glow instead of a second ring; no light or white outline on any popup card (U51a, U9a, U52b; Q28, Q29) |
+| `256bfee` | 2 | The account page is two columns on a laptop (title and profile card left, record right), vertically centred; an empty record shows a dash in each stat and one "No games yet" message (U114a, U118; Q30) |
+| `c2b91ba` | 3 | The game screen's result line is a visually hidden `aria-live` region, never shown; the coloured stripe on player cards is gone (the avatar already carries the colour); both player cards share one layout with 12px padding and match exactly in size (U151, U132, U154; Q19) |
+| `0549a00` | 4 | "Sign in"/"Signed in"/"Sign out" become "Log in"/"Logged in"/"Log out" everywhere (glossary first); the tutorial's hint now sits at least 16px under the board on every step, never against its edge, with no gap over 24px (U159) |
+
+### Tests run for this list (by name, per Tejas's testing limits)
+
+`pnpm check:fast` passed (24 files, 403 tests) after every commit. Browser checks run individually, by name, all passing: Q28 (23 tests, Part 1's focus states), Q27 (18 tests, popup backdrops, now also checking for no light ring), Q19 and U151 (7 tests, the hidden result line), U132/U154 (3 tests, the player card layout), Q22, Q26, Q25 (the existing avatar, laptop-uniformity and ghost-lane checks, to confirm nothing broke), `e2e/earthquake.spec.ts` in full (14 tests), `e2e/player-colours.spec.ts` in full (5 tests), `e2e/account.spec.ts` in full (16 tests, since it was rewritten for Part 2), the two account screenshot baselines (looked at by eye before committing: both show the new layout correctly), `e2e/design.spec.ts` "Forms and lists" and "Screenshots", `e2e/e6-features.spec.ts`'s sign-up test, Q5/Q12 on a laptop, Q8 (both tests), and `e2e/tutorial.spec.ts` in full (14 tests). The new U159 test (gaps on every tutorial step at all three viewports) failed once at 320 x 568 (an 8px then a 4px overflow on step 4, which has no action button) and was fixed within the 3-attempt cap by removing a now-doubled margin on the practice timer bar and tightening the margins after the hint on a compact screen (U159 already allows this: "the gaps after the hint stay tighter here"); it then passed at all three viewports, and the existing Q25 tutorial check (which the same change could have broken) was re-run and still passes.
+
+### Decisions made during this list
+
+- **The account screen's own wording rename (Sign in → Log in, Signed in → Logged in, Sign out → Log out) landed in Part 2's commit, not Part 4's**, because the verified screenshot baselines already showed "Log in" and it made no sense to commit a screen with wording that the very next commit would change back and forth. The rest of the app's wording (home, the server's "Log in first." error, the glossary and the other docs) is Part 4's.
+- **The salvaged background-agent work was not trusted as-is.** Every file it touched was read, its CSS and markup changes re-applied by hand with the exact same reasoning (checked against its own code comments), and every check re-run from a clean `pnpm check:fast` before each commit, rather than committing its working tree wholesale.
+- **The Q30 vertical-centring tolerance was not loosened to 40px.** Tejas's instruction said to loosen it only if the layout was visibly correct but off by a few pixels; the check already passed at the original 24px, so the tolerance was left alone.
+- **Two popup-strip rules that were dead after removing the stripe tokens** (`.opponent-powerups` with `grid-column: 1 / -1` and its 320px breakpoint, a leftover from when the opponent's power-ups sat in their own row) were deleted along with `--accent-red` and `--accent-yellow`, since a newer, correct version of `.opponent-powerups` (nested inside the status line, U154) already existed further down the file.
+- **`.opp-power:has([data-shield="used"]) { text-decoration: line-through }` was deleted as dead code**, not a regression: the actual strikethrough is drawn by `.shield-state[data-shield="used"]::after`, a separate, already-existing rule, confirmed unaffected.
+
+### What still needs you
+
+- **Run the full suites.** `pnpm check` (twice in a row), `pnpm test:e2e` in full, `/visual-qa` over every screen, and the Docker check (build, serve `/` and `/readme/` with an empty `/data`, then `pnpm check` against that image) were all skipped by your instruction for this list. Send back any failures.
+- **Nothing was given up on.** The one check that failed during this work (the new U159 tutorial-gap test at 320 x 568) was fixed within the 3-attempt cap and passes now.
+- Everything from the previous "What still needs you" section below still applies (migration 22 on the real database, the two renumbered test counts, a full `/visual-qa` pass, and the known small gaps), since none of it was touched by this list.
+
 ## Where things stand on 31 October 2026 (read this first)
 
 Two fix lists were done on 31 October, back to back, each change as harness first, then tests, then code, one logical commit at a time. **Nothing is pushed or deployed.** The working tree is clean and no branch or stash is left. Tejas has not been consulted on anything below: every choice I made is listed under "Decisions".
