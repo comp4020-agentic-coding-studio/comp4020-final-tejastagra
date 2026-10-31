@@ -275,3 +275,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** Q18, Q19 and Q20 in `docs/design/qa-checklist.md` and CLAUDE.md, and `e2e/layout.spec.ts` measures popup padding, the gap and clearance of buttons, the result shown once and a name's lines at three sizes; each was seen to fail before the fix. A name is now a nickname and a tag as two pieces (`setPlayerName`).
 - **Rule for the future:** a spacing complaint is a missing measurement: write the measurement for the clearance inside the box, not only for the box.
 - **Commits:** the commit that follows this entry.
+
+### C35. A popup's buttons could sit under the phone keyboard
+- **Date:** 31 October 2026
+- **What went wrong:** a popup was centred in the layout viewport, so with the on-screen keyboard open its buttons could be under the keyboard, and the keyboard's own key did nothing useful (Enter in the username submitted the form half empty). No check had ever opened a keyboard.
+- **How it was caught:** Tejas reported it.
+- **Harness fix:** Q21 and U91 and U92; `e2e/layout.spec.ts` shrinks the page to 300px tall with a field focused and measures the field and the button, for five form popups at two phone sizes, and checks Enter and the autocomplete attributes; seen to fail before the fix. The popup follows `window.visualViewport`, its fields scroll and its buttons stay pinned.
+- **Rule for the future:** an on-screen keyboard is a viewport size; test the popup at the height a keyboard leaves.
+- **Commits:** the commit that follows this entry.

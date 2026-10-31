@@ -144,6 +144,9 @@ export function openDialog(options: DialogOptions): Dialog {
       whole.hidden = true;
       errors.set("", whole);
       form.append(whole, row);
+      // U92: the keyboard's own key finishes the form: "next" on a field that another follows, "go" on the last one.
+      const inputs = [...form.querySelectorAll<HTMLInputElement>("input")];
+      inputs.forEach((input, i) => input.setAttribute("enterkeyhint", i < inputs.length - 1 ? "next" : "go"));
       return row;
     },
     error(name, words) {
@@ -188,6 +191,16 @@ export function openDialog(options: DialogOptions): Dialog {
   });
 
   function onKey(event: KeyboardEvent): void {
+    if (event.key === "Enter" && event.target instanceof HTMLInputElement && root.contains(event.target)) {
+      // U92: Enter in a field that another follows moves on; only the last field submits.
+      const inputs = [...form.querySelectorAll<HTMLInputElement>("input")];
+      const at = inputs.indexOf(event.target);
+      if (at >= 0 && at < inputs.length - 1) {
+        event.preventDefault();
+        inputs[at + 1].focus();
+        return;
+      }
+    }
     if (event.key === "Escape" && dismissible) {
       event.preventDefault();
       dialog.close();
@@ -224,6 +237,7 @@ export function openDialog(options: DialogOptions): Dialog {
 
   document.body.append(root);
   open = dialog;
+  followVisibleArea(root);
   // Focus goes to the first field, or to the close button if there is none (U86).
   queueMicrotask(() => {
     const target = root.querySelector<HTMLElement>("input") ?? root.querySelector<HTMLElement>(".dialog-close") ?? root.querySelector<HTMLElement>("button");
@@ -249,4 +263,24 @@ export function closeDialog(): void {
   reopen = null;
   reopenFor = null;
   open?.close();
+}
+
+// U91, Q21: on a phone the popup is placed in the visible area, so an open keyboard never covers its buttons. The visual viewport
+// reports the area above the keyboard; its size and offset go to the popup as custom properties that the stylesheet uses.
+function followVisibleArea(root: HTMLElement): void {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const place = () => {
+    root.style.setProperty("--vv-top", `${vv.offsetTop}px`);
+    root.style.setProperty("--vv-height", `${vv.height}px`);
+  };
+  place();
+  vv.addEventListener("resize", place);
+  vv.addEventListener("scroll", place);
+  new MutationObserver(() => {
+    if (!root.isConnected) {
+      vv.removeEventListener("resize", place);
+      vv.removeEventListener("scroll", place);
+    }
+  }).observe(document.body, { childList: true });
 }

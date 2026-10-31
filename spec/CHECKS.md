@@ -36,6 +36,7 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q18 | Every popup (dialogs, the end popup) has 16px between its edge and its content, 16px between side-by-side buttons, 12px between stacked buttons and 12px between a label (with its icon) and its button's edge | `e2e/layout.spec.ts` | passing |
 | Q19 | With the end popup open, the result line under the power-ups is not visible | `e2e/layout.spec.ts` | passing |
 | Q20 | A name takes at most two lines and its tag stays whole inside its card at 320 and 390 | `e2e/layout.spec.ts` | passing |
+| Q21, U91, U92 | With the visible area 300px tall (an open keyboard) the focused field and the primary button of each form popup are fully visible at 320 and 390; Enter in a username moves to the password and Enter in the last field submits; the autocomplete and enterkeyhint attributes | `e2e/layout.spec.ts` | passing |
 | Q15 | The game screen, every tutorial step and every popup fit one screen with no vertical scrolling at 390 x 844, 1366 x 768 and 320 x 568 | `e2e/layout.spec.ts` | passing |
 | Q16 | No button or caption's box intersects the board on the game screen or in the tutorial | `e2e/layout.spec.ts` | passing |
 | Q17 | On the home screen the gaps between the player card and each menu button are equal within 2px, on a phone and a laptop | `e2e/layout.spec.ts` | passing |

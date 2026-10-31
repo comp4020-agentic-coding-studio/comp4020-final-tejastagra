@@ -1272,3 +1272,74 @@ test.describe("Q20 a name takes at most two lines", () => {
     });
   }
 });
+
+// ---- Part B of the second fix list: the keyboard never covers a form (Q21, U91, U92) ----
+
+const FORMS: Array<{ name: string; screen: string; opener: string; dialog: string; first: string; primary: string; signedIn?: boolean }> = [
+  { name: "nickname", screen: "/", opener: "rename", dialog: "nickname-dialog", first: "nickname-input", primary: "nickname-save" },
+  { name: "join with a code", screen: "/", opener: "join-toggle", dialog: "code-dialog", first: "code-input", primary: "code-join" },
+  { name: "save my progress", screen: "/account", opener: "open-signup", dialog: "signup-dialog", first: "username-input", primary: "signup-save" },
+  { name: "sign in", screen: "/account", opener: "open-signin", dialog: "signin-dialog", first: "username-input", primary: "signin-save" },
+  { name: "change password", screen: "/account", opener: "open-password", dialog: "password-dialog", first: "current-input", primary: "password-save", signedIn: true },
+];
+
+test.describe("Q21 the keyboard never covers a form", () => {
+  for (const viewport of [NARROW, PHONE]) {
+    for (const form of FORMS) {
+      test(`Q21 ${form.name} with a 300px-tall visible area at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+        const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+        if (form.signedIn) {
+          const name = `kb${Math.random().toString(36).slice(2, 9)}`;
+          const r = await page.request.post("/api/account/signup", { data: { username: name, password: "correct horse battery" } });
+          expect(r.ok()).toBe(true);
+        }
+        await page.goto(form.screen);
+        await page.waitForLoadState("networkidle");
+        await page.locator(testid(form.opener)).click();
+        await page.locator(testid(form.dialog)).waitFor();
+        await page.locator(testid(form.first)).focus();
+        // An open keyboard leaves about 300px: shrink the window, which is what the visual viewport reports (U91).
+        await page.setViewportSize({ width: viewport.width, height: 300 });
+        await page.waitForTimeout(300);
+        for (const id of [form.first, form.primary]) {
+          const b = (await page.locator(testid(id)).boundingBox())!;
+          expect(b.y, `${id} starts inside the visible area`).toBeGreaterThanOrEqual(-0.5);
+          expect(b.y + b.height, `${id} ends inside the visible area (300px)`).toBeLessThanOrEqual(300.5);
+        }
+        await context.close();
+      });
+    }
+  }
+});
+
+test.describe("U92 the keyboard's own keys finish the form", () => {
+  test("U92 Enter in the username moves to the password, and Enter in the last field submits", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await page.goto("/account");
+    await page.locator(testid("open-signup")).click();
+    const username = page.locator(testid("username-input"));
+    const password = page.locator(testid("password-input"));
+    await expect(username).toHaveAttribute("autocomplete", "username");
+    await expect(username).toHaveAttribute("enterkeyhint", "next");
+    await expect(password).toHaveAttribute("autocomplete", "new-password");
+    await expect(password).toHaveAttribute("enterkeyhint", "go");
+    await username.fill(`kb${Math.random().toString(36).slice(2, 9)}`);
+    await page.keyboard.press("Enter");
+    await expect(password, "Enter moved focus to the password").toBeFocused();
+    await expect(page.locator(testid("signup-dialog")), "and did not submit").toBeVisible();
+    await password.fill("correct horse battery");
+    await page.keyboard.press("Enter");
+    await expect(page.locator(testid("signup-dialog")), "Enter in the last field submitted").toBeHidden();
+    await context.close();
+  });
+
+  test("U92 autocomplete on sign in and change password", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await page.goto("/account");
+    await page.locator(testid("open-signin")).click();
+    await expect(page.locator(testid("username-input"))).toHaveAttribute("autocomplete", "username");
+    await expect(page.locator(testid("password-input"))).toHaveAttribute("autocomplete", "current-password");
+    await expect(page.locator(testid("password-input"))).toHaveAttribute("enterkeyhint", "go");
+    await context.close();
+  });
+});

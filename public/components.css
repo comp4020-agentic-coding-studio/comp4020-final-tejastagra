@@ -3907,3 +3907,31 @@ input {
   overflow: hidden;
   overflow-wrap: anywhere;
 }
+
+
+/* ---- The keyboard (Q21, U91): the popup follows the visible area, its fields scroll and its buttons stay at the bottom ---- */
+.dialog {
+  top: var(--vv-top, 0);
+  bottom: auto;
+  height: var(--vv-height, 100%);
+}
+
+.dialog-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px 16px 16px;
+}
+
+.dialog-form {
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+}
+
+/* The buttons stay at the bottom of the form's scrolling area, so a short visible area scrolls the fields, not the buttons. */
+.dialog-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
+}

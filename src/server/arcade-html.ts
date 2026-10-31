@@ -11,7 +11,7 @@ export function arcadePage(o: { title: string; body: string; script?: string; re
 <html lang="en-GB">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>${title}</title>
     <link rel="preload" href="/fredoka-700.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/theme.css?v=${version}" />
