@@ -1069,6 +1069,8 @@ test.describe("Q15 Q16 the tutorial: every step fits one screen with nothing on 
           expect(b.height, `${where}: ${id} is at least 44px tall`).toBeGreaterThanOrEqual(43.5);
         }
         expect(await overlapsBoard(page, ".tutorial-board .board-wrap", testid("tutorial")), `Q16 ${where}`).toEqual([]);
+        const col = (await page.locator(testid("tutorial-column-0")).boundingBox())!;
+        expect.soft(col.width, `${where}: the practice columns are at least 44px wide (docs/design.md, U148)`).toBeGreaterThanOrEqual(43.5);
         // Next, Skip and a step's action button are clear of each other (at least 8px apart) and under the board.
         const next = (await page.locator(testid("tutorial-next")).boundingBox())!;
         const skip = (await page.locator(testid("tutorial-skip")).boundingBox())!;

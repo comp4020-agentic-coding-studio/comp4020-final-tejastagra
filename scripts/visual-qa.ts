@@ -27,7 +27,10 @@ async function newPlayer(browser: Browser, v: Viewport, options: { tutorial?: bo
     extraHTTPHeaders: { "fly-client-ip": fakeAddress() },
   });
   const page = await context.newPage();
-  if (!options.tutorial) await page.request.post("/api/tutorial", { data: { result: "finished" } });
+  if (!options.tutorial) {
+    await page.request.post("/api/tutorial", { data: { result: "finished" } });
+    await context.addInitScript(() => localStorage.setItem("rubble-tutorial-seen", "1")); // R47: seen is kept in the browser
+  }
   if (options.nickname) await page.request.post("/api/guest", { data: { nickname: options.nickname } });
   return { context, page };
 }

@@ -2393,7 +2393,7 @@ input {
 /* U148: on a laptop the practice board is sized from the height left under the caption, so the card never scrolls. */
 @media (min-width: 900px) {
   .tutorial-board .board-wrap {
-    width: clamp(260px, calc((100dvh - 540px) * 7 / 6), 100%);
+    width: clamp(336px, calc((100dvh - 440px) * 7 / 6), 100%);
   }
 }
 
@@ -3672,7 +3672,7 @@ input {
 
 /* The eleven-step tutorial on short screens (U47, U136): the longer captions still leave the board, its power-up badge, the hint and
    Skip on one screen at 320 x 568. The ghost disc overlaps the board's frame here instead of having a row of its own. */
-@media (max-width: 359px), (max-height: 640px) {
+@media (max-width: 359px), (max-height: 800px) {
   .tutorial-progress {
     font-size: 0.75rem;
   }
@@ -3823,7 +3823,7 @@ input {
 
 /* U148, Q15: on a short or narrow phone, Next and Skip share one row under the board (8px apart, each at least 44px tall), so every
    step, even the ones with a power-up button and a hint, fits one screen with no scrolling. */
-@media (max-width: 359px), (max-height: 640px) {
+@media (max-width: 359px), (max-height: 640px), (min-width: 900px) {
   .tutorial-actions {
     position: static;
     grid-auto-flow: column;
