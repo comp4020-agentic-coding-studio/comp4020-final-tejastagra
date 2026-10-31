@@ -527,14 +527,6 @@ button.round-item {
   box-shadow: var(--shadow);
 }
 
-.player-you {
-  border-top: var(--accent-red);
-}
-
-.player-opponent {
-  border-top: var(--accent-yellow);
-}
-
 .avatar {
   width: 44px;
   height: 44px;
@@ -846,15 +838,6 @@ button.round-item {
 
 .mini-disc[data-piece="rubble"] {
   background: repeating-linear-gradient(45deg, var(--rubble) 0 3px, var(--rubble-hatch) 3px 6px);
-}
-
-/* A player's panel takes the accent of their seat's colour (U134). */
-.player[data-colour="red"] {
-  border-top: var(--accent-red);
-}
-
-.player[data-colour="yellow"] {
-  border-top: var(--accent-yellow);
 }
 
 /* ---- The reveal: discs drop at once, with no countdown (U19) ---- */
@@ -1708,9 +1691,18 @@ input:focus {
   background: var(--timer-urgent);
 }
 
+/* U151, Q19 (changed 31 October 2026): the result line is never visible, on the game screen or the watching screen. It
+   stays an aria-live region (so it is still announced) without ever taking space in the layout, so removing it frees
+   the 16px the power-up row now keeps above the bottom of the screen. */
 .game .result {
-  min-height: 2.6em;
-  margin: 6px 0 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  margin: 0;
 }
 
 .game .message {
@@ -1870,12 +1862,6 @@ input:focus {
    between the board and the buttons, and an empty message takes no room (U79, first-screen rule). */
 .watching .message:empty {
   display: none;
-}
-
-.watching .result {
-  min-height: 2.4em;
-  margin: 2px 0;
-  font-size: 0.95rem;
 }
 
 .watch-actions {
@@ -2226,11 +2212,6 @@ input:focus {
   .board-wrap::before,
   .board-wrap::after {
     height: 18px;
-  }
-
-  .game .result {
-    min-height: 2.4em;
-    font-size: 0.9rem;
   }
 }
 
@@ -2766,51 +2747,7 @@ input:focus {
   }
 }
 
-/* The opponent's power-ups: small icons each with a label, in one strip under the two panels (U105). */
-.opponent-powerups {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2px 16px;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  line-height: 1.2;
-}
-
-.opp-power {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-}
-
-.opp-power .quake-state {
-  margin-left: 0;
-}
-
-.opp-power:has([data-shield="used"]),
-.opp-power:has([data-quake="used"]) {
-  text-decoration: line-through;
-  opacity: 0.75;
-}
-
-/* At 320px the power-ups must leave the board and timer on the first screen (docs/design.md, U102). Everything here is
-   spacing only: the rows stay 44px, the labels stay whole. Last in the file so it wins over the base rules above. */
 @media (max-width: 359px) {
-  .opponent-powerups {
-    gap: 0 10px;
-    font-size: 0.7rem;
-    line-height: 1.1;
-  }
-
-  .opp-power svg,
-  .opp-power .quake-state {
-    width: 14px;
-    height: 14px;
-  }
-
   .game .players {
     row-gap: 3px;
   }
@@ -3557,10 +3494,12 @@ input:focus {
   margin: 0;
 }
 
+/* U154 (changed 31 October 2026): both cards share one layout, avatar on the left, name then status on two lines, with
+   at least 12px of padding. */
 .game .versus .player {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  padding: 6px 8px;
+  padding: 12px;
 }
 
 .game .versus .vs {
@@ -3571,7 +3510,7 @@ input:focus {
 .opponent-powerups {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 8px;
+  gap: 2px 12px;
   margin: 2px 0 0;
   font-size: 0.8rem;
   color: var(--text-muted);
@@ -3644,11 +3583,6 @@ input:focus {
   min-height: 48px;
 }
 
-.game .result {
-  min-height: 2.6em;
-  margin: 8px 0 0;
-}
-
 /* Waiting for the second player (U135): only the header bar and the dimmed board with the card over it, the board centred on
    the screen below the bar. */
 .game[data-waiting="true"] .powerups,
@@ -3665,7 +3599,7 @@ input:focus {
 
 @media (max-width: 359px) {
   .game .versus .player {
-    padding: 4px 6px;
+    padding: 12px 6px;
     gap: 6px;
   }
 
@@ -3732,11 +3666,6 @@ input:focus {
   .game.watching .status-row > .watching-banner {
     min-width: 0;
     flex: 1 1 auto;
-  }
-
-  .game.watching .result:empty {
-    min-height: 0;
-    margin: 0;
   }
 
   .game.watching .topbar {
@@ -3929,11 +3858,6 @@ input:focus {
   }
 }
 
-/* Q19: while the end popup shows, the result line says nothing a second time (it keeps its room, so nothing moves). */
-.game[data-ended="true"] .result {
-  visibility: hidden;
-}
-
 .player-text {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -4057,8 +3981,12 @@ input:focus {
   transform: rotate(-45deg);
 }
 
+/* The status line's place is reserved even when empty (before a choice, nobody has chosen yet), so the card does not
+   grow when "Chosen" or "Ready" first appears and the other card, matched to it by the grid's stretch, does not move
+   (Q25: nothing moves when a disc appears). */
 .game .player-meta {
   flex-wrap: nowrap;
+  min-height: 1.4em; /* one line at the line-height it would have anyway, so "Chosen" or "Ready" appearing first adds no height */
 }
 
 @media (max-width: 599px) {
@@ -4079,7 +4007,7 @@ input:focus {
 
   .game .opponent-powerups {
     flex-wrap: nowrap;
-    gap: 6px;
+    gap: 12px;
   }
 
   /* U155: Home is its house icon only, at least 44px. */
@@ -4243,20 +4171,20 @@ input:focus {
   margin: 0 0 16px;
 }
 
+/* U151: the result line and the message line are visually hidden or empty, so they no longer hold the space below the
+   power-up row; this keeps the 16px clearance to the bottom of the screen explicit instead. */
 .game .powerups {
-  margin: 0 auto;
-}
-
-.game .result {
-  min-height: 1.4em;
-  margin: 8px 0;
+  margin: 0 auto 16px;
 }
 
 /* On a laptop the board is at least 60% of the screen's height (Q26, U158): its width is 7/6 of its height, and the whole
    column shares that width. The ghost lane is 40px so the whole screen still fits 768px with no scrolling (Q15). */
 @media (min-width: 900px) {
   :root {
-    --ghost-size: 40px;
+    /* U154's 12px card padding (added 31 October 2026) made the versus bar taller than before, which this lane size
+       and board formula did not leave room for alongside U151's 16px below the power-up row; the lane shrinks a
+       little to give that room back, never below a disc that still reads clearly (Q15, Q25). */
+    --ghost-size: 28px;
     --board-width: min(620px, calc(100vh * 0.6 * 7 / 6 - 4px));
   }
 
@@ -4273,12 +4201,13 @@ input:focus {
   }
 
   .game .versus .player {
-    padding: 0 8px;
+    padding: 12px;
     align-content: center;
   }
 
   .game .player-meta {
     line-height: 1.1;
+    min-height: 1.1em; /* matches this line-height, so the reserved line is exactly one line tall here too */
   }
 
   .game .versus .avatar {
@@ -4302,12 +4231,6 @@ input:focus {
     flex-wrap: nowrap;
   }
 
-  .game .result {
-    min-height: 1.1em;
-    margin: 2px 0 0;
-    line-height: 1.1;
-  }
-
   .game .powerups {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -4325,17 +4248,9 @@ input:focus {
   }
 }
 
-/* On a small phone the result line, which is outside the fixed order (U157), is one compact line under the power-ups with no
-   extra margin, so the order's own lane and gaps are never given up (Q15, Q25). */
 @media (max-width: 899px) and (max-height: 700px) {
   .arena.game {
     padding: 4px 0 0;
-  }
-
-  .game .result {
-    min-height: 1.2em;
-    margin: 4px 0 0;
-    line-height: 1.2;
   }
 }
 

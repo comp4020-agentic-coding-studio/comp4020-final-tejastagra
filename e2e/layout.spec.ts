@@ -2,7 +2,7 @@
 // 1366 wide. Q10 and Q11 are judged by looking, in /visual-qa. Run with pnpm test:e2e, never in pnpm check.
 import { expect, test, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
-import { doTutorialStep, makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, waitForStart } from "./helpers.ts";
+import { chooseColumn, doTutorialStep, makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, waitForStart } from "./helpers.ts";
 import { withQuickQueue } from "./quick-lock.ts";
 
 // A failing check should fail in seconds, not wait a minute for a dialog that is not there.
@@ -1230,13 +1230,78 @@ test.describe("Q18 popups are not cramped", () => {
   }
 });
 
-test.describe("Q19 the result is shown once", () => {
+// U151 (changed 31 October 2026): the result line is never visible, in or out of the end popup, but it still carries
+// its text for an aria-live announcement, so a plain `toBeHidden()` (which only catches display:none or
+// visibility:hidden) is not enough: it must be checked for the visually-hidden 1px clip instead.
+async function isVisuallyHidden(page: Page, testIdName: string): Promise<boolean> {
+  return page.locator(testid(testIdName)).evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width <= 1 && r.height <= 1;
+  });
+}
+
+test.describe("Q19, U151 the result is shown once, as a visually hidden aria-live region", () => {
+  for (const viewport of [NARROW, PHONE, LAPTOP]) {
+    test(`Q19 the result line is never visible during play at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openComputerGame(page);
+      expect(await isVisuallyHidden(page, "result-line"), "the result line is visually hidden while playing").toBe(true);
+      await context.close();
+    });
+  }
   for (const viewport of [NARROW, PHONE]) {
-    test(`Q19 with the end popup open the result line is not visible at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+    test(`Q19 with the end popup open the result line is still not visible, only in the popup, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await openEndPopup(page);
       await expect(page.locator(testid("end-title"))).toHaveText("IT'S A DRAW!");
-      await expect(page.locator(testid("result-line"))).toBeHidden();
+      expect(await isVisuallyHidden(page, "result-line"), "the result line stays visually hidden with the popup open").toBe(true);
+      await context.close();
+    });
+  }
+  test("U151 the result line's text still updates after a round, for a screen reader", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await openComputerGame(page);
+    await chooseColumn(page, 0);
+    await expect(page.locator(testid("result-line"))).not.toHaveText("", { timeout: 6_000 });
+    await context.close();
+  });
+
+  test("U151 at least 16px between the power-up row and the bottom of the screen", async ({ browser }) => {
+    for (const viewport of [PHONE, LAPTOP]) {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openComputerGame(page);
+      const row = (await page.locator(testid("powerups")).boundingBox())!;
+      expect(viewport.height - (row.y + row.height), `16px below the power-up row at ${viewport.width}`).toBeGreaterThanOrEqual(16);
+      await context.close();
+    }
+  });
+});
+
+// ---- Part 3 of the 31 October 2026 fix list: no coloured stripe, a uniform card layout (U132, U154) ----
+
+test.describe("U132 no coloured stripe on a player card; U154 both cards share one layout and match in size", () => {
+  for (const viewport of [NARROW, PHONE, LAPTOP]) {
+    test(`at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openComputerGame(page);
+      for (const id of ["panel-you", "panel-opponent"]) {
+        const topBorder = await page.locator(testid(id)).evaluate((el) => getComputedStyle(el).borderTopColor);
+        const sideBorder = await page.locator(testid(id)).evaluate((el) => getComputedStyle(el).borderLeftColor);
+        expect(topBorder, `${id} has no coloured top stripe`).toBe(sideBorder); // the same --outline ink on every side
+      }
+      const you = (await page.locator(testid("panel-you")).boundingBox())!;
+      const opp = (await page.locator(testid("panel-opponent")).boundingBox())!;
+      expect(Math.abs(you.width - opp.width), "the two cards match in width within 2px").toBeLessThanOrEqual(2);
+      expect(Math.abs(you.height - opp.height), "the two cards match in height within 2px").toBeLessThanOrEqual(2);
+      // The opponent's status and its icons do not overlap or touch (U154: avatar left, name, status, icons 12px apart).
+      const status = (await page.locator(testid("opponent-status")).boundingBox())!;
+      const icons = (await page.locator(testid("opponent-powerups")).boundingBox())!;
+      const overlap = status.x < icons.x + icons.width && icons.x < status.x + status.width && status.y < icons.y + icons.height && icons.y < status.y + status.height;
+      expect(overlap, "the opponent's status text and its icons do not overlap").toBe(false);
+      const shieldBox = (await page.locator(testid("opponent-shield-state")).boundingBox())!;
+      const quakeBox = (await page.locator(testid("opponent-earthquake-state")).boundingBox())!;
+      const gap = quakeBox.x - (shieldBox.x + shieldBox.width);
+      expect(gap, "at least 12px between the shield and Earthquake icons").toBeGreaterThanOrEqual(11.5);
       await context.close();
     });
   }

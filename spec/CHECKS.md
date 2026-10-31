@@ -50,6 +50,8 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q28, U51a, U9a | A focused field or button shows one yellow border at the same width and radius with no separate outline; nothing moves more than 1px; a button's focus border only shows on Tab, never on click or tap | `e2e/layout.spec.ts` | passing |
 | Q29, U52b | No popup card carries a light or white second ring; `--shadow-popup` is a plain dark offset | `e2e/layout.spec.ts`, `spec/unit-theme.test.ts` | passing |
 | Q30, U114a | On a laptop the account page is two columns, vertically centred within 24px, the page itself never scrolls and the history scrolls in its own card; on a phone it stays one column | `e2e/account.spec.ts` | passing |
+| U151 | The result line is a visually hidden aria-live region, never visible, and updates after each round; at least 16px between the power-up row and the bottom of the screen | `e2e/layout.spec.ts` | passing |
+| U132, U154 | No coloured stripe on a player card; both cards share one layout (avatar left, name, status, icons 12px apart) and match in size within 2px | `e2e/layout.spec.ts` | passing |
 
 ## Hygiene (`spec/unit-check-isolation.test.ts`)
 

@@ -95,8 +95,6 @@
   --outline-marker-small: 2px solid var(--marker-red);
   --outline-bubble: 2px solid var(--bubble-rim);
   --outline-bubble-marker: 3px solid var(--bubble-rim);
-  --accent-red: 7px solid var(--red);
-  --accent-yellow: 7px solid var(--yellow);
   --outline-popup: 5px solid var(--ink); /* a popup card's edge is thicker than a normal card's, so it stands out (U52b) */
   --shadow: 0 5px 0 var(--ink);
   --shadow-popup: 0 8px 0 var(--ink); /* a stronger hard shadow, the same plain dark offset as every other card, with no light ring (U52b, 31 October 2026) */
