@@ -63,7 +63,8 @@ describe("screens (docs/design.md)", () => {
     // U96 to U98: a header, one card with the discs, the line, the subtext and the live count, and Cancel under it.
     expect(html).toContain("Finding you a random opponent");
     expect(html).toContain("Quick match pairs you with another person who is looking for a game right now");
-    for (const hook of ["quick-discs", "quick-hint", "quick-live", "quick-cancel"]) expect(html, hook).toContain(`data-testid="${hook}"`);
+    for (const hook of ["quick-discs", "quick-hint", "quick-live"]) expect(html, hook).toContain(`data-testid="${hook}"`);
+    expect(html, "U96: no Cancel button on Quick match, Home leaves").not.toContain('data-testid="quick-cancel"');
     expect(html).toContain('class="title"');
   });
 

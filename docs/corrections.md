@@ -299,3 +299,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** Q23 replaces "same height" with "taller, with 16px padding" and checks the gaps stay equal; `e2e/layout.spec.ts` saves a nickname on a phone and a laptop and checks nothing moved and no saved message exists; the message and the Top players section are removed from the rules, the design and the code.
 - **Rule for the future:** a confirmation that adds text to a page is a layout shift; the changed content itself is the confirmation. Measure after the popup closes as well as while it is open.
 - **Commits:** the commit that follows this entry.
+
+### C38. I committed with `pnpm check:fast` failing, because I read only the first lines of its output
+- **Date:** 31 October 2026
+- **What went wrong:** across the Part A to C commits I ran `pnpm check:fast` and looked at "Tests" lines that were cut off by `tail`, twice taking a failing run for a passing one. Two theme checks were red for several commits: a comment in `src/client/common.ts` that held a tag shaped like a colour code, and the stylesheet using two custom properties (`--vv-top`, `--vv-height`) that only a script set. CLAUDE.md says `pnpm check:fast` must pass at every commit.
+- **How it was caught:** the next `check:fast` run showed "2 failed".
+- **Harness fix:** the two properties are defined with defaults in `public/theme.css`, the comment is reworded, and from now on a `check:fast` result is read for its failure count (`grep -E "Tests |FAIL"`), never from a truncated tail.
+- **Rule for the future:** read the count of failed tests, not the last lines; a script that sets a custom property the stylesheet uses must have it defined with a default in `theme.css`.
+- **Commits:** the commit that follows this entry.

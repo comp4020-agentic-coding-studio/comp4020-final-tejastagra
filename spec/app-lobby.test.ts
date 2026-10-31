@@ -112,6 +112,22 @@ describe("L: playing modes (R33 to R36)", () => {
     for (const code of perGame.keys()) expect((await fetch(`${base}/g/${code}`)).status).toBe(200);
   }));
 
+  it("L4b (R35) a client that leaves the queue is never paired afterwards: the next arrival waits", async () => withQuickQueue(async () => {
+    const base = inject("baseUrl");
+    const ip = () => ({ "fly-client-ip": fakeAddress() });
+    // Clear a ticket another run may have left waiting.
+    const probe = await (await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: ip() })).json();
+    if (probe.state === "waiting") await fetch(`${base}/api/quick/${crypto.randomUUID()}`, { method: "POST", headers: ip() });
+    const left = crypto.randomUUID();
+    const arrival = crypto.randomUUID();
+    expect((await (await fetch(`${base}/api/quick/${left}`, { method: "POST", headers: ip() })).json()).state).toBe("waiting");
+    await fetch(`${base}/api/quick/${left}`, { method: "DELETE", headers: ip() }); // the page left (R35)
+    const next = await (await fetch(`${base}/api/quick/${arrival}`, { method: "POST", headers: ip() })).json();
+    expect(next.state, "the one who left is not paired with the next arrival").toBe("waiting");
+    expect((await (await fetch(`${base}/api/quick/${left}`)).json()).state, "and has no game").toBe("unknown");
+    await fetch(`${base}/api/quick/${arrival}`, { method: "DELETE", headers: ip() });
+  }));
+
   it("L5 (R36, replaced on 28 October 2026) a third client joining a full link game watches it: it is never given a seat and never refused", async () => {
     const { code, creator } = await linkGame();
     const a = new WebSocket(wsUrl("/ws"), creator as never);

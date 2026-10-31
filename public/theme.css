@@ -163,6 +163,8 @@
   /* Bubble sizes in pixels: the smallest, and the spread above it (U3). */
   --stack-width: 420px;
   --list-width: 560px; /* forms and lists are never wider than this (U60) */
+  --vv-top: 0px; /* the visible area above the phone keyboard; src/client/dialog.ts sets both on an open popup (Q21, U91) */
+  --vv-height: 100%;
   --bubble-size-min: 24;
   --bubble-size-spread: 49;
 }

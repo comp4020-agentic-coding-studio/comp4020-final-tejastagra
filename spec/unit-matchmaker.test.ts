@@ -66,3 +66,32 @@ describe("L4 (R35) quick match pairing", () => {
     expect(m.join("b")).toEqual({ state: "waiting" });
   });
 });
+
+describe("R35 a player who leaves the Quick match screen is never paired afterwards", () => {
+  it("R35 a ticket that left is not paired with the next arrival, which waits instead", () => {
+    const m = make();
+    m.join("a");
+    m.leave("a"); // Home, the back button or a closed tab tells the server
+    expect(m.join("b")).toEqual({ state: "waiting" });
+    expect(m.status("a")).toEqual({ state: "unknown" });
+    expect(m.status("b")).toEqual({ state: "waiting" });
+  });
+
+  it("R35 a ticket that left cannot be matched later by polling or by a repeated join of another", () => {
+    const m = make();
+    m.join("a");
+    m.leave("a");
+    m.leave("a"); // leaving twice changes nothing
+    expect(m.join("b")).toEqual({ state: "waiting" });
+    expect(m.join("c")).toEqual({ state: "matched", code: "G1" }); // b and c meet; a never did
+    expect(m.status("a")).toEqual({ state: "unknown" });
+  });
+
+  it("R35 a ticket whose page was closed without telling the server is forgotten after the stale time", () => {
+    let t = 0;
+    const m = make(() => t);
+    m.join("a");
+    t = 1500; // staleMs is 1000 here; the real one is 10 seconds
+    expect(m.join("b")).toEqual({ state: "waiting" });
+  });
+});

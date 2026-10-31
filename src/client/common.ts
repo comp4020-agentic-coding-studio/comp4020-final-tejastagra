@@ -56,7 +56,7 @@ export async function currentPlayer(): Promise<{ displayName: string; nickname: 
 }
 
 // U152, Q20: a player's name in a card is the nickname and its tag as two pieces, so the nickname can be cut with an ellipsis while
-// the tag stays whole. The element's text is still the whole name ("Pip #4f2a"), for a screen reader and for the page's own code.
+// the tag stays whole. The element's text is still the whole name ("Pip" and its tag), for a screen reader and for the page's own code.
 export function setPlayerName(el: HTMLElement, full: string): void {
   const match = /^(.*\S)\s+(\x23[0-9a-fA-F]{4})$/.exec(full); // \x23 is the tag's hash sign
   el.replaceChildren();
