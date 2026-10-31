@@ -54,9 +54,16 @@ a:not(.btn):not(.round-item) {
   min-width: 44px;
 }
 
+/* U9a, U51a: the general fallback focus ring, for anything not covered by its own rule below
+   (a field, a button, a round icon button, a tab and the popup close button each carry their own,
+   consistent focus state instead: one border that turns yellow, with a glow, never a second ring). */
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
+}
+
+.round-item:focus-visible {
+  outline: none;
 }
 
 [hidden] {
@@ -317,6 +324,44 @@ h3 {
   box-shadow: var(--shadow);
   transition: transform var(--dur-press) ease, box-shadow var(--dur-press) ease;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* U9a: a button's border turns yellow on keyboard focus only (:focus-visible, never on tap or click), at the same width,
+   with the same soft glow as a focused field. This replaces the generic outline for buttons, so the border and the hard
+   shadow keep lining up on every side. Covers every outlined button shape: the main buttons, round icon buttons and the
+   leaderboard tabs. */
+.btn:focus-visible,
+.round-item:focus-visible .round,
+.tab:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: var(--shadow), var(--glow-focus);
+}
+
+/* .icon-only (the nickname pencil, the power-up info buttons) carries no hard shadow at rest, so its focus state adds
+   only the border colour and the glow, never a shadow that was not there before (U9a). */
+.icon-only:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: var(--glow-focus);
+}
+
+/* The popup close button has no border of its own, so its focus state adds one (inside the button, so nothing resizes),
+   with the same glow as every other focused control (U9a). */
+.dialog-close:focus-visible {
+  outline: none;
+  border: var(--outline-thin);
+  border-color: var(--focus);
+  box-shadow: var(--glow-focus);
+  border-radius: var(--radius-pill);
+}
+
+/* A yellow button's own fill is the same colour as --focus, so a yellow border alone would vanish into it: its
+   focus state keeps the yellow fill but adds a dark ink ring instead, so the state is still visible (U9a). */
+.btn-yellow:focus-visible,
+.tab[aria-selected="true"]:focus-visible {
+  border-color: var(--ink);
+  box-shadow: var(--shadow), var(--glow-focus-dark);
 }
 
 .btn-red {
@@ -1112,6 +1157,14 @@ input {
   background: var(--field);
   border: var(--outline);
   border-radius: var(--radius-button);
+}
+
+/* U51a: one border only. Focused, it turns yellow at the same width and radius, with a soft glow outside it
+   (a box-shadow, never a second outline or a gap), so nothing moves. This replaces the browser's own focus ring. */
+input:focus {
+  border-color: var(--focus);
+  outline: none;
+  box-shadow: var(--glow-focus);
 }
 
 .form {

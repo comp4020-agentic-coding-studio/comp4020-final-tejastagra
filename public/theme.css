@@ -99,7 +99,9 @@
   --accent-yellow: 7px solid var(--yellow);
   --outline-popup: 5px solid var(--ink); /* a popup card's edge is thicker than a normal card's, so it stands out (U52b) */
   --shadow: 0 5px 0 var(--ink);
-  --shadow-popup: 0 8px 0 var(--ink), 0 0 0 2px var(--text); /* a stronger hard shadow with a thin light edge outside the dark outline */
+  --shadow-popup: 0 8px 0 var(--ink); /* a stronger hard shadow, the same plain dark offset as every other card, with no light ring (U52b, 31 October 2026) */
+  --glow-focus: 0 0 0 4px rgba(255, 199, 44, 0.45); /* the soft yellow glow outside a focused field or button's border, as a box-shadow, never a second outline (U51a, U9a) */
+  --glow-focus-dark: 0 0 0 4px rgba(6, 10, 32, 0.35); /* the same focus glow, in ink, for a yellow button or tab whose own fill is the --focus colour (U9a) */
   --shadow-raised: 0 7px 0 var(--ink);
   --shadow-pressed: 0 0 0 var(--ink);
   --shadow-small: 0 2px 0 var(--ink);

@@ -1755,8 +1755,118 @@ test.describe("Q27 every popup and overlay sits over the shared backdrop with a 
         expect(m.painted, `${overlay.name} paints the shared backdrop`).toBe(m.token);
         expect(m.edge, `${overlay.name}'s card has the popup outline`).toBeGreaterThanOrEqual(5);
         expect(m.shadow, `${overlay.name}'s card has the popup shadow`).not.toBe("none");
+        // Q29: no popup card carries a second, lighter ring alongside its dark shadow.
+        const layers = m.shadow.split(/,(?![^(]*\))/).map((l) => l.trim());
+        expect(layers.length, `${overlay.name}'s shadow has one layer, no light ring`).toBe(1);
         await context.close();
       });
     }
   }
+});
+
+// ---- Part 1 of the 31 October 2026 fix list: Q28 one clean focus border on a field or button ----
+
+test.describe("Q28 a focused field shows one yellow border, the same size as unfocused, with no separate outline", () => {
+  for (const viewport of [PHONE, LAPTOP]) {
+    test(`Q28 the nickname field at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.goto("/");
+      await page.locator(testid("rename")).click();
+      const input = page.locator(testid("nickname-input"));
+      const before = await input.evaluate((el) => {
+        const c = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        return { border: c.borderTopWidth, radius: c.borderTopLeftRadius, outline: c.outlineStyle, x: r.x, y: r.y, w: r.width, h: r.height };
+      });
+      expect(before.outline, "unfocused: no outline").toBe("none");
+      await input.focus();
+      const after = await input.evaluate((el) => {
+        const c = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        return { border: c.borderTopWidth, radius: c.borderTopLeftRadius, borderColor: c.borderTopColor, outline: c.outlineStyle, shadow: c.boxShadow, x: r.x, y: r.y, w: r.width, h: r.height };
+      });
+      expect(after.border, "same border width focused and unfocused").toBe(before.border);
+      expect(after.radius, "same corner radius").toBe(before.radius);
+      expect(after.borderColor, "the border is the --focus yellow").toBe("rgb(255, 199, 44)");
+      expect(after.outline, "no separate outline when focused").toBe("none");
+      expect(after.shadow, "a glow, not a second ring").not.toBe("none");
+      expect(Math.abs(after.x - before.x), "focusing moves nothing").toBeLessThanOrEqual(1);
+      expect(Math.abs(after.y - before.y), "focusing moves nothing").toBeLessThanOrEqual(1);
+      expect(Math.abs(after.w - before.w), "focusing resizes nothing").toBeLessThanOrEqual(1);
+      expect(Math.abs(after.h - before.h), "focusing resizes nothing").toBeLessThanOrEqual(1);
+      await context.close();
+    });
+  }
+});
+
+test.describe("Q28 a button shows its yellow focus border on Tab, never on a click or a tap", () => {
+  for (const viewport of [PHONE, LAPTOP]) {
+    test(`Q28 Cancel (in the code popup) at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.goto("/");
+      await page.locator(testid("join-toggle")).click();
+      const btn = page.locator(testid("dialog-cancel")); // a blue button: --focus (yellow) differs from its own fill
+      await expect(btn).toHaveClass(/btn-blue/);
+      await page.mouse.move(1, 1); // clear of any hover lift before measuring (correction C27)
+      const before = await btn.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.x, y: r.y, w: r.width, h: r.height, border: getComputedStyle(el).borderTopColor };
+      });
+      // A mouse click never leaves the yellow focus border (:focus-visible excludes pointer activation).
+      await btn.click(); // closes the popup
+      await page.locator(testid("join-toggle")).click(); // reopen it so the same button exists to check again
+      await page.mouse.move(1, 1);
+      const clicked = await btn.evaluate((el) => getComputedStyle(el).borderTopColor);
+      expect(clicked, "a click never turns the border yellow").toBe(before.border);
+      // Reaching it by keyboard does. A script .focus() does not satisfy :focus-visible in Chromium, so this presses
+      // real Tab keys from the first field to the Cancel button (Game code, then Join, then Cancel).
+      await page.locator(testid("code-input")).focus();
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Tab");
+      await expect(btn).toBeFocused();
+      const tabbed = await btn.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        const c = getComputedStyle(el);
+        return { x: r.x, y: r.y, w: r.width, h: r.height, border: c.borderTopColor, shadow: c.boxShadow };
+      });
+      expect(tabbed.border, "the border turns the --focus colour when reached by Tab").not.toBe(before.border);
+      expect(tabbed.border, "the border is the --focus yellow").toBe("rgb(255, 199, 44)");
+      expect(tabbed.shadow, "a glow when reached by Tab").toContain("255, 199, 44"); // --glow-focus's yellow, not just any shadow
+      expect(Math.abs(tabbed.x - before.x), "focusing moves nothing").toBeLessThanOrEqual(1);
+      expect(Math.abs(tabbed.y - before.y), "focusing moves nothing").toBeLessThanOrEqual(1);
+      expect(Math.abs(tabbed.w - before.w), "focusing resizes nothing").toBeLessThanOrEqual(1);
+      expect(Math.abs(tabbed.h - before.h), "focusing resizes nothing").toBeLessThanOrEqual(1);
+      await context.close();
+    });
+  }
+});
+
+// A yellow button's own fill is the same colour as --focus: its keyboard-focus state must still be visible, with a
+// different colour from its own fill (U9a).
+test.describe("Q28 a yellow button's focus state is still visible against its own yellow fill", () => {
+  test("Q28 the code popup's yellow Join button changes its border colour on focus", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await page.goto("/");
+    await page.locator(testid("join-toggle")).click();
+    const btn = page.locator(testid("code-join")); // the yellow "Join" button in the code popup
+    await expect(btn).toHaveClass(/btn-yellow/);
+    const before = await btn.evaluate((el) => {
+      const c = getComputedStyle(el);
+      return { border: c.borderTopColor, shadow: c.boxShadow };
+    });
+    expect(before.border, "a yellow button's border is --ink at rest, never the same as its own --yellow fill").not.toBe("rgb(255, 199, 44)");
+    // A script .focus() does not satisfy :focus-visible in Chromium: press a real Tab from the field onto the button.
+    await page.locator(testid("code-input")).focus();
+    await page.keyboard.press("Tab");
+    await expect(btn).toBeFocused();
+    const after = await btn.evaluate((el) => {
+      const c = getComputedStyle(el);
+      return { border: c.borderTopColor, shadow: c.boxShadow };
+    });
+    // The border stays --ink (already the darkest colour available, not the same as the button's own --yellow fill);
+    // the focus state is carried by a stronger glow instead, so it is still visible (U9a).
+    expect(after.border, "still not the same colour as its own fill").not.toBe("rgb(255, 199, 44)");
+    expect(after.shadow, "the focus glow changed the shadow").not.toBe(before.shadow);
+    await context.close();
+  });
 });

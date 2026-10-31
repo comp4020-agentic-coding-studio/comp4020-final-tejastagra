@@ -191,6 +191,34 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
     expect(ratio("--text", "--panel"), "text in a card").toBeGreaterThanOrEqual(4.5);
   });
 
+  it("U52b (31 October 2026) a popup card's shadow is a plain dark offset, with no light or white second ring", () => {
+    const value = token("--shadow-popup");
+    expect(value, "--shadow-popup carries no light ring any more").not.toMatch(/var\(--text\)/);
+    expect(value, "--shadow-popup carries no light ring any more").not.toMatch(/#fff/i);
+    // Every colour in the shadow's value should resolve to --ink (the one dark offset), never a second lighter layer.
+    const layers = value.split(",").map((l) => l.trim());
+    expect(layers.length, "one layer only: the dark offset, no second ring").toBe(1);
+  });
+
+  it("U51a a focused field has one border (yellow) and a glow, never a second outline", () => {
+    const css = readFileSync("public/components.css", "utf8");
+    const rule = css.match(/input:focus\s*{[^}]*}/)?.[0] ?? "";
+    expect(rule, "input:focus exists").not.toBe("");
+    expect(rule).toMatch(/border-color:\s*var\(--focus\)/);
+    expect(rule).toMatch(/outline:\s*none/);
+    expect(rule).toMatch(/box-shadow:\s*var\(--glow-focus\)/);
+    expect(theme).toMatch(/--glow-focus:/);
+  });
+
+  it("U9a a button's border turns yellow on keyboard focus only, with the same glow, never a second outline", () => {
+    const css = readFileSync("public/components.css", "utf8");
+    const rule = css.match(/\.btn:focus-visible[^{]*{[^}]*}/)?.[0] ?? "";
+    expect(rule, ".btn:focus-visible exists").not.toBe("");
+    expect(rule).toMatch(/outline:\s*none/);
+    expect(rule).toMatch(/border-color:\s*var\(--focus\)/);
+    expect(rule).toMatch(/var\(--glow-focus\)/);
+  });
+
   it("U160 the end popup title's shadow is a small offset, so it never reads as a doubled word", () => {
     const offset = Number(token("--shadow-title-popup").match(/^(\d+)px/)?.[1]);
     expect(offset, "no more than 3px").toBeLessThanOrEqual(3);
