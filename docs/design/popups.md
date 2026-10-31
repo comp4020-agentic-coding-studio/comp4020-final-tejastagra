@@ -19,8 +19,8 @@ Added on 28 October 2026 for the layout rule Q1 (`qa-checklist.md`): nothing ope
 | Nickname (`nickname-dialog`) | The pencil on the home screen, "Edit" on the account page | "Your nickname", one field **prefilled with the current nickname** (Q7) | Save, Cancel |
 | Join with a code (`code-dialog`) | "Join with a code" on the home screen | "Join with a code", the code field (6 letters or numbers) | Join, Cancel |
 | Sign up (`signup-dialog`) | "Save my progress" on the account page | Username, password (at least 8 characters) | Save my progress, Cancel |
-| Sign in (`signin-dialog`) | "Sign in" on the account page | Username, password and a "Forgot your password?" link | Sign in, Cancel |
-| Forgot your password (`forgot-dialog`) | The link in the sign-in popup | "Email game@tejastagra.com with your username and we'll reset it for you." | Close |
+| Log in (`signin-dialog`) | "Log in" on the account page | Username, password and a "Forgot your password?" link | Log in, Cancel |
+| Forgot your password (`forgot-dialog`) | The link in the log-in popup | "Email game@tejastagra.com with your username and we'll reset it for you." | Close |
 | Change password (`password-dialog`) | "Change password" on the account page | Current password, new password | Change password, Cancel |
 | Forced password change (`must-change-dialog`) | Signing in with a temporary password (it cannot be closed or skipped: no close button, no Escape, no dim tap) | "Choose a new password", new password | Set password |
 | Shield help (`shield-help`) | The info button on the shield row (U104) | The shield rule | Close |
@@ -32,7 +32,7 @@ The end-of-game popup, the tutorial and the watching screen's result card are ol
 ## The keyboard (added 31 October 2026, Part B of the second fix list, Q21)
 
 - **U91** On a phone a popup is sized and placed to the **visible area**, using `window.visualViewport` (updated on its `resize` and `scroll` events) and written to `--vv-top` and `--vv-height` on the popup. When the keyboard opens the popup shrinks to the space above it; its heading and fields scroll inside the card if they must, and **the action buttons stay pinned at the bottom of the card**, just above the keyboard. The page's viewport meta also carries `interactive-widget=resizes-content` where supported. The safe-area padding stays.
-- **U92** The keyboard's own key finishes the form: a field that is followed by another has `enterkeyhint="next"` and Enter moves focus to the next field instead of submitting; the last field has `enterkeyhint="go"` and Enter submits. Usernames use `autocomplete="username"`; Save my progress and Change password (and the forced change) use `autocomplete="new-password"` for the new password; Sign in, and the current password of Change password, use `autocomplete="current-password"`.
+- **U92** The keyboard's own key finishes the form: a field that is followed by another has `enterkeyhint="next"` and Enter moves focus to the next field instead of submitting; the last field has `enterkeyhint="go"` and Enter submits. Usernames use `autocomplete="username"`; Save my progress and Change password (and the forced change) use `autocomplete="new-password"` for the new password; Log in, and the current password of Change password, use `autocomplete="current-password"`.
 
 ## The end popup's title shadow (added 31 October 2026, Part A item 1)
 

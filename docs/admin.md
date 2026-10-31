@@ -27,12 +27,12 @@ It prints an error and changes nothing when the username does not exist.
 
 ### 3. Send it to the player
 
-Reply to their email with the temporary password and these steps: open Rubble, go to Account, tap Sign in, enter the username and the temporary password, then choose a new password when asked. The temporary password works for that one sign-in and stops working as soon as they have chosen a new password.
+Reply to their email with the temporary password and these steps: open Rubble, go to Account, tap Log in, enter the username and the temporary password, then choose a new password when asked. The temporary password works for that one log-in and stops working as soon as they have chosen a new password.
 
 ### What the app records
 
 The log has one line, `admin_reset`, with the username and nothing else. Passwords, their hashes and session cookies are never logged.
 
-### If the player has not signed in within a few days
+### If the player has not logged in within a few days
 
 Nothing expires on its own. If you are unsure whether the temporary password has been seen by someone else, run the reset again: it replaces the temporary password and signs out every other session of the account.

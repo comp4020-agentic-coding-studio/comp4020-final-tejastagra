@@ -273,11 +273,11 @@ for (const viewport of VIEWPORTS) {
       });
     }
 
-    test("Q8 a guest never sees Sign out, and never a sign-in form once signed in", async ({ browser }) => {
+    test("Q8 a guest never sees Log out, and never a log-in form once logged in", async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await page.goto("/account");
       await page.waitForLoadState("networkidle");
-      await expect(page.locator(testid("signout")), "a guest sees no Sign out").toBeHidden();
+      await expect(page.locator(testid("signout")), "a guest sees no Log out").toBeHidden();
       await context.close();
     });
   });
@@ -416,7 +416,7 @@ test.describe("Q7 and Q8 forms and controls", () => {
     await context.close();
   });
 
-  test("Q8 a signed-in player sees no sign-in or sign-up control, and a guest sees no Sign out", async ({ browser }) => {
+  test("Q8 a logged-in player sees no log-in or sign-up control, and a guest sees no Log out", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
     await page.goto("/account");
@@ -1742,6 +1742,48 @@ test.describe("Q25 U159 the tutorial's fixed order and the ghost lane", () => {
         expect.soft(overlay, `Q15 ${where}: the tutorial does not scroll`).toBeLessThanOrEqual(0);
         const card = await page.locator(`${testid("tutorial")} .tutorial-card`).evaluate((el) => el.scrollHeight - el.clientHeight);
         expect.soft(card, `Q15 ${where}: the card does not scroll`).toBeLessThanOrEqual(0);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      await context.close();
+    });
+  }
+});
+
+// ---- Part 4 of the 31 October 2026 fix list: U159, the tutorial's hint sits 16px below the board, never against its edge ----
+
+test.describe("U159 the hint sits at least 16px below the board, and no gap in the order is larger than 24px", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(60_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      for (let step = 1; step <= 11; step++) {
+        const where = `step ${step} at ${viewport.width} x ${viewport.height}`;
+        await doTutorialStep(page, step);
+        const board = await page.locator(".tutorial-board .board-wrap .board").boundingBox().catch(() => null);
+        const hint = (await page.locator(testid("tutorial-hint")).boundingBox())!;
+        // The practice timer bar's place is reserved (visibility: hidden, not removed) once a step has shown it, so it
+        // always takes layout space between the board and the hint from step 4 onwards; it is not empty space, so the
+        // gap is measured from whichever of the two sits lowest.
+        const timer = await page.locator(testid("tutorial-timer")).boundingBox().catch(() => null);
+        if (board) {
+          const above = timer ? Math.max(board.y + board.height, timer.y + timer.height) : board.y + board.height;
+          const gap = hint.y - above;
+          expect(gap, `${where}: at least 16px between the board (or its timer bar) and the hint`).toBeGreaterThanOrEqual(15.5);
+          expect(gap, `${where}: no gap larger than 24px`).toBeLessThanOrEqual(24.5);
+        }
+        // Steps 6 and 7 (shield, Earthquake) put the step's own action button between the hint and Next.
+        const action = await page
+          .locator(`${testid("tutorial-shield")}, ${testid("tutorial-earthquake")}`)
+          .filter({ visible: true })
+          .first()
+          .boundingBox()
+          .catch(() => null);
+        const next = (await page.locator(testid("tutorial-next")).boundingBox())!;
+        const hintToAction = action ? action.y - (hint.y + hint.height) : null;
+        if (hintToAction !== null) expect(hintToAction, `${where}: no gap larger than 24px between the hint and its button`).toBeLessThanOrEqual(24.5);
+        const buttonGap = next.y - (action ? action.y + action.height : hint.y + hint.height);
+        expect(buttonGap, `${where}: no gap larger than 24px between the hint (or its button) and Next`).toBeLessThanOrEqual(24.5);
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
       await context.close();

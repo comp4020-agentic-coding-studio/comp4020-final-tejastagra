@@ -86,7 +86,7 @@ async function showPlayer(): Promise<void> {
   $("player-avatar").replaceWith(fresh);
   currentName = player?.nickname ?? "";
   $("player-name").textContent = player ? player.displayName : "Guest";
-  $("player-kind").textContent = player ? (player.kind === "account" ? "Account" : "Guest") : "";
+  $("player-kind").textContent = player ? (player.kind === "account" ? "Logged in" : "Guest") : "";
 }
 
 // The pencil opens the nickname popup, prefilled with the current nickname (U32, Q7).

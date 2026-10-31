@@ -25,7 +25,7 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q5 | Every heading's left edge matches its content's within 4px | | todo |
 | Q6 | Each page's main column is centred within 16px | | todo |
 | Q7 | The nickname editor opens prefilled | | todo |
-| Q8 | A guest never sees Sign out; a signed-in player never sees sign-in or sign-up | | todo |
+| Q8 | A guest never sees Log out; a logged-in player never sees log-in or sign-up | | todo |
 | Q9 | Every screen except home has a Home, Cancel or Leave button | | todo |
 | Q10, Q11 | Empty states explain themselves; no page looks plain | `/visual-qa` (judged by looking) | judged |
 | Q12 | On every screen except home, the header bar's Home button is inside the viewport on load at 320, 390 and 1366 wide, and the bar is the first thing on the page | `docs/design/qa-checklist.md` Q12 | passing |
@@ -52,6 +52,7 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q30, U114a | On a laptop the account page is two columns, vertically centred within 24px, the page itself never scrolls and the history scrolls in its own card; on a phone it stays one column | `e2e/account.spec.ts` | passing |
 | U151 | The result line is a visually hidden aria-live region, never visible, and updates after each round; at least 16px between the power-up row and the bottom of the screen | `e2e/layout.spec.ts` | passing |
 | U132, U154 | No coloured stripe on a player card; both cards share one layout (avatar left, name, status, icons 12px apart) and match in size within 2px | `e2e/layout.spec.ts` | passing |
+| U159 | The tutorial's hint sits at least 16px below the board (or its timer bar); no gap in the fixed order is larger than 24px | `e2e/layout.spec.ts` | passing |
 
 ## Hygiene (`spec/unit-check-isolation.test.ts`)
 

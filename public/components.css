@@ -2274,9 +2274,10 @@ input:focus {
   margin-top: 4px;
 }
 
-/* The practice round timer (U140): the game's bar, under the practice board. */
+/* The practice round timer (U140): the game's bar, under the practice board. Its own bottom margin stays 0: the hint's
+   margin-top already gives the 16px gap U159 asks for below the board (or the timer bar, when it is showing). */
 .tutorial-timer {
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .tutorial-board {
@@ -4287,13 +4288,15 @@ input:focus {
   bottom: var(--frame);
 }
 
-.tutorial-shield {
-  margin: 16px auto 0;
-}
-
+/* U159 (fixed 31 October 2026): the hint sits 16px under the board, never against its edge; the step's button (shield
+   or Earthquake, when the step has one) follows 16px under the hint. */
 .tutorial-hint {
   min-height: 0;
-  margin: 8px 0 0;
+  margin: 16px 0 0;
+}
+
+.tutorial-shield {
+  margin: 16px auto 0;
 }
 
 .tutorial-actions {
@@ -4378,22 +4381,26 @@ input:focus {
   }
 
   .tutorial-shield {
-    margin-top: 8px;
+    margin-top: 4px;
   }
 
+  /* U159 (fixed 31 October 2026): at least 16px between the board and the hint, never against its edge, even on a
+     compact screen; the gaps after the hint stay tighter here so the step still fits one screen (Q15). */
   .tutorial-hint {
-    margin: 4px 0 0;
+    margin: 16px 0 0;
     font-size: 0.8rem;
     line-height: 1.15;
   }
 
   .tutorial-actions {
-    margin-top: 8px;
+    margin-top: 4px;
   }
 }
 
 /* Steps with an action button (shield, Earthquake): the button and the hint that goes with it share one row, so the card still fits
-   one screen at 320 x 568 (Q15) with the lane and the gaps of U159 untouched. The button keeps its 44px height. */
+   one screen at 320 x 568 (Q15) with the lane and the gaps of U159 untouched. The button keeps its 44px height.
+   U159's DOM order (changed 31 October 2026) is status, board, hint, then the button, so the hint is matched by its own
+   class rather than by a sibling combinator that assumed the old order. */
 @media (max-width: 359px) {
   .tutorial-board {
     display: grid;
@@ -4412,17 +4419,23 @@ input:focus {
     width: 100%;
   }
 
-  .tutorial-board > .tutorial-shield:not([hidden]) {
+  /* The hint now comes before the button in the DOM (U159's reading order). Dense packing lets the button, which
+     follows it, backfill the same row's empty first column instead of starting a new row (which sparse packing would
+     do, since it never looks backward), so the two still share one row here exactly as when the button came first. */
+  .tutorial-board:has(> .tutorial-shield:not([hidden])) {
+    grid-auto-flow: dense;
+  }
+
+  .tutorial-board:has(> .tutorial-shield:not([hidden])) > .tutorial-hint {
+    grid-column: 2;
+    margin: 16px 0 0;
+    text-align: left;
+  }
+
+  .tutorial-board:has(> .tutorial-shield:not([hidden])) > .tutorial-shield {
     grid-column: 1;
     width: auto;
     margin: 8px 0 0;
-  }
-
-  .tutorial-board > .tutorial-shield:not([hidden]) ~ .tutorial-hint {
-    grid-column: 2;
-    grid-row: auto;
-    margin: 8px 0 0;
-    text-align: left;
   }
 }
 

@@ -377,7 +377,9 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   hint.className = "tutorial-hint";
   hint.dataset.testid = "tutorial-hint";
   hint.setAttribute("role", "status");
-  host.replaceChildren(status, warning, wrap, friends, timerBar, shield, quake, hint);
+  // U159's fixed order: the opponent's status, the lane (the board-wrap's own top margin), the board, then the hint,
+  // then the step's own button (shield or Earthquake) if it has one, then Next (a sibling in tutorial-actions).
+  host.replaceChildren(status, warning, wrap, friends, timerBar, hint, shield, quake);
 
   const heights = new Array<number>(7).fill(0);
   const ghost = document.createElement("span");

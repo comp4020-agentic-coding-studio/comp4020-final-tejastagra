@@ -28,6 +28,8 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Quick match** | The random lobby that pairs you with whoever is waiting | random lobby, matchmaking |
 | **Guest** | A player with a nickname and no password | anonymous user |
 | **Account** | A player who signed up with a username and password | profile |
+| **Logged in** | The status shown for a player at an account, on their player card and account page (changed 31 October 2026, replaces "Signed in" and "Account" as a status word) | signed in, account (as a status) |
+| **Log in**, **Log out** | The buttons and popup that open or end a session on an account (changed 31 October 2026, replaces "Sign in" and "Sign out") | sign in, sign out |
 | **Computer** | The built-in opponent | AI, bot, CPU |
 | **Forfeit** | A game ended because a player left and did not return | abandon (see below) |
 | **Abandoned** | A game ended because both players missed 3 rounds in a row | |

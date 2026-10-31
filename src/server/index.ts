@@ -389,7 +389,7 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
       return true;
     }
     if (!player || player.username === null) {
-      json(res, 401, { error: "Sign in first." });
+      json(res, 401, { error: "Log in first." });
       return true;
     }
     // A session that signed in with a temporary password already proved it (R87), so it need not type it again.
