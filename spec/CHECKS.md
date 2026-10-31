@@ -33,9 +33,9 @@ Status: **todo** (stub only), **written**, **passing**.
 | U33 | The home menu buttons have no subtext line under them (changed 29 October 2026) | `e2e/layout.spec.ts` | passing |
 | U98 | Nothing on the quick match screen moves by more than 1px when the live count arrives | `e2e/layout.spec.ts` | passing |
 | Q14 | A player's colour and marker are the same on both players' screens and a spectator's (`e2e/player-colours.spec.ts`) | Q14 | passing |
-| Q15 | The game screen, every tutorial step and every popup fit one screen with no vertical scrolling at 390 x 844, 1366 x 768 and 320 x 568 | `e2e/layout.spec.ts` | todo |
-| Q16 | No button or caption's box intersects the board on the game screen or in the tutorial | `e2e/layout.spec.ts` | todo |
-| Q17 | On the home screen the gaps between the player card and each menu button are equal within 2px, on a phone and a laptop | `e2e/layout.spec.ts` | todo |
+| Q15 | The game screen, every tutorial step and every popup fit one screen with no vertical scrolling at 390 x 844, 1366 x 768 and 320 x 568 | `e2e/layout.spec.ts` | passing |
+| Q16 | No button or caption's box intersects the board on the game screen or in the tutorial | `e2e/layout.spec.ts` | passing |
+| Q17 | On the home screen the gaps between the player card and each menu button are equal within 2px, on a phone and a laptop | `e2e/layout.spec.ts` | passing |
 
 ## Hygiene (`spec/unit-check-isolation.test.ts`)
 

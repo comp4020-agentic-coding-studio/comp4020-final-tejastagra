@@ -2,7 +2,7 @@
 // 1366 wide. Q10 and Q11 are judged by looking, in /visual-qa. Run with pnpm test:e2e, never in pnpm check.
 import { expect, test, type Page } from "@playwright/test";
 import { LAPTOP, NARROW, PHONE } from "../playwright.config.ts";
-import { makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, waitForStart } from "./helpers.ts";
+import { doTutorialStep, makeGameCode, newPlayer, openTutorial, testid, toTutorialStep, waitForStart } from "./helpers.ts";
 
 // A failing check should fail in seconds, not wait a minute for a dialog that is not there.
 test.use({ actionTimeout: 5_000 });
@@ -985,4 +985,141 @@ test.describe("Q17 the home stack is evenly spaced", () => {
     await expect(page.locator(`${testid("leaderboard-wins")} li`)).toHaveCount(3);
     await context.close();
   });
+});
+
+// ---- Q15 and Q16: nothing scrolls and nothing overlaps the board, on the game screen, in the tutorial and in popups ----
+
+// How far a page, or a popup's card, runs past the screen: zero when everything is on one screen.
+async function pageOverflow(page: Page): Promise<number> {
+  return page.evaluate(() => Math.max(0, document.documentElement.scrollHeight - window.innerHeight));
+}
+
+// The boxes of buttons and captions that intersect the board (Q16). The board's own column hit areas are not "on" the board:
+// they are the board.
+async function overlapsBoard(page: Page, boardSelector: string, within: string): Promise<string[]> {
+  return page.evaluate(
+    ({ boardSelector, within }) => {
+      const board = document.querySelector<HTMLElement>(boardSelector);
+      const root = document.querySelector<HTMLElement>(within);
+      if (!board || !root) return ["no board"];
+      const b = board.getBoundingClientRect();
+      const bad: string[] = [];
+      for (const el of root.querySelectorAll<HTMLElement>("button, a.btn, .btn, [role=button], .result, .message, .tutorial-caption, .tutorial-status, .tutorial-hint")) {
+        if (board.contains(el)) continue;
+        const style = getComputedStyle(el);
+        if (style.display === "none" || style.visibility === "hidden") continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        const x = Math.min(r.right, b.right) - Math.max(r.left, b.left);
+        const y = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
+        if (x > 1 && y > 1) bad.push(`${el.dataset.testid ?? el.className ?? el.tagName} overlaps the board by ${Math.round(x)} x ${Math.round(y)}`);
+      }
+      return bad;
+    },
+    { boardSelector, within },
+  );
+}
+
+async function openComputerGame(page: Page): Promise<void> {
+  const code = (await (await page.request.post("/api/computer")).json()).code as string;
+  await page.goto(`/g/${code}`);
+  await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
+  await waitForStart(page); // the start countdown has ended (R97)
+}
+
+test.describe("Q15 and Q16 the game screen is one screen with nothing on the board", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q15 Q16 a computer game does not scroll, and its result line keeps room under it, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openComputerGame(page);
+      expect.soft(await pageOverflow(page), "Q15 no vertical scrolling").toBe(0);
+      expect(await overlapsBoard(page, testid("board-wrap"), "main"), "Q16 nothing overlaps the board").toEqual([]);
+      const result = (await page.locator(testid("result-line")).boundingBox())!;
+      const message = await page.locator(testid("game-message")).boundingBox();
+      const bottom = Math.max(result.y + result.height, message ? message.y + message.height : 0);
+      expect(viewport.height - bottom, "U149 the result line is not against the bottom edge").toBeGreaterThanOrEqual(15.5);
+      const players = (await page.locator(testid("players")).boundingBox())!;
+      const board = (await page.locator(testid("board-wrap")).boundingBox())!;
+      const ghostRoom = board.y - (players.y + players.height);
+      expect(ghostRoom, "U149 little empty space between the versus bar and the board").toBeLessThanOrEqual(viewport.width < 600 ? 40 : 48);
+      // The same after a round, with a result line showing.
+      await context.close();
+    });
+  }
+});
+
+test.describe("Q15 Q16 the tutorial: every step fits one screen with nothing on the board", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q15 Q16 all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(90_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      for (let step = 1; step <= 11; step++) {
+        await doTutorialStep(page, step); // acts, then Next shows (after steps 6 and 7 the shield and Earthquake buttons were on screen)
+        const where = `step ${step} at ${viewport.width} x ${viewport.height}`;
+        const overlay = await page.locator(testid("tutorial")).evaluate((el) => el.scrollHeight - el.clientHeight);
+        expect.soft(overlay, `Q15 ${where}: the tutorial does not scroll`).toBeLessThanOrEqual(0);
+        const card = await page.locator(`${testid("tutorial")} .tutorial-card`).evaluate((el) => ({ over: el.scrollHeight - el.clientHeight, ...el.getBoundingClientRect().toJSON() }));
+        expect.soft(card.over, `Q15 ${where}: the card does not scroll`).toBeLessThanOrEqual(0);
+        expect(card.top, `${where}: the card starts on screen`).toBeGreaterThanOrEqual(-0.5);
+        expect.soft(card.bottom, `${where}: the card ends on screen`).toBeLessThanOrEqual(viewport.height + 0.5);
+        for (const id of ["tutorial-next", "tutorial-skip"]) {
+          const b = (await page.locator(testid(id)).boundingBox())!;
+          expect.soft(b.y + b.height, `Q15 ${where}: ${id} is on screen`).toBeLessThanOrEqual(viewport.height + 0.5);
+          expect(b.height, `${where}: ${id} is at least 44px tall`).toBeGreaterThanOrEqual(43.5);
+        }
+        expect(await overlapsBoard(page, ".tutorial-board .board-wrap", testid("tutorial")), `Q16 ${where}`).toEqual([]);
+        // Next, Skip and a step's action button are clear of each other (at least 8px apart) and under the board.
+        const next = (await page.locator(testid("tutorial-next")).boundingBox())!;
+        const skip = (await page.locator(testid("tutorial-skip")).boundingBox())!;
+        const board = (await page.locator(".tutorial-board .board-wrap").boundingBox())!;
+        expect(next.y, `${where}: Next is below the board`).toBeGreaterThanOrEqual(board.y + board.height - 1);
+        const clearY = skip.y - (next.y + next.height); // stacked: space between them
+        const clearX = Math.max(skip.x - (next.x + next.width), next.x - (skip.x + skip.width)); // side by side on a short phone
+        expect(Math.max(clearY, clearX), `${where}: clear space between Next and Skip`).toBeGreaterThanOrEqual(7.5);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      await context.close();
+    });
+  }
+});
+
+test.describe("Q15 popups fit one screen", () => {
+  for (const viewport of FULL_SCREENS) {
+    const popups: Array<{ name: string; screen: string; opener: string; dialog: string; game?: boolean }> = [
+      { name: "nickname", screen: "/", opener: "rename", dialog: "nickname-dialog" },
+      { name: "join with a code", screen: "/", opener: "join-toggle", dialog: "code-dialog" },
+      { name: "sign up", screen: "/account", opener: "open-signup", dialog: "signup-dialog" },
+      { name: "sign in", screen: "/account", opener: "open-signin", dialog: "signin-dialog" },
+      { name: "shield help", screen: "", opener: "shield-info", dialog: "shield-help", game: true },
+      { name: "earthquake help", screen: "", opener: "earthquake-info", dialog: "earthquake-help", game: true },
+      { name: "leave", screen: "", opener: "header-home", dialog: "leave-dialog", game: true },
+    ];
+    for (const popup of popups) {
+      test(`Q15 ${popup.name} popup at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+        const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+        if (popup.game) await openComputerGame(page);
+        else await page.goto(popup.screen);
+        await page.waitForLoadState("networkidle");
+        await page.locator(testid(popup.opener)).click();
+        const dialog = page.locator(testid(popup.dialog));
+        await expect(dialog).toBeVisible();
+        const m = await dialog.evaluate((el) => {
+          const card = el.querySelector<HTMLElement>(".dialog-card") ?? el;
+          const r = card.getBoundingClientRect();
+          return { over: card.scrollHeight - card.clientHeight, top: r.top, bottom: r.bottom, outer: el.scrollHeight - el.clientHeight };
+        });
+        expect(m.over, "the popup's card does not scroll").toBeLessThanOrEqual(0);
+        expect(m.outer, "the popup does not scroll").toBeLessThanOrEqual(0);
+        expect(m.top, "the popup starts on screen").toBeGreaterThanOrEqual(-0.5);
+        expect(m.bottom, "the popup ends on screen").toBeLessThanOrEqual(viewport.height + 0.5);
+        for (const b of await dialog.locator("button").all()) {
+          const box = await b.boundingBox();
+          if (!box) continue;
+          expect(box.y + box.height, "every popup button is on screen").toBeLessThanOrEqual(viewport.height + 0.5);
+        }
+        await context.close();
+      });
+    }
+  }
 });

@@ -2225,7 +2225,7 @@ input {
 }
 
 .tutorial-caption {
-  margin: 8px 0;
+  margin: 4px 0;
   font-size: 1.05rem;
 }
 
@@ -2246,11 +2246,13 @@ input {
 }
 
 .tutorial-board {
-  margin: 8px 0;
+  margin: 4px 0;
 }
 
 .tutorial-board .board-wrap {
-  margin: calc(var(--ghost-size) + 4px) 0 8px;
+  /* U148: the board is sized from the height left under the caption, so a laptop's card never scrolls. */
+  width: 100%;
+  margin: calc(var(--ghost-size) + 4px) auto 8px;
   padding-bottom: 20px;
 }
 
@@ -2306,7 +2308,7 @@ input {
   position: sticky;
   bottom: 0;
   display: grid;
-  gap: 2px;
+  gap: 8px; /* Next and Skip are clear of each other (U148) */
   justify-items: center;
   padding: 4px 0 2px;
   background: var(--panel);
@@ -2385,6 +2387,13 @@ input {
   .tutorial-board > :not(.board-wrap) {
     padding-left: 8px;
     padding-right: 8px;
+  }
+}
+
+/* U148: on a laptop the practice board is sized from the height left under the caption, so the card never scrolls. */
+@media (min-width: 900px) {
+  .tutorial-board .board-wrap {
+    width: clamp(260px, calc((100dvh - 540px) * 7 / 6), 100%);
   }
 }
 
@@ -3755,4 +3764,76 @@ input {
 
 .leaderboard > .topbar {
   max-width: min(var(--list-width), 100%);
+}
+
+/* ---- Tighter game screen (U149, Q15): everything fits one screen with room under the result line ---- */
+.game .message:empty {
+  display: none;
+}
+
+.game .result {
+  min-height: 1.4em;
+  margin: 6px 0 16px; /* the result line never sits against the bottom edge */
+}
+
+.game .topbar {
+  margin-bottom: 4px;
+}
+
+.game .powerups {
+  margin-top: 8px;
+}
+
+.game:not(.watching) .board-wrap {
+  margin-top: calc(var(--ghost-size) / 2 + 2px); /* the ghost disc overlaps the board's frame instead of having a row of its own */
+}
+
+@media (min-width: 900px) {
+  :root {
+    --board-width: min(560px, calc((100vh - 420px) * 7 / 6));
+  }
+}
+
+
+/* At 320 x 568 the gaps shrink first (Q15): the board keeps its full width so its columns stay 44px wide. */
+@media (max-width: 359px) {
+  .game:not(.watching) .board-wrap {
+    margin-top: calc(var(--ghost-size) / 3);
+    padding-bottom: 14px;
+  }
+
+  .game .result {
+    margin: 4px 0 12px;
+    min-height: 1.2em;
+  }
+
+  .game .powerups {
+    margin-top: 4px;
+  }
+
+  .game .topbar {
+    margin-bottom: 2px;
+  }
+}
+
+/* The result line carries its own 12-16px of room under it (U149), so the page adds only a little more below it. */
+.arena.game {
+  padding-bottom: 8px;
+}
+
+/* U148, Q15: on a short or narrow phone, Next and Skip share one row under the board (8px apart, each at least 44px tall), so every
+   step, even the ones with a power-up button and a hint, fits one screen with no scrolling. */
+@media (max-width: 359px), (max-height: 640px) {
+  .tutorial-actions {
+    position: static;
+    grid-auto-flow: column;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0 0;
+  }
+
+  .tutorial-actions .btn {
+    min-height: 44px;
+  }
 }

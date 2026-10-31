@@ -251,3 +251,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** `e2e/layout.spec.ts` gains checks for each: a link spectator at 320 (no sideways scroll, board centred and whole), Watch another game on one line at 320 and 390, and the first-screen rule at 320 with the widest names; each was seen to fail before the fix. The fixes: the notice takes its own line with the count under it (U92), the watching screen's buttons stack and never wrap below 600px, and a game panel's name is at most two lines at 320 (U132).
 - **Rule for the future:** a check for a screen's fit must use the worst case the rules allow (the widest names, every banner showing), and a screen with variants (a link spectator, a quick match spectator) needs each variant measured at the narrowest width.
 - **Commits:** the commit that follows this entry.
+
+### C32. The game screen and the tutorial scrolled, and no check said so
+- **Date:** 31 October 2026
+- **What went wrong:** Tejas found that the game screen at 320 x 568 and on a laptop ran past the screen (the result line sat against or below the bottom edge), and that the tutorial card scrolled on the steps with a power-up button, with Next and Skip touching. Every earlier check measured widths, tap targets and the board's centre, never whether the whole screen fits, so all passed. The handover even listed "Leave game is below the first screen at 320 x 568" as accepted.
+- **How it was caught:** Tejas reported it from using the app.
+- **Harness fix:** rules Q15 (no scrolling on the game, the tutorial and popups at 390 x 844, 1366 x 768 and 320 x 568), Q16 (nothing overlaps the board) and Q17 (even gaps in a stack) in CLAUDE.md and `docs/design/qa-checklist.md`; `e2e/layout.spec.ts` measures all three on the game screen, every tutorial step and seven popups, each seen to fail before the fix. A 320 x 568 allowance in U107 is withdrawn (U149).
+- **Rule for the future:** "it fits one screen" is a measurement, not a hope; a screen that is allowed to scroll needs a rule that says so, and an accepted overflow in a handover is a missing rule.
+- **Commits:** the commit that follows this entry.
