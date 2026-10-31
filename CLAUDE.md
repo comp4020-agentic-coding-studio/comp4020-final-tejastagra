@@ -57,7 +57,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 - Take every colour, font, radius, shadow and duration from `public/theme.css`.
 - Follow `docs/design/` and everything else in `docs/design.md`.
 - Show only real product copy to players: no preview or developer text.
-- Pass every rule in `docs/design/qa-checklist.md` (Q1 to Q23):
+- Pass every rule in `docs/design/qa-checklist.md` (Q1 to Q24):
   - **No layout shift (Q1):** nothing ever expands inline and pushes other elements. Editing, joining with a code, info explanations, sign up, sign in and confirmations all open in a centred popup dialog over a dimmed page, with a close button and Escape to close.
   - **Button text never wraps (Q2):** every button label fits on one line at both viewports. Shorten the label or widen the button instead.
   - **Boxes fit their content (Q3):** a card is only as wide as its content needs, at most 480px for forms and status messages and 560px for lists, and centred.
@@ -66,9 +66,9 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
   - **Every page has one centred content column (Q6).**
   - **Forms that edit an existing value are prefilled with it (Q7).**
   - **Controls only appear when they make sense (Q8):** never Sign out for a guest, never sign-in forms for a signed-in player.
-  - **Every screen except home has a visible way to leave (Q9),** such as Home, Cancel or Leave game.
+  - **Every screen except home has a visible way to leave (Q9),** such as Home, Cancel or Leave game. The friend waiting screen uses **Cancel game** for this and has no Home button; the Quick match screen uses the header's Home and has no Cancel button.
   - **Empty states explain themselves (Q10).**
-  - **The way home is always visible (Q12):** every screen except home has a header bar at the top with a Home button on its left, on screen when the page loads at both viewports without scrolling. No page relies on a Home button at the bottom.
+  - **The way home is always visible (Q12):** every screen except home, **apart from the friend waiting screen** (whose way to leave is Cancel game), has a header bar at the top with a Home button on its left, on screen when the page loads at both viewports without scrolling. No page relies on a Home button at the bottom.
   - **The main thing is centred (Q13):** the main thing on a screen (the board, a card or a list) is centred on the page, and nothing sits beside it in a way that pushes it off centre.
   - **Players always look the same to everyone (Q14):** a player's colour and marker are the same on both players' screens and on every spectator's screen.
   - **No scrolling on game, tutorial and popup screens (Q15):** everything, including every button, fits on one screen at both marking viewports and at 320 x 568. If space is short, reduce empty gaps first, then sizes, but never below the 44px tap target minimum.
@@ -80,6 +80,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
   - **The keyboard never covers a form (Q21):** on a phone, when the keyboard is open, the focused field and the form's buttons stay visible above it.
   - **Avatars carry the disc colour (Q22):** in a game and on the watching screen each avatar is red or yellow like the player's discs, with a ring or cross badge, the same on every screen; no VS badge on a phone.
   - **The home stack (Q23):** the player card is taller than a menu button with at least 16px of vertical padding, the gaps from the card and between the buttons are equal, round icon labels sit 8px below their circles, and the home screen has no Top players and no "Nickname saved." message.
+  - **The waiting card sits within the board (Q24):** its edges are inside the board's, centred on it; if it is taller than the board, the board is fully dimmed behind it and the card is centred on the page.
   - **No page looks plain (Q11):** every page has a header with the Rubble title and a short subtitle and uses the toy style from `docs/design/look-and-feel.md` (icons, outlined cards, hard shadows), not bare text boxes.
 - Run `/visual-qa` on the screens you changed before declaring screen work finished. If the command is not available in the current session, read `.claude/commands/visual-qa.md` and carry out its steps directly.
 
