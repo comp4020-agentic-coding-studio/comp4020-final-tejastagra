@@ -347,3 +347,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** `--shadow-title-popup` (2px) and U160, with a unit check that its offset is at most 3px and that the popup title uses it.
 - **Rule for the future:** a shared token sized for a large element must not be reused on a small one without looking at it.
 - **Commits:** the commit that follows this entry.
+
+### C44. A background agent ran the final fix list with no commits and no limit on the suites it could run
+- **Date:** 31 October 2026
+- **What went wrong:** a background general-purpose agent was asked to work through the whole final fix list (four parts plus full testing and a Docker check) unsupervised. It spent a large share of the week's budget, left all its work uncommitted (zero commits landed, though real progress sat in the working tree on Parts 1 and 2), and was still running the full suites when it was stopped. A background agent cannot be watched commit by commit, so a long run before the first commit is wasted work if anything has to change, and nobody could see what it was doing or stop it at a sensible point.
+- **How it was caught:** Tejas asked what the agent had done after noticing the spend, and found no commits on the branch at all.
+- **Harness fix:** CLAUDE.md now says never to use general-purpose or background subagents for this work, to commit each finished fix straight away, to cap browser-check retries at 3 attempts before giving up and recording the failure in `docs/handover.md`, and to run only the individual checks changed, never a whole spec file or the full suites, unless Tejas asks for them.
+- **Rule for the future:** work that must be reviewed commit by commit is done in the foreground, not handed to a background agent; a long unsupervised run with no commit is a sign to stop and check in, not to let it keep going.
+- **Commits:** none; recorded before the next commit.
