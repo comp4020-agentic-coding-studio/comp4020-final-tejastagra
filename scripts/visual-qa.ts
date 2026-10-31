@@ -424,6 +424,16 @@ const STATES: State[] = [
     },
   },
   {
+    // R97, U133: the 3 second start countdown, which tells the player their colour.
+    name: "start-countdown",
+    run: async ({ page, shot }) => {
+      await openGame(page);
+      await page.locator(testid("get-ready")).waitFor();
+      await settle(page, 300);
+      await shot();
+    },
+  },
+  {
     name: "computer-game",
     run: async ({ page, shot }) => {
       await openGame(page);
@@ -474,10 +484,10 @@ const STATES: State[] = [
       await watcher.page.goto(`/g/${code}`);
       await watcher.page.locator(testid("spectator-notice")).waitFor();
       await settle(watcher.page, 1200);
+      // This state's picture is the spectator's screen: it is taken last, so nothing writes over it.
       await watcher.page.screenshot({ path: `reports/visual-qa/watching-link-game--${v.name}.png` });
       await watcher.context.close();
       await second.context.close();
-      await shot();
     },
   },
 ];
