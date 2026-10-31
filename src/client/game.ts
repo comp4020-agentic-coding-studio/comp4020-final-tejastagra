@@ -621,6 +621,10 @@ socket.addEventListener("message", (event) => {
       // U29: the reason is under the board, in the result line, never in the popup.
       $("result-line").textContent =
         message.result === "abandoned" ? "Both players missed 3 rounds in a row." : message.winner === you ? "Your opponent left the game." : "You left the game for too long.";
+      // The game is over (R27, R19): no round is open, so no timer runs and nobody is still choosing.
+      deadline = null;
+      drawTimer();
+      setText("opponent-status", "Finished");
       popupOpen();
       renderChoice();
       break;

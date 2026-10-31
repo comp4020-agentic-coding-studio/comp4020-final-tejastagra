@@ -697,6 +697,9 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, U132, R81)
     await one.page.waitForURL(/\/$/);
     await expect(two.page.locator(testid("end-title"))).toHaveText("YOU WIN!", { timeout: 3_000 });
     await expect(two.page.locator(testid("result-line"))).toContainText("Your opponent left the game."); // U29: the reason is under the board
+    // The game is over: no timer runs and the opponent is not still "Choosing" (found by /visual-qa, 29 October 2026).
+    await expect(two.page.locator(testid("timer"))).toBeHidden();
+    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Finished");
     await expect(two.page.locator(testid("end-detail"))).toHaveCount(0); // U29: the popup has its title and buttons only
     await one.context.close();
     await two.context.close();
