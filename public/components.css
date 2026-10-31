@@ -3762,60 +3762,6 @@ input {
   max-width: min(var(--list-width), 100%);
 }
 
-/* ---- Tighter game screen (U149, Q15): everything fits one screen with room under the result line ---- */
-.game .message:empty {
-  display: none;
-}
-
-.game .result {
-  min-height: 1.4em;
-  margin: 6px 0 16px; /* the result line never sits against the bottom edge */
-}
-
-.game .topbar {
-  margin-bottom: 4px;
-}
-
-.game .powerups {
-  margin-top: 8px;
-}
-
-.game:not(.watching) .board-wrap {
-  margin-top: calc(var(--ghost-size) / 2 + 2px); /* the ghost disc overlaps the board's frame instead of having a row of its own */
-}
-
-@media (min-width: 900px) {
-  :root {
-    --board-width: min(560px, calc((100vh - 420px) * 7 / 6));
-  }
-}
-
-
-/* At 320 x 568 the gaps shrink first (Q15): the board keeps its full width so its columns stay 44px wide. */
-@media (max-width: 359px) {
-  .game:not(.watching) .board-wrap {
-    margin-top: calc(var(--ghost-size) / 3);
-    padding-bottom: 14px;
-  }
-
-  .game .result {
-    margin: 4px 0 12px;
-    min-height: 1.2em;
-  }
-
-  .game .powerups {
-    margin-top: 4px;
-  }
-
-  .game .topbar {
-    margin-bottom: 2px;
-  }
-}
-
-/* The result line carries its own 12-16px of room under it (U149), so the page adds only a little more below it. */
-.arena.game {
-  padding-bottom: 8px;
-}
 
 /* U148, Q15: on a short or narrow phone, Next and Skip share one row under the board (8px apart, each at least 44px tall), so every
    step, even the ones with a power-up button and a hint, fits one screen with no scrolling. */
@@ -4148,4 +4094,363 @@ input {
   border: var(--outline);
   border-style: dashed;
   border-radius: var(--radius-panel);
+}
+
+
+/* ---- The game screen's fixed vertical order (U157, Q25) ----
+   header bar, 16px, versus bar, 16px, the ghost lane (one disc tall), 8px, the board, 12px, the timer bar, 16px, the power-up row.
+   The lane is the board's top margin, so the disc floats in it and nothing else ever does. */
+.game .message:empty {
+  display: none;
+}
+
+.arena.game {
+  padding: 8px 0;
+}
+
+.game .topbar {
+  margin-bottom: 16px;
+}
+
+.game .players.versus {
+  margin: 0;
+}
+
+.game:not(.watching) .board-wrap {
+  margin: calc(var(--ghost-size) + 8px) 0 12px; /* the lane (one disc tall), then 8px to the board; the 16px above it is the versus bar's */
+  padding-bottom: 0;
+}
+
+.game:not(.watching) .players.versus {
+  margin-bottom: 16px;
+}
+
+.game:not(.watching) .stage {
+  gap: 0; /* the gaps are the fixed ones of U157, never an extra grid gap */
+}
+
+.game .timer-track {
+  margin: 0 0 16px;
+}
+
+.game .powerups {
+  margin: 0 auto;
+}
+
+.game .result {
+  min-height: 1.4em;
+  margin: 8px 0;
+}
+
+/* On a laptop the board is at least 60% of the screen's height (Q26, U158): its width is 7/6 of its height, and the whole
+   column shares that width. The ghost lane is 40px so the whole screen still fits 768px with no scrolling (Q15). */
+@media (min-width: 900px) {
+  :root {
+    --ghost-size: 40px;
+    --board-width: min(620px, calc(100vh * 0.6 * 7 / 6 - 4px));
+  }
+
+  .arena.game {
+    padding: 4px 0 0;
+  }
+
+  .arena.game .topbar {
+    min-height: 44px;
+  }
+
+  .arena.game .topbar .topbar-home {
+    min-height: 44px;
+  }
+
+  .game .versus .player {
+    padding: 0 8px;
+    align-content: center;
+  }
+
+  .game .player-meta {
+    line-height: 1.1;
+  }
+
+  .game .versus .avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* The power-up buttons are 48px tall and equal (U158). */
+  .game .powerups .shield-badge,
+  .game .powerups .powerup-info {
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .game .powerup-row {
+    min-height: 0;
+  }
+
+  /* The opponent's power-ups sit beside their status on one line, so the two cards are the same height (U158, U154). */
+  .game .opponent-powerups {
+    flex-wrap: nowrap;
+  }
+
+  .game .result {
+    min-height: 1.1em;
+    margin: 2px 0 0;
+    line-height: 1.1;
+  }
+
+  .game .powerups {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .game .powerup-row {
+    width: 100%;
+  }
+
+  .game .powerups .shield-badge {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}
+
+/* On a small phone the result line, which is outside the fixed order (U157), is one compact line under the power-ups with no
+   extra margin, so the order's own lane and gaps are never given up (Q15, Q25). */
+@media (max-width: 899px) and (max-height: 700px) {
+  .arena.game {
+    padding: 4px 0 0;
+  }
+
+  .game .result {
+    min-height: 1.2em;
+    margin: 4px 0 0;
+    line-height: 1.2;
+  }
+}
+
+/* ---- The tutorial's fixed order (U159, Q25) ----
+   step counter, title, caption, the opponent's status on its own centred line, 16px, the ghost lane (one disc), 8px, the practice
+   board, 16px, the step's buttons 16px apart, then Skip. Nothing but the disc is ever in the lane. */
+.tutorial-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.tutorial-status {
+  position: static;
+  max-width: none;
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.tutorial-board .board-wrap {
+  margin: calc(16px + var(--ghost-size) + 8px) auto 0; /* 16px under the status line, the lane, then 8px to the board */
+  padding-bottom: 0;
+}
+
+.tutorial-board .board-wrap::before,
+.tutorial-board .board-wrap::after {
+  display: none;
+}
+
+.tutorial-board .columns-hit,
+.tutorial-board .columns-glow {
+  bottom: var(--frame);
+}
+
+.tutorial-shield {
+  margin: 16px auto 0;
+}
+
+.tutorial-hint {
+  min-height: 0;
+  margin: 8px 0 0;
+}
+
+.tutorial-actions {
+  position: static;
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 0;
+}
+
+@media (max-width: 359px), (max-height: 640px) {
+  .tutorial-actions {
+    grid-auto-flow: column;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+  }
+
+  .tutorial-card h2 {
+    margin: 0;
+  }
+
+  .tutorial-caption {
+    margin: 2px 0 0;
+  }
+}
+
+/* On a short or narrow phone the card is compact so every step, with its status line, lane, board, buttons and Skip, fits one screen
+   (Q15, Q25): the step counter and the title share one row, the caption is a little smaller, and the opponent's status sits on its
+   own centred line right under it. The lane and the gaps of U159 are never given up; the hint line (which repeats the caption) is
+   one short line under the board. */
+@media (max-width: 599px), (max-height: 800px) {
+  .tutorial {
+    padding: 4px 0;
+  }
+
+  /* At 320px the card is the screen's width and the board fills it with the card's 3px border and 3px padding, so each of the seven
+     columns is at least 44px wide (docs/design.md). */
+  .tutorial-card {
+    padding: 6px 3px 8px;
+    border-radius: var(--radius-panel);
+  }
+
+  .tutorial-caption,
+  .tutorial-card h2,
+  .tutorial-progress,
+  .tutorial-status,
+  .tutorial-hint {
+    padding: 0 6px;
+  }
+
+  .tutorial-actions {
+    grid-auto-flow: column;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+  }
+
+  .tutorial-progress {
+    display: inline;
+    font-size: 0.7rem;
+  }
+
+  .tutorial-card h2 {
+    display: inline;
+    margin-left: 6px;
+    font-size: 0.95rem;
+  }
+
+  .tutorial-caption {
+    font-size: 0.76rem;
+    line-height: 1.15;
+  }
+
+  .tutorial-status {
+    margin: 2px 0 0;
+    font-size: 0.72rem;
+  }
+
+  .tutorial-board .board-wrap {
+    margin-top: calc(16px + var(--ghost-size) + 8px);
+  }
+
+  .tutorial-shield {
+    margin-top: 8px;
+  }
+
+  .tutorial-hint {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    line-height: 1.15;
+  }
+
+  .tutorial-actions {
+    margin-top: 8px;
+  }
+}
+
+/* Steps with an action button (shield, Earthquake): the button and the hint that goes with it share one row, so the card still fits
+   one screen at 320 x 568 (Q15) with the lane and the gaps of U159 untouched. The button keeps its 44px height. */
+@media (max-width: 359px) {
+  .tutorial-board {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 8px;
+    align-items: center;
+  }
+
+  .tutorial-board > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .tutorial-board > .board-wrap {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .tutorial-board > .tutorial-shield:not([hidden]) {
+    grid-column: 1;
+    width: auto;
+    margin: 8px 0 0;
+  }
+
+  .tutorial-board > .tutorial-shield:not([hidden]) ~ .tutorial-hint {
+    grid-column: 2;
+    grid-row: auto;
+    margin: 8px 0 0;
+    text-align: left;
+  }
+}
+
+/* The hint changes as a step goes on ("Tap a column." then "Locked in. You cannot change it now."), and a card centred on the
+   screen would move everything above it whenever it grew or shrank. Its two lines are reserved from the start, so nothing moves
+   when the disc, or the words, appear (Q25, U159). */
+.tutorial-hint {
+  min-height: 2.4em;
+}
+
+@media (max-width: 359px) {
+  .tutorial-hint {
+    min-height: 2.3em;
+  }
+}
+
+/* Next appears when a step's action is done. Its place is reserved from the start (hidden, not removed), and it is the same 44px
+   as Skip, so the card never changes height when it shows (Q25, U159). */
+.tutorial-actions .btn {
+  min-height: 44px;
+  height: 44px;
+}
+
+.tutorial-actions [data-testid="tutorial-next"][hidden] {
+  display: inline-flex;
+  visibility: hidden;
+}
+
+/* The practice timer bar's place is kept when it goes after the player acts (the code hides it with data-shown instead of removing
+   it), so the card does not shrink (Q25, U159). A step that never shows it has no place kept for it (it is hidden outright). */
+.tutorial-timer[data-shown="false"] {
+  visibility: hidden;
+}
+
+@media (max-width: 359px) {
+  .tutorial-card {
+    padding-top: 4px;
+    padding-bottom: 6px;
+  }
+
+  .tutorial-caption {
+    margin-top: 0;
+  }
+}
+
+
+/* The game's board has no stand padding under it any more (U157), so the tap and glow layers end at the frame, not 20px above it. */
+.game:not(.watching) .columns-hit,
+.game:not(.watching) .columns-glow {
+  bottom: var(--frame);
+}
+
+.game:not(.watching) .board-wrap::before,
+.game:not(.watching) .board-wrap::after {
+  display: none; /* the stand's feet hung into the 12px gap under the board */
 }

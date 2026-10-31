@@ -1018,7 +1018,7 @@ async function openComputerGame(page: Page): Promise<void> {
 
 test.describe("Q15 and Q16 the game screen is one screen with nothing on the board", () => {
   for (const viewport of FULL_SCREENS) {
-    test(`Q15 Q16 a computer game does not scroll, and its result line keeps room under it, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+    test(`Q15 Q16 a computer game does not scroll and its result line is wholly on screen, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await openComputerGame(page);
       expect.soft(await pageOverflow(page), "Q15 no vertical scrolling").toBe(0);
@@ -1026,11 +1026,9 @@ test.describe("Q15 and Q16 the game screen is one screen with nothing on the boa
       const result = (await page.locator(testid("result-line")).boundingBox())!;
       const message = await page.locator(testid("game-message")).boundingBox();
       const bottom = Math.max(result.y + result.height, message ? message.y + message.height : 0);
-      expect(viewport.height - bottom, "U149 the result line is not against the bottom edge").toBeGreaterThanOrEqual(15.5);
-      const players = (await page.locator(testid("players")).boundingBox())!;
-      const board = (await page.locator(testid("board-wrap")).boundingBox())!;
-      const ghostRoom = board.y - (players.y + players.height);
-      expect(ghostRoom, "U149 little empty space between the versus bar and the board").toBeLessThanOrEqual(viewport.width < 600 ? 40 : 48);
+      // U149 was changed by U157 (31 October 2026, Part K): the order's own gaps and the ghost lane now come first, so the result line
+      // is wholly on screen (Q15) rather than 16px clear of the edge, and the space above the board is the lane, checked by Q25.
+      expect(bottom, "U157 the result line is wholly on screen").toBeLessThanOrEqual(viewport.height);
       // The same after a round, with a result line showing.
       await context.close();
     });
@@ -1057,13 +1055,16 @@ test.describe("Q15 Q16 the tutorial: every step fits one screen with nothing on 
           expect.soft(b.y + b.height, `Q15 ${where}: ${id} is on screen`).toBeLessThanOrEqual(viewport.height + 0.5);
           expect(b.height, `${where}: ${id} is at least 44px tall`).toBeGreaterThanOrEqual(43.5);
         }
-        expect(await overlapsBoard(page, ".tutorial-board .board-wrap", testid("tutorial")), `Q16 ${where}`).toEqual([]);
-        const col = (await page.locator(testid("tutorial-column-0")).boundingBox())!;
-        expect.soft(col.width, `${where}: the practice columns are at least 44px wide (docs/design.md, U148)`).toBeGreaterThanOrEqual(43.5);
+        // The visible one of the practice board and, on the friends step (10), its picture (U146): never a hidden one, which nothing overlaps.
+        const showing = (await page.locator(".tutorial-board .board-wrap").isVisible()) ? ".tutorial-board .board-wrap" : testid("tutorial-friends");
+        expect(await overlapsBoard(page, showing, testid("tutorial")), `Q16 ${where} (${showing})`).toEqual([]);
+        const col = await page.locator(testid("tutorial-column-0")).boundingBox(); // the friends step (10) shows a picture, not the board
+        if (col) expect.soft(col.width, `${where}: the practice columns are at least 44px wide (docs/design.md, U148)`).toBeGreaterThanOrEqual(43.5);
         // Next, Skip and a step's action button are clear of each other (at least 8px apart) and under the board.
         const next = (await page.locator(testid("tutorial-next")).boundingBox())!;
         const skip = (await page.locator(testid("tutorial-skip")).boundingBox())!;
-        const board = (await page.locator(".tutorial-board .board-wrap").boundingBox())!;
+        // The friends step (10) shows a picture in the board's place (U146).
+        const board = (await page.locator(".tutorial-board .board-wrap").boundingBox()) ?? (await page.locator(testid("tutorial-friends")).boundingBox())!;
         expect(next.y, `${where}: Next is below the board`).toBeGreaterThanOrEqual(board.y + board.height - 1);
         const clearY = skip.y - (next.y + next.height); // stacked: space between them
         const clearX = Math.max(skip.x - (next.x + next.width), next.x - (skip.x + skip.width)); // side by side on a short phone
@@ -1557,4 +1558,151 @@ test.describe("R35 U96 Quick match has Home and no Cancel button", () => {
       await one.context.close();
       await two.context.close();
     }));
+});
+
+// ---- Part K of the second fix list: Q25 room for the chosen disc, Q26 a uniform laptop game ----
+
+type Rect = { top: number; bottom: number; left: number; right: number };
+const overlaps = (a: Rect, b: Rect) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+
+// Every visible text, card, badge or button in `root` that the ghost disc overlaps: none may.
+async function ghostOverlaps(page: Page, ghostSelector: string, root: string): Promise<string[]> {
+  return page.evaluate(
+    ({ ghostSelector, root }) => {
+      const ghost = document.querySelector<HTMLElement>(ghostSelector);
+      const host = document.querySelector<HTMLElement>(root);
+      if (!ghost || !host) return ["no ghost disc"];
+      const g = ghost.getBoundingClientRect();
+      const bad: string[] = [];
+      const parts = host.querySelectorAll<HTMLElement>("button, a, p, h1, h2, h3, .player, .panel, .badge, .shrink-warning, .watcher-count, .vs, .tutorial-caption, .tutorial-status, .tutorial-progress, .topbar, label, span.round-line");
+      for (const el of parts) {
+        if (el.contains(ghost) || ghost.contains(el)) continue;
+        if (el.closest(".board, .board-wrap, .columns-hit, .columns-glow")) continue; // the board's own columns are where the disc goes
+        const style = getComputedStyle(el);
+        if (style.display === "none" || style.visibility === "hidden") continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        if (!el.textContent?.trim() && !el.matches(".player, .panel, .topbar")) continue; // an empty element shows nothing
+        const x = Math.min(r.right, g.right) - Math.max(r.left, g.left);
+        const y = Math.min(r.bottom, g.bottom) - Math.max(r.top, g.top);
+        if (x > 1 && y > 1) bad.push(`${el.dataset.testid ?? el.className ?? el.tagName} (${Math.round(x)} x ${Math.round(y)})`);
+      }
+      return bad;
+    },
+    { ghostSelector, root },
+  );
+}
+
+test.describe("Q25 U157 the game screen's fixed vertical order and the ghost lane", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q25 the ghost disc has its own lane and the gaps follow the order, hovered and chosen, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openComputerGame(page);
+      const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
+      const bar = await box("topbar");
+      const versus = await box("players");
+      const board = (await page.locator(`${testid("board-wrap")} .board`).boundingBox())!;
+      const timer = await box("timer");
+      const power = await box("powerups");
+      const lane = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ghost-size")));
+      const near = (actual: number, want: number, what: string) => expect(Math.abs(actual - want), `${what}: ${Math.round(actual)}px, wanted ${want}px`).toBeLessThanOrEqual(4);
+      near(versus.y - (bar.y + bar.height), 16, "header to versus bar");
+      // versus bar, 16px, the lane (one disc), 8px, the board
+      near(board.y - (versus.y + versus.height), 16 + lane + 8, "versus bar to board (16 + the lane + 8)");
+      near(timer.y - (board.y + board.height), 12, "board to timer");
+      near(power.y - (timer.y + timer.height), 16, "timer to power-ups");
+
+      // Nothing moves when a disc appears: measure the pieces, then hover and choose a column.
+      const before = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-testid="topbar"], [data-testid="players"], [data-testid="timer"], [data-testid="powerups"], [data-testid="result-line"]')].map((e) => Math.round(e.getBoundingClientRect().top * 10) / 10));
+      const col = page.locator(testid("column-3"));
+      await col.hover();
+      await expect(page.locator(testid("ghost-disc"))).toBeVisible();
+      expect(await ghostOverlaps(page, testid("ghost-disc"), "main"), "hovering: the ghost disc overlaps nothing").toEqual([]);
+      await col.click();
+      await expect(page.locator(testid("chosen-label"))).toHaveText("Chosen");
+      expect(await ghostOverlaps(page, testid("ghost-disc"), "main"), "chosen: the ghost disc overlaps nothing").toEqual([]);
+      const after = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-testid="topbar"], [data-testid="players"], [data-testid="timer"], [data-testid="powerups"], [data-testid="result-line"]')].map((e) => Math.round(e.getBoundingClientRect().top * 10) / 10));
+      expect(after, "nothing moved when the disc appeared").toEqual(before);
+      // The disc sits in the lane: below the versus bar, above the board.
+      const ghost = (await page.locator(testid("ghost-disc")).boundingBox())!;
+      expect(ghost.y, "the disc is below the versus bar").toBeGreaterThanOrEqual(versus.y + versus.height + 8);
+      expect(ghost.y + ghost.height, "and above the board").toBeLessThanOrEqual(board.y + 1);
+      expect(await pageOverflow(page), "Q15 no scrolling").toBe(0);
+      await context.close();
+    });
+  }
+});
+
+test.describe("Q25 U159 the tutorial's fixed order and the ghost lane", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q25 on every tutorial step the ghost disc overlaps nothing and the board does not move when it appears, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      for (let step = 1; step <= 11; step++) {
+        const where = `step ${step} at ${viewport.width} x ${viewport.height}`;
+        // The step's own action (a tap on a column locks the ghost disc above it for a moment).
+        if (step >= 2 && step <= 5) {
+          const boardBefore = (await page.locator(".tutorial-board .board-wrap").boundingBox())!;
+          const captionBefore = (await page.locator(testid("tutorial-caption")).boundingBox())!;
+          await page.locator(testid("tutorial-column-3")).click({ trial: false });
+          await expect(page.locator(testid("tutorial-ghost"))).toBeVisible();
+          expect(await ghostOverlaps(page, testid("tutorial-ghost"), testid("tutorial")), `${where}: the disc overlaps nothing`).toEqual([]);
+          const boardAfter = (await page.locator(".tutorial-board .board-wrap").boundingBox())!;
+          const captionAfter = (await page.locator(testid("tutorial-caption")).boundingBox())!;
+          expect(Math.abs(boardAfter.y - boardBefore.y) + Math.abs(captionAfter.y - captionBefore.y), `${where}: nothing moved when the disc appeared`).toBeLessThanOrEqual(1);
+          await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8_000 });
+        } else {
+          await doTutorialStep(page, step);
+        }
+        // The order: caption, the opponent's status on its own line, 16px, the lane (a disc), 8px, the board, 16px, the buttons.
+        const caption = (await page.locator(testid("tutorial-caption")).boundingBox())!;
+        const board = (await page.locator(".tutorial-board .board-wrap .board").boundingBox().catch(() => null));
+        if (board) {
+          const lane = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ghost-size")));
+          const status = await page.locator(testid("tutorial-status")).boundingBox();
+          const above = status && status.y > caption.y ? status.y + status.height : caption.y + caption.height;
+          expect(board.y - above, `${where}: a lane of ${lane}px and gaps of 16px and 8px between the status or caption and the board`).toBeGreaterThanOrEqual(lane + 16 + 8 - 4);
+          const next = (await page.locator(testid("tutorial-next")).boundingBox())!;
+          expect(next.y - (board.y + board.height), `${where}: 16px between the board and the buttons`).toBeGreaterThanOrEqual(12);
+        }
+        const overlay = await page.locator(testid("tutorial")).evaluate((el) => el.scrollHeight - el.clientHeight);
+        expect.soft(overlay, `Q15 ${where}: the tutorial does not scroll`).toBeLessThanOrEqual(0);
+        const card = await page.locator(`${testid("tutorial")} .tutorial-card`).evaluate((el) => el.scrollHeight - el.clientHeight);
+        expect.soft(card, `Q15 ${where}: the card does not scroll`).toBeLessThanOrEqual(0);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      await context.close();
+    });
+  }
+});
+
+test.describe("Q26 U158 the laptop game screen is uniform", () => {
+  test("Q26 one column width, a board of at least 60% of the screen height, equal cards and equal power-up buttons at 1366 x 768", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await openComputerGame(page);
+    const box = async (sel: string) => (await page.locator(sel).boundingBox())!;
+    const bar = await box(testid("topbar"));
+    const versus = await box(testid("players"));
+    const board = await box(`${testid("board-wrap")} .board`);
+    const timer = await box(testid("timer"));
+    const row = await box(testid("powerups"));
+    for (const [name, b] of [["versus bar", versus], ["board", board], ["timer bar", timer], ["power-up row", row]] as const) {
+      expect(Math.abs(b.width - bar.width), `the ${name} is as wide as the header bar`).toBeLessThanOrEqual(4);
+      expect(Math.abs(b.x - bar.x), `and shares its left edge`).toBeLessThanOrEqual(4);
+    }
+    expect(board.height / LAPTOP.height, "the board is at least 60% of the screen height").toBeGreaterThanOrEqual(0.6);
+    const cardA = await box(testid("panel-you"));
+    const cardB = await box(testid("panel-opponent"));
+    expect(Math.abs(cardA.width - cardB.width), "the two cards are the same width").toBeLessThanOrEqual(2);
+    expect(Math.abs(cardA.height - cardB.height), "and the same height").toBeLessThanOrEqual(2);
+    const vs = await box(`${testid("players")} .vs`);
+    expect(Math.abs(vs.x + vs.width / 2 - (versus.x + versus.width / 2)), "the VS badge is centred between them").toBeLessThanOrEqual(3);
+    const shield = await box(testid("shield-badge"));
+    const quake = await box(testid("earthquake-badge"));
+    expect(Math.abs(shield.width - quake.width), "the two power-up buttons are the same width").toBeLessThanOrEqual(2);
+    expect(Math.abs(shield.height - quake.height), "and the same height").toBeLessThanOrEqual(2);
+    expect(await pageOverflow(page), "Q15 no scrolling").toBe(0);
+    await context.close();
+  });
 });

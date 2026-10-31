@@ -400,6 +400,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     },
     reset() {
       stage.picture(false);
+      timerBar.dataset.reserved = "false"; // a new step starts with no place kept
       stage.timer(false);
       status.hidden = false;
       hint.hidden = false;
@@ -505,7 +506,11 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     },
     timer(show) {
       clearInterval(timerTick);
-      timerBar.hidden = !show;
+      // Once shown on a step, the bar's place is kept when it goes (Q25, U159): it is made invisible, not removed, so the card does not
+      // shrink. A step that never shows it has no place kept, and it is removed from the layout as before.
+      if (show) timerBar.dataset.reserved = "true";
+      timerBar.hidden = !show && timerBar.dataset.reserved !== "true";
+      timerBar.dataset.shown = String(show);
       if (!show) return;
       // It drains from 10 to 2 seconds and stops there, so the practice round never times out on its own (U140).
       const startedAt = Date.now();

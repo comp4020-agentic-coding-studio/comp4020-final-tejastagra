@@ -323,3 +323,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** R47, R48 and new R100 (`GET /api/seat`, the same decision a join makes, seating nobody); migration 22; `spec/app-tutorial.test.ts` (seat check answers, no leak, mark copied on sign-in, an account with a finished game, each seen to fail without the server code); `e2e/tutorial.spec.ts` (third opener, ended game, experienced account in a fresh browser, new guest).
 - **Rule for the future:** a flag decided in the browser must be checked in an empty browser; "who sees this" is a server question when it depends on the account.
 - **Commits:** the commit that follows this entry.
+
+### C41. Tightening the space above the board squeezed the chosen disc, and a hint or a hidden bar moved the tutorial
+- **Date:** 31 October 2026
+- **What went wrong:** to stop the game screen scrolling I had cut the space above the board (U149), but that is where the chosen (ghost) disc floats, so it pressed against the versus bar on the game screen and overlapped the caption in the tutorial. The checks measured scrolling and overlap with the board, never the disc. Building the fixed order showed three more shifts the old tutorial hid: the hint line changed from one line to two, Next appeared as a taller button, and the practice timer bar disappeared after the tap, each resizing a card that is centred on screen, so everything above it jumped. A global `[hidden] { display: none !important }` also meant a CSS rule could not keep a hidden bar's place.
+- **How it was caught:** Tejas reported the squeeze; writing the no-movement check (Q25) found the three shifts one at a time, each seen to fail.
+- **Harness fix:** Q25 and Q26, U157 to U159; `e2e/layout.spec.ts` measures the gaps of the fixed order, that the disc overlaps nothing hovered or chosen, that nothing moves when it appears, and the uniform laptop screen; the hint's two lines, Next's place and the timer bar's place are reserved. The 16px under the result line (U149) is withdrawn, because the order's lane and gaps come first (see docs/handover.md).
+- **Rule for the future:** whatever floats in a region needs that region reserved and measured; a hidden element that must keep its place is made invisible, not hidden, because `[hidden]` always removes it.
+- **Commits:** the commit that follows this entry.

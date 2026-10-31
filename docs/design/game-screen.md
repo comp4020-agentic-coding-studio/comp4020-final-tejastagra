@@ -59,7 +59,7 @@ These replace the inline badges and the help text that opened over the board (U1
 
 ## Tighter vertical layout (added 31 October 2026, Q15, Q16)
 
-- **U149** Under U132 the empty space between the versus bar and the board is small (at most 8px), and the result line under the power-ups has room below it (at least 16px between it and the bottom edge of the screen), so it never sits against the edge. The whole screen, including the result line and every button, fits at 390 x 844, 1366 x 768 and 320 x 568 with no vertical scrolling (Q15). Gaps shrink first, then sizes, never below the 44px tap target. This replaces the allowance in U107 that the screen may scroll at 320 x 568.
+- **U149** *First clause replaced by U157 on 31 October 2026: the space above the board is the ghost lane and the gaps of the fixed order, not a small gap. The 16px clearance under the result line is withdrawn too, because the order's gaps and the lane come first and 320 x 568 and 1366 x 768 have no room left for it: the result line is wholly on screen instead (recorded in docs/handover.md).* Under U132 the result line under the power-ups is wholly on screen. The whole screen, including the result line and every button, fits at 390 x 844, 1366 x 768 and 320 x 568 with no vertical scrolling (Q15). Gaps shrink first, then sizes, never below the 44px tap target. This replaces the allowance in U107 that the screen may scroll at 320 x 568.
 
 ## Popups, the result and names (added 31 October 2026, Part A of the second fix list)
 
