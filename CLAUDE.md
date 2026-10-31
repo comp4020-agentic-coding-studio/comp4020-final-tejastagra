@@ -75,11 +75,12 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
   - **Nothing overlaps (Q16):** no button, caption or card ever overlaps the board or another element.
   - **Even spacing in stacks (Q17):** in any vertical stack of cards and buttons, every gap is the same size.
   - **No page looks plain (Q11):** every page has a header with the Rubble title and a short subtitle and uses the toy style from `docs/design/look-and-feel.md` (icons, outlined cards, hard shadows), not bare text boxes.
-- Run `/visual-qa` before declaring any screen work finished. If the command is not available in the current session, read `.claude/commands/visual-qa.md` and carry out its steps directly.
+- Run `/visual-qa` on the screens you changed before declaring screen work finished. If the command is not available in the current session, read `.claude/commands/visual-qa.md` and carry out its steps directly.
 
 ## Every change must
 
-- Keep `pnpm check` passing before it is pushed. `pnpm check` starts its own test server on a free port with a temporary data folder and deletes it afterwards, so it never needs the dev server and **never writes to `data-dev/`** (correction C22), and so does `pnpm test:e2e`. With `APP_URL` set, as in CI, it runs against that app instead. Keep `pnpm check:fast` passing at every commit.
+- **Test only what you change.** After each change, run `pnpm check:fast` and only the e2e files that cover the screens or rules you changed. Run the full `pnpm check` and `pnpm test:e2e` only when Tejas asks, or before he deploys. Run reviewers, the phone-tester and `/visual-qa` only on the screens you changed.
+- `pnpm check` must pass before it is pushed. `pnpm check` starts its own test server on a free port with a temporary data folder and deletes it afterwards, so it never needs the dev server and **never writes to `data-dev/`** (correction C22), and so does `pnpm test:e2e`. With `APP_URL` set, as in CI, it runs against that app instead. Keep `pnpm check:fast` passing at every commit.
 - `pnpm check:evidence` may fail only because PROCESS.md still has its template comment or no reflection exists yet. Any other failure must be fixed.
 - Add or update a test when it changes behaviour, with the rule ID in the test name. Name test files `spec/app-<name>.test.ts` (checks against the running app, using `inject("baseUrl")`) or `spec/unit-<name>.test.ts` (no app needed). Browser checks go in `e2e/` and never in `spec/`. See `spec/CHECKS.md`.
 - Be one logical change per commit.
