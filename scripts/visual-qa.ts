@@ -493,6 +493,51 @@ const STATES: State[] = [
       await second.context.close();
     },
   },
+  // Q27: every overlay over the shared backdrop. The sign-up and account nickname popups, and "That game has ended" on the watching screen.
+  {
+    name: "popup-signup-dialog",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      await page.goto("/account");
+      await settle(page, 600);
+      await page.locator(testid("open-signup")).click();
+      await page.locator(testid("signup-dialog")).waitFor();
+      await settle(page, 400);
+      await shot();
+    },
+  },
+  {
+    name: "popup-account-nickname-dialog",
+    nickname: "Pip Squeak",
+    run: async ({ page, shot }) => {
+      await page.goto("/account");
+      await settle(page, 600);
+      await page.locator(testid("edit-nickname")).click();
+      await page.locator(testid("nickname-dialog")).waitFor();
+      await settle(page, 400);
+      await shot();
+    },
+  },
+  {
+    name: "watching-game-ended",
+    run: async ({ browser, v, page, shot }) => {
+      const { code, second } = await twoPlayers(browser, v, page);
+      const watcher = await newPlayer(browser, v, { nickname: "Wren Spectator" });
+      await watcher.page.goto(`/g/${code}`);
+      await watcher.page.locator(testid("spectator-notice")).waitFor();
+      // One round resolves (a game with no round is never recorded, R98), then the first player leaves: a forfeit.
+      await page.locator(testid("column-0")).click();
+      await second.page.locator(testid("column-4")).click();
+      await page.locator(testid("round-number")).filter({ hasText: "2" }).waitFor({ timeout: 8_000 });
+      await page.locator(testid("header-home")).click();
+      await page.locator(testid("leave-confirm")).click();
+      await watcher.page.locator(testid("watch-result")).waitFor({ state: "visible", timeout: 8_000 });
+      await settle(watcher.page, 600);
+      await watcher.page.screenshot({ path: `reports/visual-qa/watching-game-ended--${v.name}.png` });
+      await watcher.context.close();
+      await second.context.close();
+    },
+  },
 ];
 
 // ---- Run ----

@@ -1706,3 +1706,57 @@ test.describe("Q26 U158 the laptop game screen is uniform", () => {
     await context.close();
   });
 });
+
+// ---- Part L of the second fix list: Q27 one backdrop behind every popup and overlay ----
+
+// The backdrop token's value, as the page resolves it, and the dim an element paints behind its card: itself for a dialog, the tutorial
+// and the end popup, or its ::before layer for a card that sits on the board.
+async function paintedBackdrop(page: Page, selector: string, pseudo: "" | "::before" | "::after"): Promise<{ token: string; painted: string; edge: number; shadow: string }> {
+  return page.evaluate(
+    ({ selector, pseudo }) => {
+      const el = document.querySelector<HTMLElement>(selector)!;
+      const probe = document.createElement("span");
+      probe.style.background = "var(--backdrop)";
+      document.body.append(probe);
+      const token = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      // The card whose edge is checked: a dialog's, the tutorial's, the end popup's, or the card the board's wrapper is laying the dim for.
+      const card = el.matches(".dialog, .popup, .tutorial") ? (el.querySelector<HTMLElement>(".dialog-card, .popup-card, .tutorial-card") ?? el) : (el.querySelector<HTMLElement>(".share, .get-ready, .watch-result") ?? el);
+      return {
+        token,
+        painted: getComputedStyle(el, pseudo || null).backgroundColor,
+        edge: parseFloat(getComputedStyle(card).borderTopWidth),
+        shadow: getComputedStyle(card).boxShadow,
+      };
+    },
+    { selector, pseudo },
+  );
+}
+
+test.describe("Q27 every popup and overlay sits over the shared backdrop with a card edge that stands out", () => {
+  for (const viewport of [PHONE, LAPTOP]) {
+    const overlays: Array<{ name: string; open: (page: Page) => Promise<void>; selector: string; pseudo: "" | "::before" | "::after" }> = [
+      { name: "nickname popup", open: async (p) => { await p.goto("/"); await p.locator(testid("rename")).click(); }, selector: testid("nickname-dialog"), pseudo: "" },
+      { name: "code popup", open: async (p) => { await p.goto("/"); await p.locator(testid("join-toggle")).click(); }, selector: testid("code-dialog"), pseudo: "" },
+      { name: "sign-up popup", open: async (p) => { await p.goto("/account"); await p.locator(testid("open-signup")).click(); }, selector: testid("signup-dialog"), pseudo: "" },
+      { name: "sign-in popup", open: async (p) => { await p.goto("/account"); await p.locator(testid("open-signin")).click(); }, selector: testid("signin-dialog"), pseudo: "" },
+      { name: "tutorial", open: async (p) => { await openTutorial(p); }, selector: testid("tutorial"), pseudo: "" },
+      { name: "shield info popup", open: async (p) => { await openComputerGame(p); await p.locator(testid("shield-info")).click(); }, selector: testid("shield-help"), pseudo: "" },
+      { name: "leave confirmation", open: async (p) => { await openComputerGame(p); await p.locator(testid("header-home")).click(); }, selector: testid("leave-dialog"), pseudo: "" },
+      { name: "friend waiting card", open: async (p) => { await p.goto(`/g/${await makeGameCode(p)}`); await p.locator(testid("waiting-panel")).waitFor(); }, selector: testid("board-wrap"), pseudo: "::after" },
+      { name: "end popup", open: async (p) => { await openEndPopup(p); }, selector: testid("end-popup"), pseudo: "" },
+    ];
+    for (const overlay of overlays) {
+      test(`Q27 the ${overlay.name} at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+        const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+        await overlay.open(page);
+        await page.locator(overlay.selector).waitFor({ state: "visible" });
+        const m = await paintedBackdrop(page, overlay.selector, overlay.pseudo);
+        expect(m.painted, `${overlay.name} paints the shared backdrop`).toBe(m.token);
+        expect(m.edge, `${overlay.name}'s card has the popup outline`).toBeGreaterThanOrEqual(5);
+        expect(m.shadow, `${overlay.name}'s card has the popup shadow`).not.toBe("none");
+        await context.close();
+      });
+    }
+  }
+});

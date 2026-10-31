@@ -331,3 +331,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** Q25 and Q26, U157 to U159; `e2e/layout.spec.ts` measures the gaps of the fixed order, that the disc overlaps nothing hovered or chosen, that nothing moves when it appears, and the uniform laptop screen; the hint's two lines, Next's place and the timer bar's place are reserved. The 16px under the result line (U149) is withdrawn, because the order's lane and gaps come first (see docs/handover.md).
 - **Rule for the future:** whatever floats in a region needs that region reserved and measured; a hidden element that must keep its place is made invisible, not hidden, because `[hidden]` always removes it.
 - **Commits:** the commit that follows this entry.
+
+### C42. A dim layer inside a card painted over the card, and a thicker outline narrowed a tap target
+- **Date:** 31 October 2026
+- **What went wrong:** the first shared backdrop for the cards that sit on the board was a `::before` layer with a negative z-index inside the card, which a browser paints above the card's own background, so the waiting card and the watching result went nearly black with no button shadows; the Q27 browser check passed on it, because it read the layer's colour and not the card. Then the thicker popup outline (5px) took 4px from the tutorial board's width at 320, leaving columns of 43.4px, and two theme checks (a literal `3px`, a type in a test) failed in `check:fast` again.
+- **How it was caught:** looking at the `/visual-qa` pictures (the card and the board both wrong), then the tap-target and theme checks.
+- **Harness fix:** the layer is laid by the board's wrapper (`:has()`), `spec/unit-theme.test.ts` checks the card-against-backdrop contrast (1.5:1 over the page ground; 1.2:1 and the 5px outline over the board, where no 75% dim can reach 1.5:1) and `e2e/layout.spec.ts` checks all nine overlays at two sizes, each seen to fail without the styles. `/visual-qa` gains the sign-up popup, the account nickname popup and "That game has ended".
+- **Rule for the future:** a check of a layer's colour says nothing about what is painted above it; look at the picture. A change to a shared border width must be run against the narrowest tap-target check.
+- **Commits:** the commit that follows this entry.

@@ -61,8 +61,7 @@
 
   /* Shield states and the win glow */
   --gloss-column: rgba(255, 255, 255, 0.14);
-  --scrim-light: rgba(6, 10, 32, 0.35);
-  --scrim: rgba(6, 10, 32, 0.72);
+  --backdrop: rgba(2, 4, 16, 0.75); /* the one dim behind every popup and overlay: deep navy, about 75% (Q27, U52a) */
   --field: #121a4a;
   --disabled: #3a4580;
   --disabled-text: #c9d1f5;
@@ -98,7 +97,9 @@
   --outline-bubble-marker: 3px solid var(--bubble-rim);
   --accent-red: 7px solid var(--red);
   --accent-yellow: 7px solid var(--yellow);
+  --outline-popup: 5px solid var(--ink); /* a popup card's edge is thicker than a normal card's, so it stands out (U52b) */
   --shadow: 0 5px 0 var(--ink);
+  --shadow-popup: 0 8px 0 var(--ink), 0 0 0 2px var(--text); /* a stronger hard shadow with a thin light edge outside the dark outline */
   --shadow-raised: 0 7px 0 var(--ink);
   --shadow-pressed: 0 0 0 var(--ink);
   --shadow-small: 0 2px 0 var(--ink);

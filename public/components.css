@@ -1968,7 +1968,7 @@ input {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  background: var(--scrim-light);
+  background: var(--backdrop);
   border-radius: var(--radius-board);
 }
 
@@ -2212,7 +2212,7 @@ input {
   align-items: center;
   justify-content: center;
   padding: 12px;
-  background: var(--scrim);
+  background: var(--backdrop);
   overflow-y: auto;
 }
 
@@ -2469,7 +2469,7 @@ input {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: var(--scrim);
+  background: var(--backdrop);
   overscroll-behavior: contain;
 }
 
@@ -4450,7 +4450,61 @@ input {
   bottom: var(--frame);
 }
 
-.game:not(.watching) .board-wrap::before,
-.game:not(.watching) .board-wrap::after {
+.game:not(.watching) .board-wrap::before {
   display: none; /* the stand's feet hung into the 12px gap under the board */
+}
+
+.game:not(.watching) .board-wrap::after {
+  display: none;
+}
+
+
+/* ---- One backdrop behind every popup and overlay, and a card edge that stands out (Q27, U52a, U52b) ---- */
+/* The dialogs, the tutorial and the end popup already cover what is behind them with --backdrop (above). The cards that sit on the
+   board itself (the waiting card, the countdown, the watching screen's result) get the same backdrop as a layer over the whole
+   board behind them, so the board is pushed back, not just shaded by the card's own shadow. */
+.share,
+.get-ready,
+.watch-result {
+  box-shadow: var(--shadow-popup);
+}
+
+.board-wrap:has(> .share:not([hidden]))::after,
+.board-wrap:has(> .get-ready:not([hidden]))::after,
+.board-wrap:has(> .watch-result:not([hidden]))::after {
+  /* The shared backdrop over the whole screen, painted by the board's wrapper just under the card (which has z-index 6), so the
+     card keeps its own colour and the board and page are pushed back. It replaces the board's feet, which sit in this slot. */
+  display: block !important; /* wins over the rules that remove the stand's feet from this slot */
+  content: "";
+  position: fixed;
+  inset: 0;
+  width: auto;
+  height: auto;
+  z-index: 5;
+  background: var(--backdrop);
+  border: 0;
+  border-radius: 0;
+  pointer-events: none;
+}
+
+.dialog-card,
+.popup-card,
+.tutorial-card,
+.share,
+.get-ready,
+.watch-result,
+.no-live {
+  border: var(--outline-popup);
+  box-shadow: var(--shadow-popup);
+}
+
+
+/* At 320px the tutorial card is the screen's width and the board fills it, so its seven columns are at least 44px wide (docs/design.md):
+   there its outline is the ordinary 3px and its stronger shadow carries the edge (U52b). */
+@media (max-width: 359px) {
+  .tutorial-card {
+    border: var(--outline);
+    padding-left: 3px;
+    padding-right: 3px;
+  }
 }

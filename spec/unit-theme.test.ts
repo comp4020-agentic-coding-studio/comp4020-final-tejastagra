@@ -143,6 +143,54 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
     }
   });
 
+  it("Q27 U52a there is one shared backdrop of about 75% deep navy, --scrim is gone, and every popup and overlay uses it", () => {
+    const m = theme.match(/--backdrop:\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)/);
+    expect(m, "theme.css defines --backdrop as an rgba").not.toBeNull();
+    const [r, g, b, a] = [Number(m![1]), Number(m![2]), Number(m![3]), Number(m![4])];
+    expect(a, "about 75% opaque").toBeGreaterThanOrEqual(0.72);
+    expect(a).toBeLessThanOrEqual(0.78);
+    expect(b, "a deep navy: dark, and bluer than it is red").toBeGreaterThan(r);
+    expect(r + g + b, "a deep navy: dark").toBeLessThan(150);
+    expect(theme, "the two older dims are gone").not.toMatch(/--scrim/);
+    const css = readFileSync("public/components.css", "utf8");
+    expect(css, "no rule uses the old dims").not.toMatch(/var\(--scrim/);
+    // The dialogs, the tutorial and the end popup are the dim themselves; the cards that sit on the board lay it over the board with a
+    // ::before layer. The "No live games" card is a card in the page with nothing behind it to push back, so it takes only the edge.
+    for (const selector of [".dialog", ".tutorial", ".popup"]) {
+      const rule = css.match(new RegExp(`(?:^|\\n)${selector.replace(".", "\\.")}\\s*{[^}]*}`))?.[0] ?? "";
+      expect(rule, `${selector} sits over the shared backdrop`).toMatch(/background:\s*var\(--backdrop\)/);
+    }
+    const layer = css.match(/\.board-wrap:has\(> \.share:not\(\[hidden\]\)\)::after[^{]*{[^}]*}/)?.[0] ?? "";
+    expect(layer, "the in-board cards (waiting, countdown, watching result) lay the backdrop over the whole screen behind them").toMatch(/background:\s*var\(--backdrop\)/);
+    expect(layer).toMatch(/\.get-ready:not\(\[hidden\]\)/);
+    expect(layer).toMatch(/\.watch-result:not\(\[hidden\]\)/);
+    expect(theme).toMatch(/--outline-popup:/);
+    expect(theme).toMatch(/--shadow-popup:/);
+  });
+
+  it("Q27 a popup card's background against the backdrop behind it is at least 1.5:1, and its text keeps 4.5:1", () => {
+    const m = theme.match(/--backdrop:\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)/)!;
+    const hex = (name: string) => [1, 3, 5].map((i) => parseInt(token(name).slice(i, i + 2), 16));
+    const light = (rgb: number[]) => {
+      const [x, y, z] = rgb.map((c) => c / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * x + 0.7152 * y + 0.0722 * z;
+    };
+    const a = Number(m[4]);
+    // The backdrop over the page ground, which is what sits behind every dialog and the tutorial: 1.5:1 against the card.
+    const over = (behind: string) => {
+      const under = hex(behind);
+      const dimmed = [Number(m[1]), Number(m[2]), Number(m[3])].map((c, i) => c * a + under[i] * (1 - a));
+      const [hi, lo] = [light(hex("--panel")), light(dimmed)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    expect(over("--ground-top"), "the card against the backdrop over the page ground").toBeGreaterThanOrEqual(1.5);
+    // Over the mid-bright blue board face the dimmed board is close to the card's own navy, so no backdrop of about 75% can reach 1.5:1
+    // there (the best is about 1.4). The card's edge is carried by its thicker outline and stronger shadow too (U52b), checked here.
+    expect(over("--blue"), "the card against the dimmed board is distinct (more than 1.2:1)").toBeGreaterThan(1.2);
+    expect(Number(token("--outline-popup").match(/^(\d+)px/)?.[1]), "a popup card's outline is at least 5px").toBeGreaterThanOrEqual(5);
+    expect(ratio("--text", "--panel"), "text in a card").toBeGreaterThanOrEqual(4.5);
+  });
+
   it("U3 bubbles are faint: no bubble colour is more than 22% opaque", () => {
     for (const name of ["--bubble-red", "--bubble-yellow", "--bubble-blue", "--bubble-rim"]) {
       const alpha = Number(token(name).match(/,\s*([0-9.]+)\)$/)?.[1]);
