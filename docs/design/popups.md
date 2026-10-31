@@ -28,3 +28,8 @@ Added on 28 October 2026 for the layout rule Q1 (`qa-checklist.md`): nothing ope
 | Leave game (`leave-dialog`) | The header bar's Home on a game that is being played (U107, U132) | "Leave this game? It counts as a forfeit." | Leave (`leave-confirm`), Stay (`dialog-cancel`) |
 
 The end-of-game popup, the tutorial and the watching screen's result card are older popups with their own wording (`motion-and-endings.md` U27, `tutorial.md`, `spectating.md` U82); they follow the same look, Escape rule and spacing, and are moved onto this component when they are next changed.
+
+## The keyboard (added 31 October 2026, Part B of the second fix list, Q21)
+
+- **U91** On a phone a popup is sized and placed to the **visible area**, using `window.visualViewport` (updated on its `resize` and `scroll` events) and written to `--vv-top` and `--vv-height` on the popup. When the keyboard opens the popup shrinks to the space above it; its heading and fields scroll inside the card if they must, and **the action buttons stay pinned at the bottom of the card**, just above the keyboard. The page's viewport meta also carries `interactive-widget=resizes-content` where supported. The safe-area padding stays.
+- **U92** The keyboard's own key finishes the form: a field that is followed by another has `enterkeyhint="next"` and Enter moves focus to the next field instead of submitting; the last field has `enterkeyhint="go"` and Enter submits. Usernames use `autocomplete="username"`; Save my progress and Change password (and the forced change) use `autocomplete="new-password"` for the new password; Sign in, and the current password of Change password, use `autocomplete="current-password"`.
