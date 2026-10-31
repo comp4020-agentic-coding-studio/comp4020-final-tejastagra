@@ -907,3 +907,21 @@ test("Q5 Q12 on a laptop the header bar's Home shares the left edge of the page'
   }
   await context.close();
 });
+
+// U29: the end popup's title has room above its buttons, so its shadow never reaches them (found by /visual-qa).
+for (const viewport of VIEWPORTS) {
+  test(`U29 the end popup title's shadow stays clear of its buttons at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+    const code = (await (await page.request.post("/api/computer")).json()).code as string;
+    await page.goto(`/g/${code}`);
+    await waitForStart(page);
+    await page.evaluate(() => {
+      (document.querySelector('[data-testid="end-popup"]') as HTMLElement).hidden = false;
+      document.querySelector('[data-testid="end-title"]')!.textContent = "YOU WIN!";
+    });
+    const title = (await page.locator(testid("end-title")).boundingBox())!;
+    const again = (await page.locator(`${testid("end-popup")} ${testid("play-again")}`).boundingBox())!;
+    expect(again.y - (title.y + title.height), "at least 12px between the title and the buttons").toBeGreaterThanOrEqual(12);
+    await context.close();
+  });
+}

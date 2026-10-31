@@ -1967,7 +1967,7 @@ input {
 }
 
 .popup-title {
-  margin: 2px 0 6px;
+  margin: 4px 0 16px; /* U29: only the title is above the buttons, so its shadow needs room before them */
   font: 700 clamp(24px, 7.5vw, 40px) / 1.05 var(--font-display);
   color: var(--yellow);
   -webkit-text-stroke: 0.04em var(--ink);
