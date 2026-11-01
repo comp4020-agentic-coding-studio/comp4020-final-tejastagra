@@ -2311,3 +2311,31 @@ test.describe("Q36 U85a the popup X is a plain icon", () => {
     });
   }
 });
+
+// ---- The Rubble title above the waiting card (U163, Q37) ----
+
+test.describe("Q37 U163 the waiting card has the Rubble title above it", () => {
+  for (const viewport of FULL_SCREENS) {
+    test(`Q37 the title sits 16px above the waiting card at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.goto(`/g/${await makeGameCode(page)}`);
+      await page.locator(testid("waiting-panel")).waitFor();
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => document.fonts.ready);
+      const logo = page.locator(testid("waiting-logo"));
+      await expect(logo, "the title shows").toBeVisible();
+      const l = (await logo.boundingBox())!;
+      const card = (await page.locator(testid("waiting-panel")).boundingBox())!;
+      const bar = (await page.locator(".topbar").boundingBox())!;
+      const width = await page.evaluate(() => document.documentElement.clientWidth);
+      expect(Math.abs(l.x + l.width / 2 - (card.x + card.width / 2)), "centred on the card").toBeLessThanOrEqual(2);
+      expect(Math.abs(card.y - (l.y + l.height) - 16), "16px above the card").toBeLessThanOrEqual(2);
+      expect(l.y, "wholly on screen").toBeGreaterThanOrEqual(0);
+      expect(l.x, "wholly on screen").toBeGreaterThanOrEqual(0);
+      expect(l.x + l.width, "wholly on screen").toBeLessThanOrEqual(width);
+      expect(l.y, "not over the header bar").toBeGreaterThanOrEqual(bar.y + bar.height - 0.5);
+      expect(await pageOverflow(page), "no scrolling").toBe(0);
+      await context.close();
+    });
+  }
+});

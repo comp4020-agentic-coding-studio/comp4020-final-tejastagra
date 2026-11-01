@@ -4779,3 +4779,19 @@ input:focus {
   padding: 0 16px;
 }
 }
+
+
+/* ---- The Rubble title above the waiting card (U163, Q37) ----
+   It hangs off the card's top edge (the card is positioned), 16px above it, so the card itself stays centred and inside the board. */
+.waiting-logo {
+  position: absolute;
+  bottom: calc(100% + 16px + 5px); /* the card's 5px popup border (--outline-popup) is outside the box this is measured from */
+  left: -5px;
+  right: -5px;
+  pointer-events: none;
+}
+
+.waiting-logo .title {
+  margin: 0 auto;
+  font-size: clamp(40px, min(16vw, 12dvh), 64px);
+}

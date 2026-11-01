@@ -306,6 +306,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
               <p class="countdown-number" data-testid="countdown-number" aria-live="polite">3</p>
             </div>
             <section class="panel share" data-testid="waiting-panel">
+              <div class="waiting-logo" data-testid="waiting-logo">${title()}</div>
               <h2>Waiting for your opponent</h2>
               <p class="share-text" data-testid="share-text">Send this link. The first person to open it plays you, and anyone after that watches.</p>
               <p class="code" data-testid="game-code" aria-label="Game code">${code}</p>
