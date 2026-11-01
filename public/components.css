@@ -556,7 +556,8 @@ button.round-item {
   overflow-wrap: anywhere; /* a long nickname wraps instead of being cut to "May..." */
 }
 
-.player-tag {
+/* "Guest" or "Logged in" under the nickname on the home card (not a nickname tag, R31). */
+.player-status {
   color: var(--text-muted);
 }
 
@@ -3667,6 +3668,7 @@ input:focus {
   display: flex;
   justify-content: center;
   gap: 12px;
+  width: 100%; /* U174: the two buttons together are exactly the board's width, edge to edge */
   margin: 12px auto 0;
   padding: 0;
   overflow: visible;
@@ -3677,6 +3679,8 @@ input:focus {
 
 .game .powerup-row {
   display: flex;
+  flex: 1 1 0; /* U174: the two rows share the board's width equally, so the left edge of the first and the right edge of the second are the board's */
+  min-width: 0;
   align-items: stretch;
   border: var(--outline);
   border-radius: var(--radius-button);
@@ -3690,6 +3694,8 @@ input:focus {
 
 .game .powerups .shield-badge {
   border-radius: calc(var(--radius-button) - 3px) 0 0 calc(var(--radius-button) - 3px); /* the row's inner corners (U9b) */
+  flex: 1 1 0;
+  min-width: 0;
   width: auto;
   min-height: 48px;
   gap: 8px;
@@ -3882,14 +3888,15 @@ input:focus {
 }
 
 
-/* The power-up rows keep their natural width (the info buttons are never clipped); if the board column is narrower than the row,
-   the centred row overflows it evenly on both sides (U132, U149). */
+/* The power-up rows share the board's width equally (U174, which replaces the "natural width" of U132 and U149): the first row's left
+   edge and the second row's right edge are the board's. The labels shrink first, so the info buttons are never clipped. */
 .game .powerups {
   min-width: 0;
 }
 
 .game .powerup-row {
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 
@@ -3925,20 +3932,13 @@ input:focus {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Q20, U152: the nickname takes one line and is cut with an ellipsis; the tag stays whole under it. */
-.player-name[data-tagged="true"] .pn-nick {
-  display: block;
-  overflow: hidden;
+/* Q20, U152: a nickname is cut with an ellipsis after two lines; "(you)", when both players share a nickname (R103), stays whole. */
+.player-name .pn-you {
   white-space: nowrap;
-  text-overflow: ellipsis;
+  color: var(--text-muted);
 }
 
-.player-name[data-tagged="true"] .player-tag {
-  display: block;
-  white-space: nowrap;
-}
-
-.player-name:not([data-tagged="true"]) .pn-nick {
+.player-name .pn-nick {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;

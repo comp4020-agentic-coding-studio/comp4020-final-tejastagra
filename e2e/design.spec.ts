@@ -243,7 +243,7 @@ test.describe("Home", () => {
   test("U33 a first-time visitor has a generated nickname and can start a computer game in one tap", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
     await page.goto("/");
-    await expect(page.locator(testid("player-name"))).toHaveText(/^[A-Z][a-z]+ [A-Z][a-z]+ #[0-9a-f]{4}$/);
+    await expect(page.locator(testid("player-name"))).toHaveText(/^[A-Z][a-z]+ [A-Z][a-z]+$/); // R31: a generated nickname alone, no tag
     await page.tap(testid("play-computer"));
     await page.tap(testid("tutorial-skip")); // R47: the tutorial runs before the first match; skipping starts it
     await page.waitForURL(/\/g\/[A-Z2-9]{6}$/);
@@ -713,9 +713,10 @@ test.describe("Game screen layout and the waiting card", () => {
     const mine = await one.page.locator(testid("name-you")).innerText();
     const theirs = await one.page.locator(testid("name-opponent")).innerText();
     expect(mine).not.toBe("You");
-    expect(mine).toMatch(/#[0-9a-f]{4}$/);
-    expect(theirs).toBe(await two.page.locator(testid("name-you")).innerText());
-    expect(await two.page.locator(testid("name-opponent")).innerText()).toBe(mine);
+    expect(mine, "R31: no tag").not.toMatch(/#/);
+    const plain = (name: string) => name.replace(/\s*\(you\)$/, ""); // R103: "(you)" follows your own name only when both nicknames match
+    expect(plain(theirs)).toBe(plain(await two.page.locator(testid("name-you")).innerText()));
+    expect(plain(await two.page.locator(testid("name-opponent")).innerText())).toBe(plain(mine));
     await one.context.close();
     await two.context.close();
     const solo = await newPlayer(browser, PHONE);

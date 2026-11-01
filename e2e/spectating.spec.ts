@@ -108,8 +108,9 @@ test.describe("The watching screen (U78 to U83)", () => {
       const { player, other, spectator } = await watching(browser, size);
       const nameA = await spectator.page.locator(testid("name-a")).innerText();
       const nameB = await spectator.page.locator(testid("name-b")).innerText();
-      // U94: the banner names both players by nickname; the tags that tell two guests apart are in the panels.
-      const bare = (name: string) => name.replace(/\s#[0-9a-f]{4}$/i, "");
+      // U94: the banner names both players by nickname. There is no tag (R31), and a spectator never sees "(you)" (R103).
+      const bare = (name: string) => name;
+      expect(nameA + nameB, "no tag on a spectator's screen").not.toMatch(/#|\(you\)/);
       await expect(spectator.page.locator(testid("watching-banner"))).toHaveText(`Watching ${bare(nameA)} vs ${bare(nameB)}`);
       await expect(spectator.page.locator(testid("watching-count"))).toHaveText("1 watching");
       expect(nameA.length).toBeGreaterThan(2);

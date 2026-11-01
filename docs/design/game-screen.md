@@ -13,7 +13,7 @@ Added on 27 October 2026 from Tejas's fix list (ADR 0009). It extends `board-int
 
 ## Names
 
-- **U57** Your panel shows your own nickname and tag (for example "Pip #4F2A"), or your username for an account, never "You". The opponent's panel shows their nickname and tag, or "Computer" in a computer game. Names come from the server in the snapshot and carry no choice information (R22).
+- **U57** Your panel shows your own nickname (for example "Pip"), or your username for an account, never "You" and **never a tag (R31, changed 2 November 2026)**. The opponent's panel shows their nickname, or "Computer" in a computer game. **When both nicknames are the same, your own name is followed by "(you)" on your screen only (R103).** Names come from the server in the snapshot and carry no choice information (R22).
 
 ## End popup and shield help
 
@@ -65,7 +65,7 @@ These replace the inline badges and the help text that opened over the board (U1
 
 - **U150** The end popup follows Q18 (`popups.md` U87, U87a): 16px of padding inside the card, the two buttons **stacked full-width 12px apart, Play again first, at every size** (the 300px card cannot hold two side by side with 12px of clearance round each label and its icon). The icons are never hidden to make room. The title's shadow is one clean shadow behind its letters.
 - **U151** *Changed 31 October 2026: the result line is never shown, not only while the end popup shows.* The result line (`result-line`) under the power-ups is a visually hidden `aria-live` region: its words are still set and still announced to a screen reader after every round, but it is never visible on screen, in or out of the end popup, so the result's words are seen once, in the popup, and heard once, by the result line (Q19). Nothing on the game screen may touch the bottom edge of the screen; there is always at least 16px below the power-up row at both marking viewports.
-- **U152** A player's name in a card (versus bar) is the nickname and its tag as two pieces: the nickname, cut with an ellipsis, and the tag (`#` and four characters) which is always whole. On a phone a name never takes more than two lines (Q20): a name with a tag is the nickname on one line (ellipsis) and the tag under it; a name with no tag is cut with an ellipsis after two lines. The text of the name element is still the whole name.
+- **U152** *Changed 2 November 2026: there is no tag (R31).* A player's name in a card (versus bar) is the nickname, and **"(you)" after your own name only when both players share a nickname (R103)**. On a phone a name never takes more than two lines (Q20): it is cut with an ellipsis after two lines, and "(you)" is kept whole at the end. The text of the name element is the whole name.
 
 ## A less cramped game screen on phones (added 31 October 2026, Part C of the second fix list)
 
@@ -95,4 +95,8 @@ This **undoes the tightening above the board** of U149 (the ghost disc overlappe
 ## Waiting while the opponent does the tutorial (added 2 November 2026, R102, ADR 0017)
 
 - **U169** When the other player opened the link as a first-time player and is doing the tutorial, the friend's waiting screen shows a **learning card** (`learning-panel`) in the place of the share link card: the same size, position, popup edge, backdrop and Rubble title above it (U163, Q24, Q27, Q37), with the words **"Your opponent is learning how to play. The game starts when they finish."** and one button, **Cancel game** (`cancel-learning`), the same as the waiting card's (U108). There is no code, no Copy link, no Share, no countdown and no time limit. The screen is otherwise the waiting screen (`data-waiting="true"`: no Home button, the board dimmed behind the card). When the opponent finishes or skips, the card goes and the usual countdown (U133) runs; if they leave for more than 30 seconds the share link card comes back (U54). While the card shows, the share link card is hidden, never both.
+
+## The power-up row is the board's width (added 2 November 2026)
+
+- **U174** On the game screen the power-up row (`powerups`, the Shield and Quake buttons) is **exactly the board's width**, its left and right edges lined up with the board's within 2px, like the timer bar, at the phone and laptop viewports. It was narrower than the board on a phone. The two buttons share the row's width equally and the row never overflows the board's edges (this replaces the row keeping its natural width, U132 and U149; the info buttons are still never clipped, so the labels shrink first).
 

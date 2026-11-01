@@ -122,8 +122,8 @@ describe("B1 (R37) and B2 (R38) the leaderboard read from saved games", () => {
     const db = openDb(":memory:");
     seed(db);
     const lists = leaderboardFrom(db, 10);
-    expect(lists.wins).toEqual([{ name: expect.stringMatching(/^Ann #[0-9a-f]{4}$/), value: 1 }]); // one win, not two
-    expect(lists.rounds).toEqual([{ name: expect.stringMatching(/^Ann #/), value: 4 }]);
+    expect(lists.wins).toEqual([{ name: "Ann", value: 1 }]); // one win, not two
+    expect(lists.rounds).toEqual([{ name: "Ann", value: 4 }]);
     db.close();
   });
 
@@ -160,24 +160,43 @@ describe("R92 the asking player's own line", () => {
 
   it("R92 you are null for a visitor with no player", async () => {
     const { viewerRecord } = await import("../src/server/leaderboard.ts");
-    expect(viewerRecord(tally(rows({})), null, () => "Nobody #0000")).toBeNull();
+    expect(viewerRecord(tally(rows({})), null, () => "Nobody")).toBeNull();
   });
 
   it("R92 you carry the asking player's name, wins and fewest rounds, and nothing else", async () => {
     const { viewerRecord } = await import("../src/server/leaderboard.ts");
     const t = tally(rows({ round: 9 }, { round: 5 }, { missedB: 1, round: 3 })); // p1 won three, fastest clean win in 5
-    const mine = viewerRecord(t, "p1", () => "Pip #a7f3");
-    expect(mine).toEqual({ name: "Pip #a7f3", wins: 3, bestRounds: 5 });
+    const mine = viewerRecord(t, "p1", () => "Pip");
+    expect(mine).toEqual({ name: "Pip", wins: 3, bestRounds: 5 });
     expect(Object.keys(mine!).sort()).toEqual(["bestRounds", "name", "wins"]); // no id
   });
 
   it("R92 a player with no wins is shown with 0 wins and no best, not left out", async () => {
     const { viewerRecord } = await import("../src/server/leaderboard.ts");
-    expect(viewerRecord(tally(rows({})), "p2", () => "Sam #b2c1")).toEqual({ name: "Sam #b2c1", wins: 0, bestRounds: null });
+    expect(viewerRecord(tally(rows({})), "p2", () => "Sam")).toEqual({ name: "Sam", wins: 0, bestRounds: null });
   });
 
   it("R92 and R37 wins against the computer never appear in your record", async () => {
     const { viewerRecord } = await import("../src/server/leaderboard.ts");
-    expect(viewerRecord(tally(rows({ vsComputer: true })), "p1", () => "Pip #a7f3")).toEqual({ name: "Pip #a7f3", wins: 0, bestRounds: null });
+    expect(viewerRecord(tally(rows({ vsComputer: true })), "p1", () => "Pip")).toEqual({ name: "Pip", wins: 0, bestRounds: null });
   });
 });
+
+describe("R92 R31 the server marks the asking player's own row, because names can be shared", () => {
+  it("R92 two players with the same nickname: only the asking player's row is marked, and no row carries an id", async () => {
+    const { topWins, topRounds } = await import("../src/server/leaderboard.ts");
+    const t = tally([
+      game({ playerA: "p1", playerB: "p2", winner: "A", round: 6 }),
+      game({ playerA: "p1", playerB: "p2", winner: "A", round: 7 }),
+      game({ playerA: "p2", playerB: "p1", winner: "A", round: 5 }),
+    ]);
+    const same = () => "Pip"; // both players are called Pip: no tag tells them apart (R31)
+    const mine = topWins(t, same, 10, "p2");
+    expect(mine.filter((r) => r.you)).toHaveLength(1);
+    expect(mine.find((r) => r.you)?.value, "p2 won one game").toBe(1);
+    expect(topWins(t, same, 10, null).some((r) => r.you), "a visitor has no row").toBe(false);
+    expect(topRounds(t, same, 10, "p1").filter((r) => r.you)).toHaveLength(1);
+    for (const row of [...mine, ...topRounds(t, same, 10, "p1")]) expect(Object.keys(row).every((k) => ["name", "value", "you"].includes(k)), "no id on a row").toBe(true);
+  });
+});
+

@@ -174,7 +174,8 @@ test.describe("The account page (U114 to U122)", () => {
     await expect(one.page.locator(testid("end-title"))).toHaveText("YOU WIN!", { timeout: 4_000 });
     await one.page.goto("/account");
     const row = one.page.locator(`${testid("history-list")} .history-row`).first();
-    await expect(row).toContainText("Sam Wombat #");
+    await expect(row).toContainText("Sam Wombat");
+    await expect(row, "R31: no tag").not.toContainText("#");
     await expect(row).toContainText("Won");
     await expect(row).toContainText("4 rounds");
     await expect(one.page.locator(`${testid("stats-people")} dl`)).toContainText("100%");

@@ -2,6 +2,35 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## The seventh fix list of 2 November 2026 (read this first)
+
+Foreground, harness first, one commit per fix, no background or general-purpose agents. **Nothing is pushed or deployed.** `pnpm check:fast` passes (417 tests).
+
+| Commit | Fix | What |
+| --- | --- | --- |
+| `09696fc` | 1 to 4 | The tutorial card's height is the sum of its parts (U172, ADR 0016 amended), nothing in the slot is wider than the board and each step clears what it added (U173), and one every-pair overlap check (Q43, Q44, C57) |
+| (this commit) | 5 | No nickname tag anywhere, "(you)" for a shared nickname, the power-up row as wide as the board (R31, R103, U174, Q45, C58) |
+
+**Card heights** (also in `docs/design/tutorial.md`): phone 390 x 844 is 746.5px, laptop 1366 x 768 is 699.3px, each the sum of its parts plus the card's 5px border. The card is a stack of blocks in normal flow (a ghost lane block, the board, one 44px slot, Next, Skip tutorial), with no absolute positioning.
+
+**Fix 3 and "going back".** The tutorial has no Back button, so there is nothing to clear on going back and I added none (not in `docs/rules.md`). `reset()` now clears the warning banner, closed rows, seats, shield, Earthquake, timer and discs, and runs when a step is left by Next or Skip as well as when one starts.
+
+**Fix 4.** Q44 compares every pair of visible items (counter, title, instructions, lane, board, each slot item, Next, Skip), not a named list. With the slot pulled over the board and the banner left uncleared, all four Q43/Q44 checks fail; they pass now.
+
+**Fix 5.** `publicPlayer` returns the nickname alone. The server marks the asking player's leaderboard row (`you: true`), so the page never compares names. Guests that share a nickname get the same avatar, because avatars are drawn from the name.
+
+### Tests run
+
+`pnpm check:fast` passes. Browser checks by name, all passing: Q43/Q44 (4), Q41 (4), Q25 tutorial (3), Q15 Q16 tutorial (3), Q31 tutorial (2), Q45 (5), Q20 (2), Q26, Q22 (3), Q15 Q16 computer game (3), U132 power-up row (3), U127 (2), the U57, U33, E9, U118, Q14 and "a game against a person" checks. I took and looked at screenshots of tutorial steps 1, 4, 6, 8 and 9 and the game screen at both viewports.
+
+### One check I did not fix
+
+`e2e/layout.spec.ts` "the waiting screen has Cancel game and no Home button (U156, Q9)" fails on its "centred on the screen" line by 0.99px (received 40.99, limit 40) at 390 x 844. **It fails the same on the code committed before this work** (checked by stashing my changes), so it was broken by an earlier commit, most likely the Rubble title above the waiting card (U163). I did not touch the tolerance. It needs your decision: widen the tolerance to 42px (the title sits above the card, so the card is centred on the board, not the screen) or move the card down 1px.
+
+### What still needs you
+
+Full `pnpm check` (twice), `pnpm test:e2e`, `/visual-qa` and the Docker check were not run, by your instruction. The tutorial screenshots, the game screen and the account and leaderboard screenshot baselines are the likeliest to differ.
+
 ## The sixth fix list of 2 November 2026 (read this first)
 
 Done in the foreground, harness first (rule, design doc, ADR, `spec/CHECKS.md`, then the check, then the code), one commit per fix. **Nothing is pushed or deployed.** Fix 3 is committed after the reviewer's pass (see "Fix 3 status").

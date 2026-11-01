@@ -7,9 +7,11 @@ const VIEWPORTS = [NARROW, PHONE, LAPTOP];
 
 // A board answered with a fixed list, so the page is judged on what it does with data and not on what other checks have played.
 async function withBoard(page: Page, wins: Array<{ name: string; value: number }>, rounds: Array<{ name: string; value: number }>, you: { name: string; wins: number; bestRounds: number | null } | null = null) {
-  await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins, rounds, you } }));
+  // The server marks the asking player's own row (R92); these fixtures have unique names, so the row whose name is `you.name` is theirs.
+  const mark = (list: Array<{ name: string; value: number }>) => list.map((r) => (you && r.name === you.name ? { ...r, you: true } : r));
+  await page.route("**/api/leaderboard**", (route) => route.fulfill({ json: { wins: mark(wins), rounds: mark(rounds), you } }));
 }
-const rows = (n: number, prefix = "Player", from = 1) => Array.from({ length: n }, (_, i) => ({ name: `${prefix} ${i + from} #${(0xa000 + i).toString(16)}`, value: 20 - i }));
+const rows = (n: number, prefix = "Player", from = 1) => Array.from({ length: n }, (_, i) => ({ name: `${prefix} ${i + from}`, value: 20 - i })); // R31: no tag
 
 test.describe("The leaderboard page (U123 to U130)", () => {
   for (const viewport of VIEWPORTS) {
@@ -166,7 +168,7 @@ test.describe("The leaderboard page (U123 to U130)", () => {
 
   test("U123 long names wrap inside their blocks and never widen the page", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, NARROW, { reducedMotion: true });
-    const wide = ["WWWWWWWWWWWWWWWW #ffff", "MMMMMMMMMMMMMMMM #eeee", "XXXXXXXXXXXXXXXX #dddd", "WWWWWWWWWWWWWWWW #cccc", "username_of_twenty_c"].map((name, i) => ({ name, value: 9 - i }));
+    const wide = ["WWWWWWWWWWWWWWWW", "MMMMMMMMMMMMMMMM", "XXXXXXXXXXXXXXXX", "WWWWWWWWWWWWWWWW", "username_of_twenty_c"].map((name, i) => ({ name, value: 9 - i }));
     await withBoard(page, wide, wide);
     await page.goto("/leaderboard");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);

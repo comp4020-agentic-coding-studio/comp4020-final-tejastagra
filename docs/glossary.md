@@ -36,4 +36,4 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Rematch** | A new game with the same people on the same link, started when both tap Play again | play again as a new link, replay |
 | **Leave game** | Ending a game on purpose, which counts as a forfeit | quit, resign |
 
-Player A and Player B are code-only names (the two seats). On screen, a player is "You" or the opponent's nickname, and their colour is Red or Yellow (R93).
+Player A and Player B are code-only names (the two seats). On screen, a player is "You" or the opponent's nickname, and their colour is Red or Yellow (R93). **A guest's name is the nickname alone: the old `#a7f3` tag is never shown (R31, changed 2 November 2026).** When both players in a game have the same nickname, your own name is followed by "(you)" on your own screen (R103).

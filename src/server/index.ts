@@ -126,9 +126,9 @@ function stylePreview(): string {
 
       <h2>Leaderboard rows</h2>
       <ol class="rows" data-testid="preview-rows">
-        <li class="row"><span class="row-rank">1</span><span class="avatar" id="av1"></span><span class="row-name">Maya <span class="player-tag">&#35;a7f3</span></span><span class="row-value">12 wins</span></li>
-        <li class="row"><span class="row-rank">2</span><span class="avatar" id="av2"></span><span class="row-name">Tejas <span class="player-tag">&#35;c3ce</span></span><span class="row-value">9 wins</span></li>
-        <li class="row"><span class="row-rank">3</span><span class="avatar" id="av3"></span><span class="row-name">Sam <span class="player-tag">&#35;09bd</span></span><span class="row-value">4 wins</span></li>
+        <li class="row"><span class="row-rank">1</span><span class="avatar" id="av1"></span><span class="row-name">Maya</span><span class="row-value">12 wins</span></li>
+        <li class="row"><span class="row-rank">2</span><span class="avatar" id="av2"></span><span class="row-name">Tejas</span><span class="row-value">9 wins</span></li>
+        <li class="row"><span class="row-rank">3</span><span class="avatar" id="av3"></span><span class="row-name">Sam</span><span class="row-value">4 wins</span></li>
       </ol>
       <p class="note">Everything here is drawn from variables in <code>public/theme.css</code>. Nothing on this page talks to a game.</p>
       <p><a href="/">Back to Home</a></p>

@@ -16,10 +16,7 @@ function panel(host: HTMLElement, who: "you" | "opponent", name: string, tag: st
   const nameEl = document.createElement("span");
   nameEl.className = "player-name";
   nameEl.textContent = name;
-  const tagEl = document.createElement("span");
-  tagEl.className = "player-tag";
-  tagEl.textContent = tag ? ` ${String.fromCharCode(35)}${tag}` : "";
-  nameEl.append(tagEl);
+  void tag; // R31: there is no nickname tag
   const meta = document.createElement("span");
   meta.className = "player-meta";
   const disc = document.createElement("span");

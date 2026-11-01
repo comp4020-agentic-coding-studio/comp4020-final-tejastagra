@@ -8,7 +8,6 @@ import {
   publicPlayer,
   readCookie,
   sessionCookie,
-  shortTag,
   validNickname,
   validUsername,
 } from "../src/server/identity.ts";
@@ -62,10 +61,12 @@ describe("R28 and R31 sessions and tags", () => {
     expect(readCookie("a=1; rubble_session=tok; b=2", "rubble_session")).toBe("tok");
     expect(readCookie(undefined, "rubble_session")).toBeNull();
   });
-  it("I5 (R31) a guest is shown with a short tag from their id, an account by username", () => {
+  it("I5 (R31) a guest is shown by their nickname alone, never a tag or any part of their id, an account by username", () => {
     const id = "a7f3c1d2-0000-4000-8000-000000000000";
-    expect(shortTag(id)).toBe("a7f3");
-    expect(publicPlayer({ id, nickname: "Tejas", username: null })).toEqual({ displayName: "Tejas #a7f3", nickname: "Tejas", kind: "guest" });
+    const shown = publicPlayer({ id, nickname: "Tejas", username: null });
+    expect(shown).toEqual({ displayName: "Tejas", nickname: "Tejas", kind: "guest" });
+    expect(JSON.stringify(shown)).not.toMatch(/#|a7f3/);
+    expect(publicPlayer({ id: "b8e4d2c3-0000-4000-8000-000000000000", nickname: "Tejas", username: null }).displayName, "two guests may share a name").toBe("Tejas");
     expect(publicPlayer({ id, nickname: "Tejas", username: "tj" })).toEqual({ displayName: "tj", nickname: "Tejas", kind: "account" });
   });
 });

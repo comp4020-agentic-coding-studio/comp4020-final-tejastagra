@@ -64,26 +64,27 @@ export function tally(games: FinishedGame[]): Map<string, Tally> {
 export interface BoardRow {
   name: string;
   value: number;
+  you?: true; // R92: set by the server on the asking player's own row, because two players may share a name (R31)
 }
 
-export function topWins(tallies: Map<string, Tally>, name: (id: string) => string | null, limit: number): BoardRow[] {
+export function topWins(tallies: Map<string, Tally>, name: (id: string) => string | null, limit: number, viewerId: string | null = null): BoardRow[] {
   return [...tallies]
     .filter(([, t]) => t.wins > 0)
     .map(([id, t]) => ({ id, name: name(id), value: t.wins }))
     .filter((r): r is { id: string; name: string; value: number } => r.name !== null)
     .sort((a, b) => b.value - a.value || a.id.localeCompare(b.id))
     .slice(0, limit)
-    .map(({ name, value }) => ({ name, value }));
+    .map(({ id, name, value }) => (id === viewerId ? { name, value, you: true as const } : { name, value }));
 }
 
-export function topRounds(tallies: Map<string, Tally>, name: (id: string) => string | null, limit: number): BoardRow[] {
+export function topRounds(tallies: Map<string, Tally>, name: (id: string) => string | null, limit: number, viewerId: string | null = null): BoardRow[] {
   return [...tallies]
     .filter(([, t]) => t.bestRounds !== null)
     .map(([id, t]) => ({ id, name: name(id), value: t.bestRounds as number }))
     .filter((r): r is { id: string; name: string; value: number } => r.name !== null)
     .sort((a, b) => a.value - b.value || a.id.localeCompare(b.id))
     .slice(0, limit)
-    .map(({ name, value }) => ({ name, value }));
+    .map(({ id, name, value }) => (id === viewerId ? { name, value, you: true as const } : { name, value }));
 }
 
 export function finishedFrom(g: SavedGame): FinishedGame {
@@ -101,14 +102,14 @@ export function finishedFrom(g: SavedGame): FinishedGame {
 }
 
 // Both lists, read from the saved games so they survive restarts (promise 5).
-// Names are the public display names (R31): a guest's short tag, never a full id.
+// Names are the public display names (R31): a nickname alone, never a tag or an id.
 export function leaderboardFrom(db: Db, limit: number, viewerId: string | null = null): { wins: BoardRow[]; rounds: BoardRow[]; you: ViewerRecord | null } {
   const tallies = tally(db.loadGames().map(finishedFrom));
   const name = (id: string) => {
     const row = db.playerById(id);
     return row ? publicPlayer(row).displayName : null;
   };
-  return { wins: topWins(tallies, name, limit), rounds: topRounds(tallies, name, limit), you: viewerRecord(tallies, viewerId, name) };
+  return { wins: topWins(tallies, name, limit, viewerId), rounds: topRounds(tallies, name, limit, viewerId), you: viewerRecord(tallies, viewerId, name) };
 }
 
 // R92: the asking player's own line, from the same tallies as the lists. Their public name (R31), their wins (0 if none) and

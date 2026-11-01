@@ -239,7 +239,7 @@ describe("R90 and R91 stats and history", () => {
     const h = historyFor(db, "me", Date.now() + 5 * 60_000);
     expect(h.history).toHaveLength(20);
     const first = h.history[0];
-    expect(first.opponent).toMatch(/^Sam #/);
+    expect(first.opponent).toBe("Sam"); // R31: a nickname alone, no tag
     expect(first.rounds).toBeGreaterThan(0);
     expect(first.endedAt).toBeTypeOf("number");
     const stamps = h.history.map((g) => g.endedAt);

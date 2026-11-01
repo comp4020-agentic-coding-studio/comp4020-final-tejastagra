@@ -55,25 +55,23 @@ export async function currentPlayer(): Promise<{ displayName: string; nickname: 
   }
 }
 
-// U152, Q20: a player's name in a card is the nickname and its tag as two pieces, so the nickname can be cut with an ellipsis while
-// the tag stays whole. The element's text is still the whole name ("Pip" and its tag), for a screen reader and for the page's own code.
-export function setPlayerName(el: HTMLElement, full: string): void {
-  const match = /^(.*\S)\s+(\x23[0-9a-fA-F]{4})$/.exec(full); // \x23 is the tag's hash sign
+// U152, Q20: a player's name in a card is the nickname (cut with an ellipsis after two lines), and, when both players share a nickname,
+// "(you)" after your own name (R103), kept whole. There is no tag (R31). The element's text is the whole name.
+export function setPlayerName(el: HTMLElement, full: string, you = false): void {
   el.replaceChildren();
-  if (!match) {
-    const nick = document.createElement("span");
-    nick.className = "pn-nick";
-    nick.textContent = full;
-    el.append(nick);
-    delete el.dataset.tagged;
-    return;
-  }
   const nick = document.createElement("span");
   nick.className = "pn-nick";
-  nick.textContent = match[1];
-  const tag = document.createElement("span");
-  tag.className = "player-tag";
-  tag.textContent = match[2];
-  el.append(nick, " ", tag);
-  el.dataset.tagged = "true";
+  nick.textContent = full;
+  el.append(nick);
+  if (you) {
+    const mark = document.createElement("span");
+    mark.className = "pn-you";
+    mark.textContent = "(you)";
+    el.append(" ", mark);
+  }
+}
+
+// R103: on a player's own screen, "(you)" follows their name when both players have the same one. Never on a spectator's screen.
+export function sameNameMark(yours: string | null | undefined, theirs: string | null | undefined): boolean {
+  return !!yours && !!theirs && yours === theirs;
 }

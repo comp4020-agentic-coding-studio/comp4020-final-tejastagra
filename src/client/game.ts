@@ -8,7 +8,7 @@ import { avatar, buildBoard, colourAvatar, ceilingAnimation, confettiBurst, eart
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 import { dialogButton, openDialog } from "./dialog.ts";
 import { dismissTutorial, seatFor, showTutorial, tutorialDue } from "./tutorial.ts";
-import { setPlayerName } from "./common.ts";
+import { sameNameMark, setPlayerName } from "./common.ts";
 
 type Player = "A" | "B";
 
@@ -38,6 +38,14 @@ let first = true; // the first snapshot only draws the board; later ones may ani
 let deadline: number | null = null; // set when a round is open (R51): nothing runs while waiting
 let drawn: State | null = null;
 let opponentPresent = false;
+// R103: both names are kept so "(you)" can follow your own when they match.
+let yourName: string | null = null;
+let opponentName: string | null = null;
+function drawNames(): void {
+  const same = sameNameMark(yourName, opponentName);
+  if (yourName !== null) setPlayerName($("name-you"), yourName, same);
+  if (opponentName !== null) setPlayerName($("name-opponent"), opponentName);
+}
 let opponentLearning = false; // R102: the other seat is doing the tutorial, so the learning card shows in place of the share link card
 let opponentChosen = false; // only "chosen or not", never which column (R21)
 let locked = false; // the choice for this round is final (R4, U13)
@@ -604,8 +612,9 @@ socket.addEventListener("message", (event) => {
       seatToken = message.seatToken;
       opponentPresent = message.opponentPresent === true;
       if (typeof message.watching === "number") showWatching(message.watching);
-      if (typeof message.yourName === "string") setPlayerName($("name-you"), message.yourName);
-      if (typeof message.opponentName === "string") setPlayerName($("name-opponent"), message.opponentName);
+      if (typeof message.yourName === "string") yourName = message.yourName;
+      if (typeof message.opponentName === "string") opponentName = message.opponentName;
+      drawNames();
       if (message.colours && (message.colours.A === "red" || message.colours.A === "yellow")) colours = message.colours;
       markStarted(message.started !== false);
       if (started) hideCountdown();
@@ -643,7 +652,10 @@ socket.addEventListener("message", (event) => {
     case "opponent_joined":
       opponentLearning = false;
       opponentPresent = true;
-      if (typeof message.name === "string") setPlayerName($("name-opponent"), message.name);
+      if (typeof message.name === "string") {
+        opponentName = message.name;
+        drawNames();
+      }
       showHeading(false);
       if (drawn) syncWaiting(drawn); // round 1 starts after the countdown the server sends next (R51, R97)
       break;

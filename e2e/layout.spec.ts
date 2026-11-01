@@ -681,7 +681,7 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, U132, R81)
     await context.close();
   });
 
-  test("a game against a person says who with their name and tag, and Leave forfeits: the other player wins and is told", async ({ browser }) => {
+  test("a game against a person says who with their name (no tag, R31), and Leave forfeits: the other player wins and is told", async ({ browser }) => {
     const one = await newPlayer(browser, PHONE, { reducedMotion: true });
     const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
     await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
@@ -689,8 +689,8 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, U132, R81)
     const code = await makeGameCode(one.page);
     await one.page.goto(`/g/${code}`);
     await two.page.goto(`/g/${code}`);
-    await expect(one.page.locator(testid("opponent-heading"))).toContainText("Playing with Sam Wombat #");
-    await expect(two.page.locator(testid("opponent-heading"))).toContainText("Playing with Pip Squeak #");
+    await expect(one.page.locator(testid("opponent-heading"))).toHaveText("Playing with Sam Wombat");
+    await expect(two.page.locator(testid("opponent-heading"))).toHaveText("Playing with Pip Squeak");
     await one.page.locator(testid("header-home")).click() /* U132: Home asks to confirm leaving */;
     await one.page.locator(testid("leave-confirm")).click();
     await one.page.waitForURL(/\/$/);
@@ -848,7 +848,7 @@ test.describe("Phone width: the watching screen and the game screen's first scre
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await page.routeWebSocket(/\/ws$/, (ws) => {
         ws.onMessage(() =>
-          ws.send(JSON.stringify({ type: "spectating", code: "QQQQQQ", kind: "quick", watching: 1, names: { A: "Pip Squeak #4f2a", B: "Sam Wombat #c0de" }, colours: { A: "red", B: "yellow" }, state: { board: [[], [], [], [], [], [], []], round: 3, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null } })),
+          ws.send(JSON.stringify({ type: "spectating", code: "QQQQQQ", kind: "quick", watching: 1, names: { A: "Pip Squeak", B: "Sam Wombat" }, colours: { A: "red", B: "yellow" }, state: { board: [[], [], [], [], [], [], []], round: 3, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null } })),
         );
       });
       await page.goto("/watch");
@@ -1148,7 +1148,7 @@ async function openEndPopup(page: Page, status: "draw" | "won" = "draw"): Promis
   const state = { board: [[], [], [], [], [], [], []], round: 21, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 4, status, winner: status === "won" ? "B" : null };
   await page.routeWebSocket(/\/ws$/, (ws) => {
     ws.onMessage((raw) => {
-      if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Pip Squeak #4f2a", opponentName: "Brave Wombat #a7f3", colours: { A: "red", B: "yellow" }, opponentReady: false }));
+      if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Pip Squeak", opponentName: "Brave Wombat", colours: { A: "red", B: "yellow" }, opponentReady: false }));
     });
   });
   await page.goto("/g/DRAW42");
@@ -1335,7 +1335,7 @@ test.describe("Q20 a name takes at most two lines", () => {
       const state = { board: [[], [], [], [], [], [], []], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null };
       await page.routeWebSocket(/\/ws$/, (ws) => {
         ws.onMessage((raw) => {
-          if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Wmmmmmmmmmmmmmmm #4f2a", opponentName: "Mwwwwwwwwwwwwwww #a7f3", colours: { A: "red", B: "yellow" }, opponentReady: false }));
+          if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Wmmmmmmmmmmmmmmm", opponentName: "Mwwwwwwwwwwwwwww", colours: { A: "red", B: "yellow" }, opponentReady: false }));
         });
       });
       await page.goto("/g/NAMES2");
@@ -1343,13 +1343,12 @@ test.describe("Q20 a name takes at most two lines", () => {
       for (const [name, card] of [["name-you", "panel-you"], ["name-opponent", "panel-opponent"]] as const) {
         const m = await page.locator(testid(name)).evaluate((el) => {
           const line = parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.2;
-          return { lines: Math.round(el.getBoundingClientRect().height / line), right: el.getBoundingClientRect().right, tag: el.querySelector(".player-tag")?.getBoundingClientRect().right ?? 0 };
+          return { lines: Math.round(el.getBoundingClientRect().height / line), right: el.getBoundingClientRect().right, text: el.textContent ?? "" };
         });
         const box = (await page.locator(testid(card)).boundingBox())!;
         expect(m.lines, `${name} is at most two lines`).toBeLessThanOrEqual(2);
         expect(m.right, `${name} stays inside its card`).toBeLessThanOrEqual(box.x + box.width + 1);
-        expect(m.tag, `${name}'s tag stays inside its card`).toBeLessThanOrEqual(box.x + box.width + 1);
-        await expect(page.locator(`${testid(name)} .player-tag`), `${name}'s tag is shown`).toBeVisible();
+        expect(m.text, `${name} shows no tag (R31)`).not.toMatch(/#/);
       }
       await context.close();
     });
@@ -1436,7 +1435,7 @@ test.describe("Q22 the versus bar and the header bar on a phone", () => {
       const state = { board: [[], [], [], [], [], [], []], round: 0, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null };
       await page.routeWebSocket(/\/ws$/, (ws) => {
         ws.onMessage((raw) => {
-          if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Wmmmmmmmmmmmmmmm #4f2a", opponentName: "Mwwwwwwwwwwwwwww #a7f3", colours: { A: "red", B: "yellow" }, opponentReady: false }));
+          if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Wmmmmmmmmmmmmmmm", opponentName: "Mwwwwwwwwwwwwwww", colours: { A: "red", B: "yellow" }, opponentReady: false }));
         });
       });
       await page.goto("/g/HDRBAR");
@@ -2518,4 +2517,89 @@ test.describe("Q43 Q44 U172 U173 the tutorial card is the sum of its parts, and 
       await context.close();
     });
   }
+});
+
+// ---- No nickname tag anywhere, "(you)" for a shared nickname, and a power-up row as wide as the board (R31, R103, U174, Q45) ----
+
+const TAG = /\S\s*#[0-9a-zA-Z]{4}\b/; // a nickname followed by a hash sign and four letters or digits
+
+// All the text a player can see on the page, as one string.
+const visibleText = (page: Page) => page.evaluate(() => document.body.innerText);
+
+test.describe("Q45 R31 U174 no tag, and the power-up row is the board's width", () => {
+  for (const viewport of MARKING) {
+    test(`Q45 the power-up row's edges match the board's within 2px, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openComputerGame(page);
+      const board = (await page.locator(`${testid("board-wrap")} .board`).boundingBox())!;
+      const rows = page.locator(".powerups .powerup-row");
+      expect(await rows.count()).toBe(2);
+      const first = (await rows.nth(0).boundingBox())!;
+      const second = (await rows.nth(1).boundingBox())!;
+      const timer = (await page.locator(testid("timer")).boundingBox())!;
+      expect(Math.abs(first.x - board.x), "the row's left edge is the board's").toBeLessThanOrEqual(2);
+      expect(Math.abs(second.x + second.width - (board.x + board.width)), "the row's right edge is the board's").toBeLessThanOrEqual(2);
+      expect(Math.abs(first.x - timer.x), "and the same as the timer bar's").toBeLessThanOrEqual(2);
+      expect(Math.abs(second.x + second.width - (timer.x + timer.width))).toBeLessThanOrEqual(2);
+      expect(Math.abs(first.width - second.width), "the two buttons are equal").toBeLessThanOrEqual(2);
+      await context.close();
+    });
+
+    test(`Q45 no visible text shows a nickname tag on the home, game, account, leaderboard and watching screens, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(90_000);
+      const host = await newPlayer(browser, viewport, { reducedMotion: true });
+      const code = await makeGameCode(host.page);
+      await host.page.goto(`/g/${code}`);
+      const guest = await newPlayer(browser, viewport, { reducedMotion: true });
+      await guest.page.goto(`/g/${code}`);
+      await expect(host.page.locator(testid("get-ready"))).toBeVisible({ timeout: 8_000 });
+      await waitForStart(host.page);
+      const seen: Record<string, string> = {};
+      seen["game (host)"] = await visibleText(host.page);
+      seen["game (guest)"] = await visibleText(guest.page);
+      // The home card, the account page (with a played game in the history) and the leaderboard.
+      await host.page.goto("/");
+      await expect(host.page.locator(testid("player-name"))).not.toHaveText("Choosing a name...");
+      seen["home"] = await visibleText(host.page);
+      await host.page.goto("/account");
+      await host.page.waitForLoadState("networkidle");
+      seen["account"] = await visibleText(host.page);
+      await host.page.goto("/leaderboard");
+      await host.page.waitForLoadState("networkidle");
+      seen["leaderboard"] = await visibleText(host.page);
+      // A spectator on the same game.
+      const watcher = await newPlayer(browser, viewport, { reducedMotion: true });
+      await watcher.page.goto(`/g/${code}`);
+      await watcher.page.waitForURL(/\/watch\?game=/, { timeout: 8_000 });
+      await expect(watcher.page.locator(testid("name-a"))).not.toHaveText("Player 1");
+      seen["watching"] = await visibleText(watcher.page);
+      for (const [screen, text] of Object.entries(seen)) expect(text, `${screen} shows no nickname tag`).not.toMatch(TAG);
+      for (const c of [host, guest, watcher]) await c.context.close();
+    });
+  }
+
+  test("Q45 R103 when both players share a nickname, your own name reads \"(you)\" on your screen only, and a spectator sees neither", async ({ browser }) => {
+    const nickname = `Twin${Math.random().toString(36).slice(2, 6)}`;
+    const make = async () => {
+      const p = await newPlayer(browser, PHONE, { reducedMotion: true });
+      await p.page.request.post("/api/guest", { data: { nickname } });
+      return p;
+    };
+    const host = await make();
+    const code = await makeGameCode(host.page);
+    await host.page.goto(`/g/${code}`);
+    const guest = await make();
+    await guest.page.goto(`/g/${code}`);
+    await expect(host.page.locator(testid("get-ready"))).toBeVisible({ timeout: 8_000 });
+    for (const p of [host, guest]) {
+      await expect(p.page.locator(testid("name-you")), "your own name carries (you)").toHaveText(`${nickname} (you)`);
+      await expect(p.page.locator(testid("name-opponent")), "the opponent's does not").toHaveText(nickname);
+    }
+    const watcher = await make();
+    await watcher.page.goto(`/g/${code}`);
+    await watcher.page.waitForURL(/\/watch\?game=/, { timeout: 8_000 });
+    await expect(watcher.page.locator(testid("name-a"))).toHaveText(nickname);
+    await expect(watcher.page.locator(testid("name-b"))).toHaveText(nickname);
+    for (const c of [host, guest, watcher]) await c.context.close();
+  });
 });

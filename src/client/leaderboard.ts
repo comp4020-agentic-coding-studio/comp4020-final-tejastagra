@@ -8,6 +8,7 @@ import { $ } from "./common.ts";
 interface Row {
   name: string;
   value: number;
+  you?: boolean; // set by the server on the asking player's own row (R92)
 }
 interface Board {
   wins: Row[];
@@ -44,7 +45,7 @@ function render(): void {
   }
   const list = (tab === "wins" ? board.wins : board.rounds).slice(0, MAX_PLAYERS); // R99: at most 10
   const you = board.you;
-  const isYou = (name: string) => !!you && you.name === name; // the whole name and tag (R92)
+  const isYou = (row: { you?: boolean }) => !!you && row.you === true; // R92: the server marks the asking player's row; names can be shared
   if (list.length === 0) {
     $("leaderboard-empty-text").textContent = tab === "wins" ? "No wins yet. Only games against other people count, so play a friend or try Quick match." : "No wins by four in a row yet. Only games against other people count, so play a friend or try Quick match.";
     show("leaderboard-empty", true);
@@ -57,10 +58,10 @@ function render(): void {
       if (!row) continue;
       const block = el("div", "podium-place");
       block.dataset.place = String(place);
-      if (isYou(row.name)) block.dataset.you = "true";
+      if (isYou(row)) block.dataset.you = "true";
       const who = el("div", "podium-who");
       who.append(avatar(row.name), el("span", "podium-name", row.name));
-      if (isYou(row.name)) who.append(el("span", "you-tag", "You"));
+      if (isYou(row)) who.append(el("span", "you-tag", "You"));
       const step = el("div", "podium-step");
       step.append(el("span", "podium-rank", String(place)), el("span", "podium-score", scoreText(tab, row.value)));
       block.append(who, step);
@@ -72,9 +73,9 @@ function render(): void {
     rows.replaceChildren();
     list.slice(3).forEach((row, i) => {
       const li = el("li", "row board-row");
-      if (isYou(row.name)) li.dataset.you = "true";
+      if (isYou(row)) li.dataset.you = "true";
       const name = el("span", "row-name", row.name);
-      if (isYou(row.name)) name.append(el("span", "you-tag", "You"));
+      if (isYou(row)) name.append(el("span", "you-tag", "You"));
       li.append(el("span", "row-rank", String(i + 4)), avatar(row.name), name, el("span", "row-value", scoreText(tab, row.value)));
       rows.append(li);
     });

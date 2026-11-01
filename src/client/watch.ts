@@ -117,7 +117,7 @@ function banner(): void {
   $("spectator-notice").hidden = !link;
   $("watch-another").hidden = link; // there is nothing to move on to from a link game
   // The banner says who is playing by nickname; the tags that tell two guests apart are in the panels below (U94).
-  const plain = (name: string | null | undefined, fallback: string) => (name ?? fallback).replace(/\s#[0-9a-f]{4}$/i, "");
+  const plain = (name: string | null | undefined, fallback: string) => name ?? fallback;
   const banner = $("watching-banner");
   banner.replaceChildren();
   const lead = document.createElement("span");

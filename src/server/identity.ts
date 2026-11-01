@@ -35,21 +35,16 @@ export function newPlayerId(): string {
   return randomUUID();
 }
 
-// R31: a short tag from the id, shown wherever a guest is shown.
-export function shortTag(id: string): string {
-  return id.replace(/-/g, "").slice(0, 4);
-}
-
 export interface PublicPlayer {
   displayName: string;
-  nickname: string; // the player's own nickname without its tag, so an edit form can open prefilled (Q7)
+  nickname: string; // the player's own nickname, so an edit form can open prefilled (Q7)
   kind: "guest" | "account";
 }
 
 export function publicPlayer(player: { id: string; nickname: string; username: string | null }): PublicPlayer {
   return player.username
     ? { displayName: player.username, nickname: player.nickname, kind: "account" }
-    : { displayName: `${player.nickname} #${shortTag(player.id)}`, nickname: player.nickname, kind: "guest" };
+    : { displayName: player.nickname, nickname: player.nickname, kind: "guest" }; // R31: a nickname alone, never a tag; the id stays internal
 }
 
 export function newSessionToken(): string {

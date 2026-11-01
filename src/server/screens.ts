@@ -33,7 +33,7 @@ export function homeScreen(ctx: ScreenContext): string {
           <span class="avatar" data-testid="player-avatar"></span>
           <span class="player-text">
             <span class="player-name" data-testid="player-name">Choosing a name...</span>
-            <span class="player-tag" data-testid="player-kind"></span>
+            <span class="player-status" data-testid="player-kind"></span>
           </span>
           <button type="button" class="icon-only" data-testid="rename" aria-label="Change nickname">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M3 17.3V21h3.7L18 9.7 14.3 6zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7z"/></svg>
