@@ -2630,3 +2630,28 @@ test.describe("Q46 U172 the tutorial card has no excess space", () => {
   }
 });
 
+// ---- The instructions are centred in their area (U175, Q47) ----
+
+test.describe("Q47 U175 the instructions are centred in their area", () => {
+  for (const viewport of MARKING) {
+    test(`Q47 all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      const problems: string[] = [];
+      for (let step = 1; step <= 11; step++) {
+        const m = await tutorialParts(page);
+        const counter = m.items["step counter"];
+        const text = m.items["instructions"];
+        const above = counter.y - m.top.y; // blank space above the counter, inside the area
+        const below = m.top.y + m.top.h - (text.y + text.h); // blank space below the instructions, inside the area
+        if (above < -0.5 || below < -0.5) problems.push(`step ${step}: the text runs outside its area (${above.toFixed(1)}px above, ${below.toFixed(1)}px below)`);
+        if (Math.abs(above - below) > 2) problems.push(`step ${step}: ${above.toFixed(1)}px above and ${below.toFixed(1)}px below the instructions`);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});
+
