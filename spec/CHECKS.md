@@ -48,6 +48,7 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q16 | No button or caption's box intersects the board on the game screen or in the tutorial | `e2e/layout.spec.ts` | passing |
 | Q17 | On the home screen the gaps between the player card and each menu button are equal within 2px, on a phone and a laptop | `e2e/layout.spec.ts` | passing |
 | Q28, U51a, U9a | A focused field or button shows one yellow border at the same width and radius with no separate outline; nothing moves more than 1px; a button's focus border only shows on Tab, never on click or tap | `e2e/layout.spec.ts` | passing |
+| Q31, U9b | Every button in the leave popup, an info popup, the tutorial and the power-up row has an equal border on all four sides and its whole hard shadow inside the visible area of every ancestor, at 390 x 844 and 1366 x 768 | `e2e/layout.spec.ts` | passing |
 | Q29, U52b | No popup card carries a light or white second ring; `--shadow-popup` is a plain dark offset | `e2e/layout.spec.ts`, `spec/unit-theme.test.ts` | passing |
 | Q30, U114a | On a laptop the account page is two columns, vertically centred within 24px, the page itself never scrolls and the history scrolls in its own card; on a phone it stays one column | `e2e/account.spec.ts` | passing |
 | U151 | The result line is a visually hidden aria-live region, never visible, and updates after each round; at least 16px between the power-up row and the bottom of the screen | `e2e/layout.spec.ts` | passing |

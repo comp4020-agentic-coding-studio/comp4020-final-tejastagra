@@ -2005,3 +2005,79 @@ test.describe("Q28 a yellow button's focus state is still visible against its ow
     await context.close();
   });
 });
+
+// ---- Fix 2 of the 1 November 2026 list: one button style, the whole shadow showing (U9b, Q31) ----
+
+// For each button: its border is the same width on all four sides, and its border box plus its hard shadow lies inside the
+// visible area of every ancestor that clips it (overflow other than visible) and inside the screen.
+async function buttonProblems(page: Page, root: string): Promise<string[]> {
+  return page.locator(root).evaluate((scope) => {
+    const out: string[] = [];
+    const buttons = [...scope.querySelectorAll<HTMLElement>("button, a.btn")].filter((b) => {
+      const r = b.getBoundingClientRect();
+      // The practice columns are transparent hit areas and Skip is a text link (U159a): neither is an outlined button.
+      const id = b.getAttribute("data-testid") ?? "";
+      if (/^tutorial-column-|^tutorial-skip$/.test(id)) return false;
+      return r.width > 0 && r.height > 0 && !b.closest("[hidden]") && getComputedStyle(b).visibility !== "hidden";
+    });
+    for (const b of buttons) {
+      const cs = getComputedStyle(b);
+      const name = (b.getAttribute("data-testid") || b.className || b.tagName) + "";
+      const widths = [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth];
+      void widths;
+      // A button drawn inside a row (the power-up button and its info button) takes its border from the row.
+      const holder = b.closest<HTMLElement>(".powerup-row") ?? b;
+      const hs = getComputedStyle(holder);
+      const hw = [hs.borderTopWidth, hs.borderRightWidth, hs.borderBottomWidth, hs.borderLeftWidth].map(parseFloat);
+      if (!(hw[0] > 0 && hw.every((w) => Math.abs(w - hw[0]) < 0.01))) out.push(`${name}: border widths ${hw.join("/")} are not equal and above 0`);
+      // The shadow's reach below the border box: the y offset of the last shadow.
+      const shadow = hs.boxShadow === "none" ? 0 : Math.max(0, ...[...hs.boxShadow.matchAll(/(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px/g)].map((m) => parseFloat(m[2])));
+      const r = holder.getBoundingClientRect();
+      const bottom = r.bottom + shadow;
+      if (bottom > innerHeight + 0.5) out.push(`${name}: its shadow ends at ${bottom} below the screen ${innerHeight}`);
+      for (let a = holder.parentElement; a; a = a.parentElement) {
+        const o = getComputedStyle(a);
+        if (o.overflowX === "visible" && o.overflowY === "visible") continue;
+        const ar = a.getBoundingClientRect();
+        const clipBottom = ar.bottom - (parseFloat(o.borderBottomWidth) || 0);
+        if (bottom > clipBottom + 0.5) out.push(`${name}: its shadow ends at ${Math.round(bottom)} but ${a.className || a.tagName} clips at ${Math.round(clipBottom)}`);
+        if (r.left < ar.left - 0.5 || r.right > ar.right + 0.5) out.push(`${name}: its sides are clipped by ${a.className || a.tagName}`);
+      }
+    }
+    return out;
+  });
+}
+
+test.describe("Q31 U9b every button has one style and its whole shadow shows", () => {
+  for (const viewport of [PHONE, LAPTOP]) {
+    test(`Q31 the leave popup, info popups and the power-up row at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openComputerGame(page);
+      const problems: string[] = [];
+      problems.push(...(await buttonProblems(page, testid("powerups"))).map((p) => `power-ups: ${p}`));
+      for (const [opener, dialog, close] of [["shield-info", "shield-help", "dialog-close"], ["earthquake-info", "earthquake-help", "dialog-close"], ["header-home", "leave-dialog", "dialog-cancel"]]) {
+        await page.locator(testid(opener)).click();
+        await expect(page.locator(testid(dialog))).toBeVisible();
+        problems.push(...(await buttonProblems(page, testid(dialog))).map((p) => `${dialog}: ${p}`));
+        await page.locator(`${testid(dialog)} ${testid(close)}`).first().click();
+        await expect(page.locator(testid(dialog))).toBeHidden();
+      }
+      expect(problems).toEqual([]);
+      await context.close();
+    });
+
+    test(`Q31 every tutorial step's buttons at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(90_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      const problems: string[] = [];
+      for (let step = 1; step <= 11; step++) {
+        await doTutorialStep(page, step);
+        problems.push(...(await buttonProblems(page, `${testid("tutorial")} .tutorial-card`)).map((p) => `step ${step}: ${p}`));
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});

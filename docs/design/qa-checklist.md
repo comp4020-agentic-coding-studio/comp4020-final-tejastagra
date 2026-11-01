@@ -36,6 +36,7 @@ Added on 28 October 2026. These are the layout and polish rules every screen mus
 | **Q28** | **A clean focus state (added 31 October 2026, U51a, U9a).** A focused field shows exactly one border, which is yellow, at the same width and radius as unfocused, with no separate outline; focusing a field or a button moves nothing by more than 1px; a button shows its yellow focus border when reached by Tab, never when clicked or tapped. | `e2e/layout.spec.ts` at both marking viewports. |
 | **Q29** | **No light or white border on a popup card (added 31 October 2026, U52b).** Every popup card's shadow is a plain dark offset; none carries a second, lighter ring. | `e2e/layout.spec.ts`, `spec/unit-theme.test.ts`. |
 | **Q30** | **The account page on a laptop (added 31 October 2026, U114a).** Two columns: the title and profile card on the left, "Your record" and the stats and history on the right, vertically centred against each other within 24px. The page itself never scrolls; a long history scrolls inside its own card. With no finished games, "No games yet" appears exactly once. On a phone the page stays one column. | `e2e/account.spec.ts` at 1366 x 768 and at phone widths. |
+| **Q31** | **Every button has one style and its whole shadow shows (added 1 November 2026, U9b).** The `--outline` border is the same width on all four sides, the `--shadow` falls straight down, and the corners match. No container clips a button's shadow: the leave popup's Leave and Stay, an info popup's Close, the tutorial's Next and the power-up buttons are measured at the phone and laptop viewports. |
 
 ## The header bar (Q12)
 
@@ -49,4 +50,4 @@ One popup component serves every dialog (`src/client/dialog.ts`, styled in `publ
 
 ## Checks that are measured and checks that are looked at
 
-Q1 to Q9, Q12, Q13 and Q15 to Q29 are measured by `e2e/layout.spec.ts`, Q30 by `e2e/account.spec.ts`, and Q14 by `e2e/player-colours.spec.ts`. Q10 and Q11 are judged by `/visual-qa`, which also looks at every other Q and at things a measurement cannot see (is anything cramped, does the page look finished, is any text cut off). `/visual-qa` writes its screenshots to `reports/visual-qa/` (not tracked by git) and fixes what it finds.
+Q1 to Q9, Q12, Q13 and Q15 to Q29 and Q31 are measured by `e2e/layout.spec.ts`, Q30 by `e2e/account.spec.ts`, and Q14 by `e2e/player-colours.spec.ts`. Q10 and Q11 are judged by `/visual-qa`, which also looks at every other Q and at things a measurement cannot see (is anything cramped, does the page look finished, is any text cut off). `/visual-qa` writes its screenshots to `reports/visual-qa/` (not tracked by git) and fixes what it finds.
