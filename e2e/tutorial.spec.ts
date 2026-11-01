@@ -1,4 +1,4 @@
-// When the tutorial opens (R47, R48, docs/design/tutorial.md U136): the first time a person starts a game in a browser (not Quick match), before it begins,
+// When the tutorial opens (R47, R48, docs/design/tutorial.md U136): the first time a person starts a game in a browser (Quick match too, before the queue), before it begins,
 // never on the home screen by itself and never twice; finishing or skipping it starts the match they chose. The steps themselves
 // are checked in e2e/design.spec.ts. Run with pnpm test:e2e.
 import { expect, test, type Page } from "@playwright/test";
@@ -55,13 +55,35 @@ test.describe("R47 the tutorial runs before the first match", () => {
     await context.close();
   });
 
-  test("R47 Quick match never opens it: the queue starts at once", async ({ browser }) => {
+  test("R47 U171 Quick match: a first-time player sees the tutorial before the queue, and joins it only when they finish or skip", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
-    await page.route("**/api/quick/**", (route) => route.fulfill({ json: { state: "waiting" } })); // never paired with another check
+    const queue: string[] = [];
+    await page.route("**/api/quick/**", (route) => {
+      queue.push(route.request().method());
+      return route.fulfill({ json: { state: "waiting" } }); // never paired with another check
+    });
     await page.goto("/");
     await page.locator(testid("quick-match")).click();
     await page.waitForURL(/\/play\/quick$/);
+    await expect(tutorial(page), "the tutorial is first").toBeVisible();
+    await page.waitForTimeout(1_500);
+    expect(queue.filter((m) => m === "POST"), "no ticket is made while they learn").toEqual([]);
+    await page.locator(testid("tutorial-skip")).click();
+    await expect(tutorial(page)).toBeHidden();
+    await expect.poll(() => queue.filter((m) => m === "POST").length, { timeout: 5_000 }).toBe(1);
     await expect(page.locator(testid("quick-status"))).toBeVisible();
+    await context.close();
+  });
+
+  test("R47 U171 Quick match: a player who has done the tutorial joins the queue at once", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    let joined = false;
+    await page.route("**/api/quick/**", (route) => {
+      if (route.request().method() === "POST") joined = true;
+      return route.fulfill({ json: { state: "waiting" } });
+    });
+    await page.goto("/play/quick");
+    await expect.poll(() => joined, { timeout: 5_000 }).toBe(true);
     await expect(tutorial(page)).toBeHidden();
     await context.close();
   });
@@ -106,17 +128,17 @@ test.describe("R47 the tutorial runs before the first match", () => {
     await host.context.close();
   });
 
-  test("R47 R51 opening a friend's link: the tutorial runs before the page joins, so the host's game does not start until it is done", async ({ browser }) => {
+  test("R47 R51 R102 opening a friend's link: the tutorial runs over the game, and the host's game does not start until it is done", async ({ browser }) => {
     const host = await newPlayer(browser, PHONE, { reducedMotion: true });
     const code = await makeGameCode(host.page);
     await host.page.goto(`/g/${code}`);
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new", reducedMotion: true });
     await page.goto(`/g/${code}`);
     await expect(tutorial(page)).toBeVisible();
-    await page.waitForTimeout(500);
-    await expect(host.page.locator(testid("waiting-panel")), "nobody has joined while the newcomer reads").toBeVisible();
+    await expect(host.page.locator(testid("learning-panel")), "the host is told the seat is taken and the newcomer is learning").toBeVisible({ timeout: 5_000 });
+    await expect(host.page.locator(testid("get-ready")), "and nothing starts while they read").toBeHidden();
     await page.locator(testid("tutorial-skip")).click();
-    await expect(host.page.locator(testid("waiting-panel"))).toBeHidden({ timeout: 5_000 });
+    await expect(host.page.locator(testid("learning-panel"))).toBeHidden({ timeout: 5_000 });
     await expect(page.locator(testid("get-ready"))).toBeVisible({ timeout: 5_000 });
     await context.close();
     await host.context.close();

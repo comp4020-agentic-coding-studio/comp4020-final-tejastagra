@@ -7,7 +7,7 @@
 import { avatar, buildBoard, colourAvatar, ceilingAnimation, confettiBurst, earthquakeIcon, markDoomed, quakeAnimation, reducedMotion, shieldIcon, themeNumber, type BoardView, type Colour } from "./arcade.ts";
 import { ceilingDue, rowsAt, type GameState } from "../engine/index.ts";
 import { dialogButton, openDialog } from "./dialog.ts";
-import { beforeFirstMatch, seatFor } from "./tutorial.ts";
+import { dismissTutorial, seatFor, showTutorial, tutorialDue } from "./tutorial.ts";
 import { setPlayerName } from "./common.ts";
 
 type Player = "A" | "B";
@@ -38,6 +38,7 @@ let first = true; // the first snapshot only draws the board; later ones may ani
 let deadline: number | null = null; // set when a round is open (R51): nothing runs while waiting
 let drawn: State | null = null;
 let opponentPresent = false;
+let opponentLearning = false; // R102: the other seat is doing the tutorial, so the learning card shows in place of the share link card
 let opponentChosen = false; // only "chosen or not", never which column (R21)
 let locked = false; // the choice for this round is final (R4, U13)
 let started = false; // round 1 has opened (R97): until then the board is locked and no timer runs
@@ -91,24 +92,29 @@ try {
   playedComputer = false;
 }
 
+let learningShown = false; // the tutorial opens once per page for a learning seat (R102)
 const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
 // R47, U136: a newcomer who opens a game link starts their first match here, so the tutorial runs before the page joins (nobody
 // is seated, so no countdown or round starts while they read it). A reload of a seat this tab already holds joins at once.
 const opened = new Promise<void>((resolve) => socket.addEventListener("open", () => resolve(), { once: true }));
 void (async () => {
   const saved = loadSeat();
-  const join = async () => {
+  const join = async (learning = false) => {
     await opened;
-    socket.send(JSON.stringify({ type: "join", code, ...(saved ?? {}) }));
+    socket.send(JSON.stringify({ type: "join", code, ...(saved ?? {}), ...(learning ? { learning: true } : {}) }));
   };
   if (saved) {
-    await join();
+    // A seat this tab held may have been released while its player was away (R102), so a first-time player still takes it as a
+    // learner. The server ignores the flag for a seat that is still held (a reload is not a new arrival).
+    await join(await tutorialDue());
     return;
   }
   // R47, R100: ask whether a player seat is free before deciding on the tutorial. Someone who would watch, or whose game has ended,
   // goes straight to watching or to the result with no tutorial. The page still joins: the server decides what they are.
   const role = await seatFor(code);
-  if (role === "player") await beforeFirstMatch(join);
+  // R102: a first-time player takes the seat at once and does the tutorial after, so nobody else can take it and the game waits for them.
+  // The server's first snapshot says `learning: true`, and that is what opens the tutorial (see the snapshot handler).
+  if (role === "player") await join(await tutorialDue());
   else await join();
 })();
 
@@ -505,9 +511,16 @@ function syncWaiting(state: State): void {
   // The waiting card shows while the second player has not arrived (U54). There is no timer,
   // round number or opponent status until they do (R51).
   const waiting = !opponentPresent && state.round === 0 && state.status === "playing";
-  $("waiting-panel").hidden = !waiting;
-  gameRoot.dataset.waiting = String(waiting);
+  showWaitingCards(waiting);
   showHeading(waiting);
+}
+
+// U54, U169: while waiting, one card shows: the share link card, or, once the other player has taken their seat and is doing the
+// tutorial, the learning card. Never both.
+function showWaitingCards(waiting: boolean): void {
+  $("waiting-panel").hidden = !waiting || opponentLearning;
+  $("learning-panel").hidden = !waiting || !opponentLearning;
+  gameRoot.dataset.waiting = String(waiting);
 }
 
 // U106: who you are playing, one line above the board.
@@ -573,11 +586,20 @@ socket.addEventListener("message", (event) => {
       // U168, R101: the server has said what this game is. Whether to show the waiting card is decided here, in the same step that
       // reveals the screen, because drawing the board is queued and runs a moment later (a computer game would flash the card).
       if (typeof message.opponentPresent === "boolean" && message.state) {
-        const waiting = !message.opponentPresent && message.state.round === 0 && message.state.status === "playing";
-        $("waiting-panel").hidden = !waiting;
-        gameRoot.dataset.waiting = String(waiting);
+        opponentLearning = message.opponentLearning === true;
+        showWaitingCards(!message.opponentPresent && message.state.round === 0 && message.state.status === "playing");
       }
       gameRoot.dataset.known = "true";
+      // R102: this seat is learning, so the tutorial runs now, over the game, whether this is the first join or a reload during it. The game
+      // waits for it; finishing or skipping it tells the server, which starts the countdown.
+      if (message.learning === true && !learningShown) {
+        learningShown = true;
+        const mine = { player: message.you, seatToken: message.seatToken };
+        void showTutorial({
+          mode: "match",
+          onClose: () => socket.send(JSON.stringify({ type: "learning_done", code, ...mine })),
+        });
+      }
       you = message.you;
       seatToken = message.seatToken;
       opponentPresent = message.opponentPresent === true;
@@ -600,7 +622,26 @@ socket.addEventListener("message", (event) => {
       showResult(message.state, message.opponentReady);
       break;
     }
+    case "opponent_learning":
+      // R102: someone has taken the seat and is doing the tutorial. The game waits; there is no countdown yet.
+      opponentLearning = true;
+      if (drawn) syncWaiting(drawn);
+      break;
+    case "opponent_gone":
+      // R102: the learner did not come back, so the seat is free and the share link card returns (R51).
+      opponentLearning = false;
+      opponentPresent = false;
+      if (drawn) syncWaiting(drawn);
+      break;
+    case "opponent_cancelled":
+      // R102: the host cancelled while this player was learning. Nothing was lost; there is no result.
+      over = true;
+      dismissTutorial();
+      say("The other player cancelled the game. Start your own from Home.", "error");
+      renderChoice();
+      break;
     case "opponent_joined":
+      opponentLearning = false;
       opponentPresent = true;
       if (typeof message.name === "string") setPlayerName($("name-opponent"), message.name);
       showHeading(false);
@@ -843,6 +884,11 @@ function confirmLeave(): void {
 }
 
 $("cancel-game").addEventListener("click", () => {
+  sendLeave();
+  goHome();
+});
+// U169: Cancel game on the learning card ends the game the same way (R102): it never started, so there is no result.
+$("cancel-learning").addEventListener("click", () => {
   sendLeave();
   goHome();
 });

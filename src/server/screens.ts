@@ -79,6 +79,7 @@ export function quickScreen(ctx: ScreenContext): string {
         </div>
       </section>
     </main>
+    ${tutorialOverlay()}
   `;
   return shell(ctx, "Rubble: Quick match", body, "/static/quick.js");
 }
@@ -235,6 +236,9 @@ export function watchScreen(ctx: ScreenContext): string {
               <h2 data-testid="watch-result-title"></h2>
               <p data-testid="watch-result-next"></p>
             </div>
+            <div class="watch-result panel watch-learning" data-testid="watch-learning" role="status" hidden>
+              <h2>Your opponent is learning how to play. The game starts when they finish.</h2>
+            </div>
           </div>
           <p class="result" data-testid="result-line" role="status" aria-live="polite"></p>
           <p class="message" data-testid="watch-message" role="status"></p>
@@ -315,6 +319,11 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
                 <button type="button" class="btn btn-yellow" data-testid="share">Share</button>
               </div>
               <button type="button" class="btn btn-red btn-block" data-testid="cancel-game">Cancel game</button>
+            </section>
+            <section class="panel share learning" data-testid="learning-panel" hidden>
+              <div class="waiting-logo" data-testid="learning-logo">${title()}</div>
+              <h2>Your opponent is learning how to play. The game starts when they finish.</h2>
+              <button type="button" class="btn btn-red btn-block" data-testid="cancel-learning">Cancel game</button>
             </section>
             <div class="popup" data-testid="end-popup" hidden role="dialog" aria-modal="true" aria-labelledby="end-title">
               <div class="panel popup-card">

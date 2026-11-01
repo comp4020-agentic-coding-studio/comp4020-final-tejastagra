@@ -1,6 +1,7 @@
 // Quick match (/play/quick, R35). Joins the Quick match lobby with a random ticket and
 // polls until the server pairs this player. After 20 seconds the player is
 // offered the computer but may keep waiting. The server decides every pairing.
+import { beforeFirstMatch } from "./tutorial.ts";
 const $ = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
 const ticket = crypto.randomUUID();
 const status = $("quick-status");
@@ -42,9 +43,12 @@ async function start(): Promise<void> {
   }, 1000);
 }
 
-setTimeout(() => {
-  if (!finished) $("computer-offer").hidden = false;
-}, OFFER_AFTER_MS);
+// The 20 seconds count from joining the queue, not from opening the page, so a tutorial in between does not use them up (U171).
+function offerAfterWaiting(): void {
+  setTimeout(() => {
+    if (!finished) $("computer-offer").hidden = false;
+  }, OFFER_AFTER_MS);
+}
 
 $("computer-offer-play").addEventListener("click", async () => {
   try {
@@ -106,5 +110,9 @@ setInterval(() => {
   if (!document.hidden && !finished) void showLive();
 }, LIVE_EVERY_MS);
 
-// A closed tab simply stops polling; the server drops stale tickets itself.
-start();
+// R47, U171: a first-time player sees the tutorial before joining the queue, so nobody is ever paired with someone who is still
+// learning. There is no ticket, no polling and no 20 second timer until it is finished or skipped.
+void beforeFirstMatch(() => {
+  offerAfterWaiting();
+  return start();
+});

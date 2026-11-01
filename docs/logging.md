@@ -38,6 +38,9 @@ The first six are the events the tutorial requires. The rest are specific to Rub
 | `persist_error` | A database write fails | `error` |
 | `countdown_start` | Both players are present and the start countdown begins (R97) | `game` `ms` |
 | `round_open` | The countdown ended and round 1 opened (R97) | `game` `round=1` |
+| `learning_start` | A first-time player took a seat and is doing the tutorial (R102) | `game` `role=A\|B` |
+| `learning_done` | The learner finished or skipped it, so the countdown can begin (R102) | `game` `role=A\|B` |
+| `learning_released` | The learner was gone for 30 seconds or left, so the seat is free again (R102) | `game` `role=A\|B` |
 | `spectate_join` | A spectator starts watching a game (R70) | `game` `spectators` `kind=quick\|link` |
 | `spectate_leave` | A spectator stops watching: it closed the tab, or left on purpose | `game` `spectators` |
 | `spectate_move` | A spectator is moved to another game after a game ended (R76), or because their game stopped | `game` (the new game) `from` (the old game) `spectators` (in the new game) |

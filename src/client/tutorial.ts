@@ -205,6 +205,12 @@ const STEPS: Step[] = [
 ];
 
 let open = false;
+let dismiss: (() => void) | null = null; // closes the open tutorial without saving or starting anything (R102: the game it was for is gone)
+
+// R102: the game this tutorial was for was cancelled, so the tutorial closes at once and nothing is saved or started.
+export function dismissTutorial(): void {
+  dismiss?.();
+}
 
 async function save(result: "finished" | "skipped" | "replay"): Promise<void> {
   try {
@@ -527,6 +533,18 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
 
   root.hidden = false;
   document.body.style.overflow = "hidden";
+
+  dismiss = () => {
+    if (!open) return;
+    open = false;
+    running++;
+    stage.timer(false);
+    root.hidden = true;
+    document.body.style.overflow = "";
+    next.removeEventListener("click", onNext);
+    skip.removeEventListener("click", onSkip);
+    document.removeEventListener("keydown", onKey);
+  };
 
   async function close(result: "finished" | "skipped"): Promise<void> {
     open = false;

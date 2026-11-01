@@ -33,3 +33,8 @@ The watching screen is the normal game screen with everything that acts taken aw
 ## Test hooks
 
 `watch-live`, `live-count` (home screen); `watching-banner`, `watching-count`, `watch-another`, `watch-result`, `header-home` in the header bar (watching screen, at `/watch` and at a link game's address); `spectator-notice` (a link game's watching screen); `no-live-games` (the empty state); `watcher-count` (the players' screen). The watching screen has no `column-N`, `shield-badge`, `earthquake-badge`, `ghost-disc` or `timer` hook.
+
+## Watching a game whose player is learning (added 2 November 2026, R102)
+
+- **U170** A visitor who opens a friend's link while the second player is doing the tutorial is a spectator (R36) and sees, on the watching screen, a card over the dimmed board (`watch-learning`, the same card style as `watch-result`, U82) with the same words as the host sees, **"Your opponent is learning how to play. The game starts when they finish."**, and no button beyond the screen's Home. When the learner finishes the card goes and the game is watched as usual. If the learner's seat is released (they were gone for more than 30 seconds), the page goes back to the link to try again as a player.
+

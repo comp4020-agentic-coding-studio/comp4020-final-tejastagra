@@ -215,6 +215,7 @@ function endedCard(message: { result: "forfeit" | "abandoned"; winner?: "A" | "B
 }
 
 function endCard(title: string): void {
+  $("watch-learning").hidden = true;
   const card = $("watch-result");
   card.hidden = false;
   setText("watch-result-title", title);
@@ -262,8 +263,17 @@ socket.addEventListener("message", (event) => {
       setText("watching-count-text", watchingText(message.watching));
       setText("watch-message", "");
       busy = busy.then(() => show(message.state, true));
+      $("watch-learning").hidden = message.learning !== true; // R102: a player is doing the tutorial, so the game has not started
       break;
     }
+    case "learning_over":
+      $("watch-learning").hidden = true; // R102: the learner finished, so the game starts
+      break;
+    case "seat_released":
+      // R102: the learner did not come back. A visitor who came by a friend's link goes back to it and tries again as a player.
+      if (viaLink && code) location.replace(`/g/${code}`);
+      else $("watch-learning").hidden = true;
+      break;
     case "rematch_started":
       if (message.colours) colourSeats(message.colours); // R96: the new game's swapped colours
       break; // the first round of the new game follows as a `round`, which repaints the board (R85)

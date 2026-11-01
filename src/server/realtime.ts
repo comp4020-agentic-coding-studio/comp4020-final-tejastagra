@@ -37,6 +37,24 @@ export interface Snapshot {
   colours: Colours;
   // Whether round 1 has opened (R97): false while waiting for the second player and during the start countdown.
   started: boolean;
+  // R102: this seat is doing the tutorial, and the other seat is. Public facts about who is ready, never a choice (R22).
+  learning: boolean;
+  opponentLearning: boolean;
+}
+
+// R102: the other player took their seat and is doing the tutorial, so the game waits for them.
+export interface OpponentLearning {
+  type: "opponent_learning";
+}
+
+// R102: the learner was gone for 30 seconds, so the seat is free again and the waiting card comes back.
+export interface OpponentGone {
+  type: "opponent_gone";
+}
+
+// R102: the host cancelled (or went) while this player was learning; nothing was lost, there is no result.
+export interface OpponentCancelled {
+  type: "opponent_cancelled";
 }
 
 // The start countdown (R97): sent to both players when it begins, and to a player who connects during it, with the time left.
@@ -82,13 +100,14 @@ export type GameOver =
   | { type: "game_over"; result: "forfeit"; winner: Player }
   | { type: "game_over"; result: "abandoned" }; // R19: no winner
 
-export type ServerMessage = Snapshot | OpponentJoined | OpponentReady | Rejected | GameFull | TabReplaced | GameOver | Watching | Countdown | Started;
+export type ServerMessage = Snapshot | OpponentJoined | OpponentLearning | OpponentGone | OpponentCancelled | OpponentReady | Rejected | GameFull | TabReplaced | GameOver | Watching | Countdown | Started;
 
 interface JoinMessage {
   type: "join";
   code: string;
   player?: Player;
   seatToken?: string;
+  learning?: boolean; // R102: a first-time player who will do the tutorial now: the seat is theirs and the game waits for them
 }
 
 interface ChooseMessage {
@@ -220,6 +239,14 @@ export function attachRealtime(
   const randomColours = (): Colours => (randomInt(2) === 0 ? { A: "red", B: "yellow" } : { A: "yellow", B: "red" });
   const coloursOf = (code: string): Colours => colours.get(code) ?? DEFAULT_COLOURS;
 
+  // ---- A first-time player doing the tutorial holds their seat, and the game waits for them (R102, ADR 0017) ----
+  // The seats whose player joined as a learner and has not finished or skipped the tutorial. In memory only: the learner's seat is
+  // saved with their person when they finish, so a restart during the tutorial leaves it free, and the hold cannot outlive the
+  // connection (it ends with the grace timer below).
+  const learners = new Set<string>(); // key(code, player)
+  const isLearning = (code: string, player: Player): boolean => learners.has(key(code, player));
+  const anyLearning = (code: string): boolean => isLearning(code, "A") || isLearning(code, "B");
+
   // ---- The start countdown (R97) ----
   // Games whose round 1 has opened. A game past round 0, or over, has started whatever this says (a restored game, R26).
   const countdownMs = options.countdownMs ?? START_COUNTDOWN_MS;
@@ -233,13 +260,14 @@ export function attachRealtime(
   // The opponent is present when their seat is the computer's, or a person is connected to it.
   function presentFor(code: string, player: Player): boolean {
     const them = opponentOf(player);
-    return computerGames.has(code) ? them === "B" : connections.has(key(code, them));
+    // R102: an opponent who is still doing the tutorial has a seat but is not here yet, so the waiting state holds.
+    return computerGames.has(code) ? them === "B" : connections.has(key(code, them)) && !isLearning(code, them);
   }
 
   // Both seats are taken by someone connected (the computer counts as always connected). A round
   // runs, and can be missed, only while this is true (R51).
   function bothPresent(code: string): boolean {
-    return connections.has(key(code, "A")) && presentFor(code, "A");
+    return connections.has(key(code, "A")) && presentFor(code, "A") && !anyLearning(code); // R102: the game waits for a learner
   }
 
   function opponentOf(player: Player): Player {
@@ -328,6 +356,8 @@ export function attachRealtime(
           watching: spectators.watchingCount(code),
           colours: coloursOf(code),
           started: hasStarted(code),
+          learning: isLearning(code, player),
+          opponentLearning: isLearning(code, opponentOf(player)),
         });
         recipients++;
       }
@@ -458,6 +488,8 @@ export function attachRealtime(
       holders.delete(code);
       colours.delete(code);
       startedGames.delete(code);
+      learners.delete(key(code, "A"));
+      learners.delete(key(code, "B"));
       clearRematch(code);
       rematchGone.delete(code);
       finishedAt.delete(code);
@@ -480,7 +512,7 @@ export function attachRealtime(
       viewOf(code) {
         if (!isWatchable(code) && !(viaLinkVisit.has(code) && isShowable(code))) return undefined; // a computer game, a seat free, or no such game: all the same answer (R71)
         const record = game.getGame(code)!;
-        return { state: record.state, kind: kinds.get(code) as "quick" | "link", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") }, colours: coloursOf(code) } satisfies WatchableView;
+        return { state: record.state, kind: kinds.get(code) as "quick" | "link", names: { A: nameOfSeat(code, "A"), B: nameOfSeat(code, "B") }, colours: coloursOf(code), ...(anyLearning(code) ? { learning: true } : {}) } satisfies WatchableView;
       },
       liveCodes: () => liveWatchable(),
       watchingChanged(code, watching) {
@@ -844,30 +876,111 @@ export function attachRealtime(
       return;
     }
     if (!record || record.state.status !== "playing" || forfeited.has(code)) return;
-    const started = !computerGames.has(code) && bothSeatsTaken(code);
+    if (isLearning(code, player)) {
+      releaseLearner(code, player); // R102: a learner who leaves gives the seat back, as if they had never come
+      return;
+    }
+    // R102: a game whose other player is still learning has not started, so leaving it is a cancel, never a forfeit.
+    const started = !computerGames.has(code) && bothSeatsTaken(code) && !anyLearning(code);
     logEvent("leave_game", { game: code, started });
     if (started) {
       forfeit(code, player);
       return;
     }
+    abandonNotStarted(code);
+  }
+
+  // A game that never started ends with no result (R98, R81). Saved first (R25). A player still doing the tutorial is told, so their
+  // page can say so, and their hold ends with the game (R102).
+  function abandonNotStarted(code: string): boolean {
     try {
       db.saveEnded(code, { result: "abandoned" });
     } catch (error) {
       logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
-      return;
+      return false;
     }
     clearTimerFor(code);
     for (const seat of ["A", "B"] as const) clearGraceTimer(code, seat);
     forfeited.set(code, { result: "abandoned" });
     idleRounds.delete(code);
+    for (const seat of ["A", "B"] as const) {
+      if (!learners.delete(key(code, seat))) continue;
+      const socket = connections.get(key(code, seat));
+      if (socket) send(socket, { type: "opponent_cancelled" });
+    }
     logEvent("game_over", { game: code, result: "abandoned" });
     spectators.ended(code, { type: "ended", result: "abandoned" });
     closeSlowSpectators();
+    return true;
+  }
+
+  // R102: the learner finished or skipped the tutorial. Only the connection that holds the learning seat, with that seat's token (R32),
+  // can say so. The seat is saved with its person now (R36), the host is told someone has arrived and the usual start countdown begins.
+  function learningDone(socket: WebSocket, message: { code?: unknown; player?: unknown; seatToken?: unknown }): void {
+    const { code, player, seatToken } = message;
+    if (typeof code !== "string" || (player !== "A" && player !== "B")) return;
+    const expected = seatTokens.get(key(code, player));
+    if (typeof seatToken !== "string" || typeof expected !== "string" || seatToken !== expected) return;
+    if (connections.get(key(code, player)) !== socket || !isLearning(code, player)) return;
+    // Saved first (R25): if the save fails the seat stays held and nobody is told it is taken, so memory never claims a seat the
+    // database does not have.
+    const personId = socketPersons.get(socket);
+    if (personId && !computerGames.has(code)) {
+      try {
+        db.seatPlayer(code, player, personId);
+      } catch (error) {
+        logEvent("persist_error", { error: error instanceof Error ? error.message : String(error) });
+        return;
+      }
+      const owned = holders.get(code) ?? { A: null, B: null };
+      if (!owned[player]) owned[player] = personId;
+      holders.set(code, owned);
+    }
+    learners.delete(key(code, player));
+    logEvent("learning_done", { game: code, role: player });
+    sendSnapshot(code, player); // now `learning: false`
+    const other = connections.get(key(code, opponentOf(player)));
+    if (anyLearning(code)) {
+      // The other seat is still learning (both players can): this one is ready, the game still waits.
+      if (other) send(other, { type: "opponent_learning" });
+      return;
+    }
+    const name = nameOfSeat(code, player);
+    if (other) send(other, name ? { type: "opponent_joined", name } : { type: "opponent_joined" });
+    spectators.announce(code, { type: "learning_over" });
+    beginWhenBothPresent(code); // nobody else is still learning: the countdown begins (R97)
+  }
+
+  // R102: the learner is gone (30 seconds with no connection, or they left on purpose), so the seat is free again exactly as if they had
+  // never come: nothing of theirs was saved, and the host sees the share link card.
+  function releaseLearner(code: string, player: Player): void {
+    if (!learners.delete(key(code, player))) return;
+    clearGraceTimer(code, player);
+    connections.delete(key(code, player));
+    const seats = roster.get(code);
+    if (seats) seats[player] = false;
+    const owned = holders.get(code);
+    if (owned) owned[player] = null;
+    seatTokens.delete(key(code, player));
+    seatNames.delete(key(code, player));
+    logEvent("learning_released", { game: code, role: player });
+    const host = connections.get(key(code, opponentOf(player)));
+    if (host) send(host, { type: "opponent_gone" });
+    spectators.announce(code, { type: "seat_released" });
   }
 
   function startGraceTimer(code: string, player: Player): void {
     const record = game.getGame(code);
     if (!record) return;
+    // R102: a learner who drops keeps the seat for the same 30 seconds as any player (R27), then gives it back.
+    if (isLearning(code, player)) {
+      clearGraceTimer(code, player);
+      graceTimers.set(key(code, player), setTimeout(() => {
+        graceTimers.delete(key(code, player));
+        releaseLearner(code, player);
+      }, disconnectGraceMs));
+      return;
+    }
     // A finished game has nothing left to forfeit, but a player who does not come back from it withdraws a rematch (R83).
     if (record.state.status !== "playing" || forfeited.has(code)) {
       if (!computerGames.has(code)) {
@@ -883,6 +996,11 @@ export function attachRealtime(
     const timer = setTimeout(() => {
       graceTimers.delete(key(code, player));
       if (forfeited.has(code)) return; // already ended (e.g. the other side also left)
+      // R102: the host did not come back while the other player was learning. Nothing had started, so it is abandoned, not forfeited.
+      if (anyLearning(code)) {
+        if (!abandonNotStarted(code)) startGraceTimer(code, player);
+        return;
+      }
       // The round may have resolved to a win or a draw while this player was
       // disconnected (R18's timer keeps running): in that case the game is
       // already over on its own terms and must not also be forfeited, or the
@@ -920,6 +1038,8 @@ export function attachRealtime(
       watching: spectators.watchingCount(code),
       colours: coloursOf(code),
       started: hasStarted(code),
+      learning: isLearning(code, player),
+      opponentLearning: isLearning(code, opponentOf(player)),
     });
     logEvent("snapshot_sent", { game: code, round: record.state.round, reason: "join" });
   }
@@ -1082,7 +1202,11 @@ export function attachRealtime(
         spectators.leave(socket);
         return;
       }
-      if ((parsed.type === "choose" || parsed.type === "rematch" || parsed.type === "leave_game") && !sessionOk(socket)) return; // R87
+      if ((parsed.type === "choose" || parsed.type === "rematch" || parsed.type === "leave_game" || parsed.type === "learning_done") && !sessionOk(socket)) return; // R87
+      if (parsed.type === "learning_done") {
+        learningDone(socket, parsed as { code?: unknown; player?: unknown; seatToken?: unknown });
+        return;
+      }
       if (parsed.type === "rematch") {
         handleRematch(parsed as { code?: unknown; player?: unknown; seatToken?: unknown });
         return;
@@ -1099,7 +1223,7 @@ export function attachRealtime(
       }
 
       if (parsed.type !== "join") return;
-      const { code, seatToken } = parsed as JoinMessage;
+      const { code, seatToken, learning } = parsed as JoinMessage;
       let { player } = parsed as JoinMessage;
       if (typeof code !== "string" || code === "") return;
       if (player !== undefined && player !== "A" && player !== "B") return;
@@ -1173,11 +1297,21 @@ export function attachRealtime(
         return;
       }
 
+      // R102: a first-time player opening a friend's link takes the seat now and the game waits for them. Only for a friend link game,
+      // only before round 1, and only for a seat that is new to them (a reload of a seat already held has nothing to learn).
+      const newToSeat = !seats[player];
+      const holdForLearner = learning === true && newToSeat && kinds.get(code) === "link" && !computerGames.has(code) && !hasStarted(code) && !forfeited.has(code);
+      const stillLearning = isLearning(code, player); // a learner who reloads, or reconnects inside the grace, is still learning
       seats[player] = true;
+      if (holdForLearner) {
+        learners.add(key(code, player));
+        logEvent("learning_start", { game: code, role: player });
+      }
       if (!seatTokens.has(key(code, player))) seatTokens.set(key(code, player), randomUUID());
       const name = personId ? (options.nameFor?.(personId) ?? null) : null;
       if (name) seatNames.set(key(code, player), name);
-      if (personId && !computerGames.has(code)) {
+      // A learner's seat is saved with their person only when they finish (R102), so a restart leaves it free.
+      if (personId && !computerGames.has(code) && !holdForLearner && !stillLearning) {
         if (!game.getGame(code)) createUnmarkedGame(code); // the row must exist before it can record a seat
         db.seatPlayer(code, player, personId);
         // Remember in memory whose seat this is, as a restart would from the database (R36), so the seat can follow a guest who
@@ -1197,7 +1331,10 @@ export function attachRealtime(
       sendSnapshot(code, player);
       // The player already waiting learns that someone has arrived. This carries no choice (R21, R22).
       const waiting = connections.get(key(code, opponentOf(player)));
-      if (waiting && waiting !== socket) send(waiting, name ? { type: "opponent_joined", name } : { type: "opponent_joined" });
+      if (waiting && waiting !== socket) {
+        if (isLearning(code, player)) send(waiting, { type: "opponent_learning" }); // R102: someone has the seat, the game waits for them
+        else send(waiting, name ? { type: "opponent_joined", name } : { type: "opponent_joined" });
+      }
       // Both are here (R51): round 1 opens after the countdown (R97). A player who connects while it runs is told the time left.
       const running = countdowns.get(code);
       if (running) send(socket, { type: "countdown", ms: Math.max(0, running.endsAt - Date.now()) });
@@ -1256,6 +1393,7 @@ export function attachRealtime(
     kinds.clear();
     creators.clear();
     holders.clear();
+    learners.clear();
   }
 
   return {
