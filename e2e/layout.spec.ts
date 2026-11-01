@@ -2452,6 +2452,8 @@ test.describe("Q43 Q44 U172 U173 the tutorial card is the sum of its parts, and 
           if (b.x < opened.board.x - 0.5 || b.x + b.w > opened.board.x + opened.board.w + 0.5) problems.push(`${where}: ${id} is not within the board's left and right edges`);
           if (Math.abs(b.x + b.w / 2 - (opened.board.x + opened.board.w / 2)) > 1) problems.push(`${where}: ${id} is not centred under the board`);
           if (id === "tutorial-timer" && Math.abs(b.w - opened.board.w) > 1) problems.push(`${where}: the timer bar is ${b.w.toFixed(1)}px wide, not the board's ${opened.board.w.toFixed(1)}px`);
+          // The warning banner's left and right edges are the board's (U173), like the timer bar's.
+          if (id === "tutorial-warning" && (Math.abs(b.x - opened.board.x) > 2 || Math.abs(b.x + b.w - (opened.board.x + opened.board.w)) > 2)) problems.push(`${where}: the warning banner's edges (${b.x.toFixed(1)}, ${(b.x + b.w).toFixed(1)}) are not the board's (${opened.board.x.toFixed(1)}, ${(opened.board.x + opened.board.w).toFixed(1)})`);
         }
         await doTutorialStep(page, step);
         const m = await tutorialParts(page);

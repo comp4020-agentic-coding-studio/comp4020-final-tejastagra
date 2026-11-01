@@ -2367,7 +2367,8 @@ input:focus {
 }
 
 .tutorial-warning {
-  width: auto;
+  width: 100%; /* U173: exactly the board's width, like the timer bar; the text stays centred (the banner is a centring flex row) */
+  box-sizing: border-box;
 }
 
 .tutorial-shield {
