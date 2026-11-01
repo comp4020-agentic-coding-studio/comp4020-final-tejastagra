@@ -2303,7 +2303,6 @@ input:focus {
 }
 
 .tutorial-hint {
-  min-height: 2.8em;
   margin-top: 4px;
 }
 
@@ -2376,7 +2375,6 @@ input:focus {
   }
 
   .tutorial-hint {
-    min-height: 2.5em;
     font-size: 0.85rem;
     line-height: 1.2;
   }
@@ -2428,7 +2426,7 @@ input:focus {
 /* U148: on a laptop the practice board is sized from the height left under the caption, so the card never scrolls. */
 @media (min-width: 900px) {
   .tutorial-board .board-wrap {
-    width: clamp(336px, calc((100dvh - 440px) * 7 / 6), 100%);
+    width: clamp(336px, calc((100dvh - 500px) * 7 / 6), 100%);
   }
 }
 
@@ -4550,14 +4548,9 @@ input:focus {
    screen would move everything above it whenever it grew or shrank. Its two lines are reserved from the start, so nothing moves
    when the disc, or the words, appear (Q25, U159). */
 .tutorial-hint {
-  min-height: 2.4em;
+  margin: 0;
 }
 
-@media (max-width: 359px) {
-  .tutorial-hint {
-    min-height: 2.3em;
-  }
-}
 
 /* Next appears when a step's action is done. Its place is reserved from the start (hidden, not removed), and it is the same 44px
    as Skip, so the card never changes height when it shows (Q25, U159). */
@@ -4566,10 +4559,6 @@ input:focus {
   height: 44px;
 }
 
-.tutorial-actions [data-testid="tutorial-next"][hidden] {
-  display: inline-flex;
-  visibility: hidden;
-}
 
 /* The practice timer bar's place is kept when it goes after the player acts (the code hides it with data-shown instead of removing
    it), so the card does not shrink (Q25, U159). A step that never shows it has no place kept for it (it is hidden outright). */
@@ -4655,65 +4644,130 @@ input:focus {
 }
 
 
-/* ---- Fix 3 of 1 November 2026 (U161, Q32): readable tutorial text, Next and Skip stacked and centred, from 360px wide up (at 320 the 44px columns leave no room for it) ----
-   Minimum sizes win over every compact variant above. When the card runs out of room it is the practice board that gets smaller
-   (its width is worked out from the height left), never the text. */
+/* ---- The tutorial card's height comes only from its content (U162, Q34) ----
+   No height, min-height or bottom-pinned item anywhere in the card: the card is as tall as its items and the gaps between them,
+   centred on the screen by the overlay. Order and gaps: counter 4 title 8 caption 8 status 16 lane (one disc) 8 board 12 timer 16
+   hint 24 Next 12 Skip. A step with no Next lets Skip take its place. The text sizes of U161 stay. */
 @media (min-width: 360px) {
+
+.tutorial-card {
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  overflow: visible;
+}
+
+.tutorial-card > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
 
 .tutorial-progress {
   display: block;
   padding: 0 16px;
   font-size: 0.875rem; /* 14px */
+  line-height: 1.2;
   text-align: center;
 }
 
 .tutorial-card h2 {
   display: block;
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   padding: 0 16px;
   font-size: 1.5rem; /* 24px */
   line-height: 1.15;
 }
 
 .tutorial-caption {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
   padding: 0 16px;
   font-size: 1.0625rem; /* 17px */
   line-height: 1.25;
+}
+
+.tutorial-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+}
+
+.tutorial-board > * {
+  margin-top: 0;
+  margin-bottom: 0;
+  min-height: 0;
 }
 
 .tutorial-status,
 .tutorial-hint {
   position: static;
   max-width: none;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0 16px;
   font-size: 1rem; /* 16px */
   line-height: 1.25;
   text-align: center;
 }
 
-.tutorial-hint {
-  min-height: 0;
+.tutorial-status {
+  margin: 8px 0 0; /* 8px under the caption */
 }
 
-/* The practice board is sized from the height left over (the text above and the buttons below take what they need). */
+.tutorial-warning {
+  margin: 8px 16px 0;
+}
+
+/* The practice board is sized from the height available, never the gaps or the text; the ghost lane is its top margin (one disc), 16px
+   under the status line. */
 .tutorial-board .board-wrap {
-  width: min(100%, max(308px, calc((100dvh - 600px) * 7 / 6)));
-  margin-left: auto;
-  margin-right: auto;
+  box-sizing: border-box;
+  width: min(100%, max(308px, calc((100dvh - 500px) * 7 / 6)));
+  margin: calc(16px + var(--ghost-size) + 8px) auto 0;
+  padding-bottom: 0;
 }
 
-/* Next on its own, centred, with Skip centred below it, in the same place on every step. Next's place is kept (hidden, never
-   removed) on a step that has none. */
+/* The timer bar is exactly the board's width, edge to edge with it, as in the real game. */
+.tutorial-timer {
+  box-sizing: border-box;
+  width: min(100%, max(308px, calc((100dvh - 500px) * 7 / 6)));
+  margin: 12px auto 0;
+}
+
+.tutorial-timer[hidden],
+.tutorial-timer[data-shown="false"] {
+  display: none; /* no place is kept for a bar that is not showing (U162) */
+}
+
+.tutorial-hint {
+  margin: 16px 0 0;
+}
+
+.tutorial-hint:empty {
+  display: none; /* a step with no hint keeps no empty line (U162) */
+}
+
+.tutorial-shield {
+  margin: 12px auto 0;
+}
+
 .tutorial-actions {
   position: static;
-  display: grid;
-  grid-auto-flow: row;
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: center;
-  gap: 8px;
-  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 0;
   padding: 0;
+}
+
+.tutorial-actions [data-testid="tutorial-next"][hidden] {
+  display: none; /* no Next: Skip takes its place, with the same 24px above it */
 }
 
 .tutorial-actions .btn {
@@ -4722,26 +4776,5 @@ input:focus {
 
 .tutorial-actions .link-button {
   padding: 0 16px;
-}
-
-/* The warning banner on the shrinking board step keeps 16px from the card's edges. */
-.tutorial-warning {
-  margin: 8px 16px 0;
-}
-
-/* One card height on every step, with the buttons pinned to its bottom, so Next and Skip never move between steps (U161). */
-.tutorial-card {
-  height: min(calc(100dvh - 8px), 780px);
-  max-height: none;
-  overflow: visible;
-}
-
-.tutorial-actions {
-  margin-top: auto;
-  padding-top: 16px;
-}
-
-.tutorial-shield {
-  margin-top: 8px;
 }
 }

@@ -387,3 +387,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** U114b and Q33; the history and the empty message now have fixed grid rows; the account laptop screenshot baseline was refreshed after looking at it.
 - **Rule for the future:** size a screen area from the layout around it, never from a subtracted constant, and name the grid row of anything that can be hidden.
 - **Commits:** `fbc3fab`.
+
+### C49. The tutorial card was fixed five times because every fix met one symptom
+- **Date:** 1 November 2026
+- **What went wrong:** the card had a fixed height close to the screen's and Next and Skip were pinned to its bottom (`margin-top: auto`). When a step's content was shorter than the card, the leftover became a large empty gap. Each earlier fix tuned one gap or one size and left the cause.
+- **How it was caught:** Tejas saw the empty space again after the fifth fix.
+- **Why the earlier checks missed it:** they measured named gaps (hint to Next, board to hint), not every gap, and U161 had even excused the gap above Next from the 24px limit.
+- **Harness fix:** U162 says the card's height comes only from its content, with no height, min-height or bottom-pinned item, and fixes the order and gaps. Q34 walks every visible item on all 11 steps and checks every neighbouring gap (24px), the last item to the card's bottom (32px), no scrolling and the timer bar matching the board's width.
+- **Rule for the future:** a spacing check must walk every item in the container, never a list of named ones, and no element may be pinned to a container's bottom edge.
