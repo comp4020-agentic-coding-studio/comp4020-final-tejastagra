@@ -2280,9 +2280,6 @@ input:focus {
 
 /* Top: the counter, the title and the instructions, from the top of the area. Shorter instructions leave blank space below. */
 .tutorial-top {
-  display: flex;
-  flex-direction: column;
-  justify-content: center; /* U175: the counter, title and instructions are centred in their area, equal blank space above and below */
   height: var(--tut-top);
   min-width: 0;
 }
