@@ -280,7 +280,7 @@ test.describe("Home", () => {
 
 // The tutorial's steps (docs/design/tutorial.md U137 to U147). When it opens is checked in e2e/tutorial.spec.ts (R47, U136).
 test.describe("Tutorial", () => {
-  test("U136 to U147 eleven steps in order, each with Step N of 11 and Skip; an action step shows Next only once it is done", async ({ browser }) => {
+  test("U136 to U147 eleven steps in order, each with Step N of 11 and Skip tutorial; Next is enabled before the step's action (U167)", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await openTutorial(page);
     const titles: string[] = [];
@@ -289,7 +289,7 @@ test.describe("Tutorial", () => {
       await expect(page.locator(testid("tutorial-progress"))).toHaveText(`Step ${step} of 11`);
       expect((await page.locator(testid("tutorial-caption")).innerText()).length).toBeGreaterThan(20);
       await expect(page.locator(testid("tutorial-skip"))).toBeVisible();
-      if (step >= 2 && step <= 8) await expect(page.locator(testid("tutorial-next")), `step ${step}: no Next before acting`).toBeHidden();
+      await expect(page.locator(testid("tutorial-next")), `step ${step}: Next is enabled before acting`).toBeEnabled();
       await doTutorialStep(page, step);
       if (step < 11) await page.click(testid("tutorial-next"));
     }
@@ -321,7 +321,7 @@ test.describe("Tutorial", () => {
     await expect(page.locator(testid("tutorial-ghost"))).toBeHidden();
     await page.locator(testid("tutorial-column-2")).click();
     await expect(page.locator(testid("tutorial-ghost"))).toBeVisible();
-    await expect(page.locator(testid("tutorial-hint"))).toContainText("Locked in");
+    await expect(page.locator(testid("tutorial-hint"))).toHaveCount(0); // U167: no text under the board
     const first = (await page.locator(testid("tutorial-ghost")).boundingBox())!;
     await page.locator(testid("tutorial-column-5")).click({ force: true });
     const second = (await page.locator(testid("tutorial-ghost")).boundingBox())!;
@@ -358,14 +358,14 @@ test.describe("Tutorial", () => {
     const badge = page.locator(testid("tutorial-shield"));
     await expect(badge).toContainText("Arm shield");
     await page.locator(testid("tutorial-column-3")).click();
-    await expect(page.locator(testid("tutorial-hint"))).toContainText("Tap your shield first");
-    await expect(page.locator(testid("tutorial-next"))).toBeHidden();
+    await expect(page.locator(testid("tutorial-ghost")), "a column tap before the shield does nothing").toBeHidden();
+    await expect(page.locator(testid("tutorial-next"))).toBeEnabled();
     await badge.click();
     await expect(badge).toContainText("Shield armed");
     await page.locator(testid("tutorial-column-0")).click();
-    await expect(page.locator(testid("tutorial-hint"))).toContainText("glowing column");
+    await expect(page.locator(testid("tutorial")), "only the glowing column counts: the step is not done").toHaveAttribute("data-step-done", "false");
     await page.locator(testid("tutorial-column-3")).click();
-    await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator(testid("tutorial")).first()).toHaveAttribute("data-step-done", "true", { timeout: 8_000 });
     await expect(page.locator(`${testid("tutorial-board")} [data-testid="cell-3-0"]`)).toHaveAttribute("data-piece", "A");
     expect(await page.locator(`${testid("tutorial-board")} [data-piece="B"]`).count(), "the computer got no fourth disc").toBe(3);
     await expect(badge).toContainText("Shield used");
@@ -880,19 +880,6 @@ test.describe("Small screens and the Share fallback", () => {
         expect(skip.y + skip.height, `step ${step}: Skip on screen`).toBeLessThanOrEqual(viewport.height);
         const next = await box("tutorial-next");
         expect(next.y + next.height, `step ${step}: Next on screen`).toBeLessThanOrEqual(viewport.height);
-        // The opponent's status shares the progress line's row on a short screen: their words never overlap (Q5, U136).
-        const words = await page.evaluate(() =>
-          ["tutorial-progress", "tutorial-status"].map((id) => {
-            const el = document.querySelector(`[data-testid="${id}"]`) as HTMLElement;
-            if (!el || el.hidden || !el.textContent) return null;
-            const r = document.createRange();
-            r.selectNodeContents(el);
-            const b = r.getBoundingClientRect();
-            return { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
-          }),
-        );
-        const [p, st] = words;
-        if (p && st) expect(p.right <= st.left || st.right <= p.left || p.bottom <= st.top || st.bottom <= p.top, `step ${step}: progress and status do not overlap`).toBe(true);
         if (step < 11) await page.click(testid("tutorial-next"));
       }
       await context.close();

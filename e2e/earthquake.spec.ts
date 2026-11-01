@@ -225,15 +225,15 @@ test.describe("The tutorial's Earthquake step (U67)", () => {
     const badge = page.locator(testid("tutorial-earthquake"));
     await expect(badge).toBeVisible();
     await expect(badge).toContainText("Use Earthquake");
-    await expect(page.locator(testid("tutorial-next"))).toBeHidden();
+    await expect(page.locator(testid("tutorial-next"))).toBeEnabled();
     const cells = `${testid("tutorial-board")} [data-testid^="cell-"]`;
     expect(await page.locator(`${cells}[data-piece="B"]`).count(), "the computer starts with three in a row").toBe(3);
-    // A column tap does not do the step: it says what is needed.
+    // A column tap does not do the step: nothing is chosen and the board is unchanged.
     await page.locator(testid("tutorial-column-3")).click();
-    await expect(page.locator(testid("tutorial-hint"))).toContainText("Tap Earthquake");
-    await expect(page.locator(testid("tutorial-next"))).toBeHidden();
+    await expect(page.locator(testid("tutorial-ghost"))).toBeHidden();
+    expect(await page.locator(`${cells}[data-piece="B"]`).count(), "a column tap changed nothing").toBe(3);
     await badge.click();
-    await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator(testid("tutorial"))).toHaveAttribute("data-step-done", "true", { timeout: 8_000 });
     await expect(badge).toContainText("Earthquake used");
     // The bottom row crumbled: the computer's line is gone and only its landing disc is left.
     expect(await page.locator(`${cells}[data-piece="B"]`).count()).toBe(1);
@@ -250,8 +250,7 @@ test.describe("The tutorial's Earthquake step (U67)", () => {
     expect(badge.y + badge.height).toBeLessThanOrEqual(NARROW.height);
     const skip = (await page.locator(testid("tutorial-skip")).boundingBox())!;
     expect(skip.y + skip.height).toBeLessThanOrEqual(NARROW.height);
-    const hint = (await page.locator(testid("tutorial-hint")).boundingBox())!;
-    expect(hint.y + hint.height, "the hint does not overlap Skip").toBeLessThanOrEqual(skip.y);
+    expect(badge.y + badge.height, "the Earthquake button does not overlap Next").toBeLessThanOrEqual((await page.locator(testid("tutorial-next")).boundingBox())!.y);
     await context.close();
   });
 });

@@ -319,10 +319,10 @@ test.describe("The tutorial's shrinking board step (U74)", () => {
     const cells = `${testid("tutorial-board")} [data-testid^="cell-"]`;
     await expect(page.locator(testid("tutorial-warning"))).toHaveText("The ceiling drops after this round");
     expect(await page.locator(`${cells}[data-doomed="true"]`).count()).toBe(7);
-    await expect(page.locator(testid("tutorial-next"))).toBeHidden();
+    await expect(page.locator(testid("tutorial-next"))).toBeEnabled();
     expect(await page.locator(`${cells}[data-closed="true"]`).count()).toBe(0);
     await page.locator(testid("tutorial-column-2")).click();
-    await expect(page.locator(testid("tutorial-next"))).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator(testid("tutorial"))).toHaveAttribute("data-step-done", "true", { timeout: 8_000 });
     expect(await page.locator(`${cells}[data-closed="true"]`).count(), "the top row is rock").toBe(7);
     expect(await page.locator(`${cells}[data-doomed="true"]`).count()).toBe(0);
     await expect(page.locator(testid("tutorial-warning"))).toBeHidden();
@@ -330,18 +330,16 @@ test.describe("The tutorial's shrinking board step (U74)", () => {
     await context.close();
   });
 
-  test("U74 and U47 the step's banner, hint and controls stay on screen at 320 x 568 and 360 x 640", async ({ browser }) => {
+  test("U74 and U47 the step's banner and controls stay on screen at 320 x 568 and 360 x 640", async ({ browser }) => {
     for (const viewport of [NARROW, { width: 360, height: 640 }]) {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await openTutorial(page);
       await toStep(page);
       const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
       const warning = await box("tutorial-warning");
-      const hint = await box("tutorial-hint");
       const skip = await box("tutorial-skip");
       expect(warning.y, `${viewport.width}: banner on screen`).toBeGreaterThanOrEqual(0);
       expect(skip.y + skip.height, `${viewport.width}: Skip on screen`).toBeLessThanOrEqual(viewport.height);
-      expect(hint.y + hint.height, `${viewport.width}: hint does not overlap Skip`).toBeLessThanOrEqual(skip.y);
       const board = await box("tutorial-board");
       expect(warning.y + warning.height, `${viewport.width}: banner inside the board's card`).toBeLessThanOrEqual(board.y + board.height);
       await context.close();

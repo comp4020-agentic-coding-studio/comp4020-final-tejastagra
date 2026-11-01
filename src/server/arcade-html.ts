@@ -110,18 +110,20 @@ export function topbar(o: { middle?: string; right?: string; href?: string } = {
   return `<header class="topbar" data-testid="topbar">${home}<p class="topbar-title" data-testid="topbar-title">${o.middle ?? ""}</p><p class="topbar-right" data-testid="topbar-right">${o.right ?? ""}</p></header>`;
 }
 
-// The tutorial (docs/design/tutorial.md U136 to U147): an overlay with a progress line, a caption, the practice board and Next and
-// Skip. It is on the home screen and the game screen, because it runs before the first match from either (R47).
+// The tutorial (docs/design/tutorial.md U136 to U147, U167): one fixed-size card with three fixed areas (the step counter, title and
+// instructions; the practice board; Next and Skip). It is on the home screen and the game screen, because it runs before the first match from either (R47).
 export function tutorialOverlay(): string {
   return `<div class="tutorial" data-testid="tutorial" hidden role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
       <div class="panel tutorial-card">
-        <p class="tutorial-progress" data-testid="tutorial-progress"></p>
-        <h2 id="tutorial-title" data-testid="tutorial-title"></h2>
-        <p class="tutorial-caption" data-testid="tutorial-caption" aria-live="polite"></p>
+        <div class="tutorial-top" data-testid="tutorial-top">
+          <p class="tutorial-progress" data-testid="tutorial-progress"></p>
+          <h2 id="tutorial-title" data-testid="tutorial-title"></h2>
+          <p class="tutorial-caption" data-testid="tutorial-caption" aria-live="polite"></p>
+        </div>
         <div class="tutorial-board" data-testid="tutorial-board"></div>
-        <div class="tutorial-actions">
+        <div class="tutorial-actions" data-testid="tutorial-bottom">
           <button type="button" class="btn btn-red" data-testid="tutorial-next">Next</button>
-          <button type="button" class="link-button" data-testid="tutorial-skip">Skip</button>
+          <button type="button" class="link-button" data-testid="tutorial-skip">Skip tutorial</button>
         </div>
       </div>
     </div>`;

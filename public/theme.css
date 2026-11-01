@@ -164,6 +164,12 @@
 
   /* Bubble sizes in pixels: the smallest, and the spread above it (U3). */
   --stack-width: 420px;
+  /* The tutorial card's fixed sizes (U167, ADR 0016): padding, the top area's height (the longest instruction, measured) and the board's
+     width, for the phone. components.css sets the laptop and narrow values on .tutorial. */
+  --tut-pad-y: 10px;
+  --tut-pad-x: 16px;
+  --tut-top: 204px;
+  --tut-board-w: 316px;
   --list-width: 560px; /* forms and lists are never wider than this (U60) */
   --vv-top: 0px; /* the visible area above the phone keyboard; src/client/dialog.ts sets both on an open popup (Q21, U91) */
   --vv-height: 100%;

@@ -1,4 +1,4 @@
-import type { Browser, BrowserContext, Page } from "@playwright/test";
+import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 // Every context is its own client address, so the per-address limits (CLAUDE.md)
 // never lock a run out of its own app, and so two contexts really are two players.
@@ -77,7 +77,8 @@ export async function openTutorial(page: Page): Promise<void> {
   await page.locator(testid("tutorial")).waitFor({ state: "visible" });
 }
 
-// Does the step the player is on, as a player would (by tapping, never by skipping the action), and waits for Next.
+// Does the step the player is on, as a player would (by tapping, never by skipping the action), and waits for the step to finish
+// animating (Next is always there, U167, so it cannot be waited for; the overlay says when the lesson is done).
 export async function doTutorialStep(page: Page, step: number): Promise<void> {
   const tap = (c: number) => page.locator(testid(`tutorial-column-${c}`)).click();
   if ([2, 3, 4, 5].includes(step)) await tap(3);
@@ -87,7 +88,7 @@ export async function doTutorialStep(page: Page, step: number): Promise<void> {
   }
   if (step === 7) await page.locator(testid("tutorial-earthquake")).click();
   if (step === 8) await tap(2);
-  await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8_000 });
+  await expect(page.locator(testid("tutorial"))).toHaveAttribute("data-step-done", "true", { timeout: 8_000 });
 }
 
 // Walks from step 1 to `step` (1-based), doing each step on the way.
