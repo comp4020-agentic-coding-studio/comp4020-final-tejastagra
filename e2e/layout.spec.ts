@@ -1804,7 +1804,7 @@ test.describe("U159 the hint sits at least 16px below the board, and no gap in t
         const hintToAction = action ? action.y - (hint.y + hint.height) : null;
         if (hintToAction !== null) expect(hintToAction, `${where}: no gap larger than 24px between the hint and its button`).toBeLessThanOrEqual(24.5);
         const buttonGap = next.y - (action ? action.y + action.height : hint.y + hint.height);
-        expect(buttonGap, `${where}: no gap larger than 24px between the hint (or its button) and Next`).toBeLessThanOrEqual(24.5);
+        if (viewport.width < 360) expect(buttonGap, `${where}: no gap larger than 24px between the hint (or its button) and Next`).toBeLessThanOrEqual(24.5); // U161: Next is pinned from 360px up
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
       await context.close();
@@ -2076,6 +2076,66 @@ test.describe("Q31 U9b every button has one style and its whole shadow shows", (
         problems.push(...(await buttonProblems(page, `${testid("tutorial")} .tutorial-card`)).map((p) => `step ${step}: ${p}`));
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});
+
+// ---- Fix 3 of the 1 November 2026 list: a readable tutorial card with its buttons in one place (U161, Q32) ----
+
+test.describe("Q32 U161 the tutorial card is readable and its buttons stay put", () => {
+  for (const viewport of [PHONE, LAPTOP]) {
+    test(`Q32 all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      const skipAt: Array<{ x: number; y: number }> = [];
+      const problems: string[] = [];
+      for (let step = 1; step <= 11; step++) {
+        await doTutorialStep(page, step);
+        const where = `step ${step}`;
+        const m = await page.evaluate(() => {
+          const q = (id: string) => document.querySelector<HTMLElement>(`[data-testid="${id}"]`)!;
+          const size = (id: string) => {
+            const e = q(id);
+            const visible = e && !e.hidden && e.getBoundingClientRect().width > 0;
+            return visible ? parseFloat(getComputedStyle(e).fontSize) : null;
+          };
+          const card = document.querySelector<HTMLElement>('[data-testid="tutorial"] .tutorial-card')!;
+          const c = card.getBoundingClientRect();
+          const cs = getComputedStyle(card);
+          const innerLeft = c.left + parseFloat(cs.borderLeftWidth);
+          const innerRight = c.right - parseFloat(cs.borderRightWidth);
+          const box = (id: string) => { const r = q(id).getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, visible: !q(id).hidden && r.width > 0 }; };
+          const warn = document.querySelector<HTMLElement>('[data-testid="tutorial-warning"]');
+          const wr = warn && !warn.hidden ? warn.getBoundingClientRect() : null;
+          const touching = [...card.querySelectorAll<HTMLElement>("*")].filter((n) => {
+            const r = n.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0 || n.closest("[hidden]") || n.closest(".visually-hidden") || getComputedStyle(n).visibility === "hidden") return false;
+            if (n.closest(".board-wrap")) return false; // the board fills the card on a phone: its columns are 44px wide (U148)
+            return r.left < innerLeft + 0.5 && r.width < c.width - 4 || r.right > innerRight - 0.5 && r.width < c.width - 4 || r.left < c.left - 0.5 || r.right > c.right + 0.5;
+          }).map((n) => n.getAttribute("data-testid") || n.className || n.tagName);
+          return {
+            progress: size("tutorial-progress"), title: size("tutorial-title"), caption: size("tutorial-caption"), status: size("tutorial-status"), hint: size("tutorial-hint"),
+            card: { left: c.left, right: c.right, top: c.top, bottom: c.bottom, mid: (c.left + c.right) / 2, scroll: card.scrollHeight - card.clientHeight },
+            next: box("tutorial-next"), skip: box("tutorial-skip"), warn: wr ? { left: wr.left - innerLeft, right: innerRight - wr.right } : null, touching,
+          };
+        });
+        const min = (label: string, got: number | null, want: number) => { if (got !== null && got < want - 0.01) problems.push(`${where}: ${label} is ${got}px, below ${want}px`); };
+        min("step counter", m.progress, 14); min("title", m.title, 24); min("caption", m.caption, 17); min("opponent status", m.status, 16); min("hint", m.hint, 16);
+        if (m.next.visible && Math.abs(m.next.x + m.next.w / 2 - m.card.mid) > 2) problems.push(`${where}: Next is ${Math.round(m.next.x + m.next.w / 2 - m.card.mid)}px off centre`);
+        if (Math.abs(m.skip.x + m.skip.w / 2 - m.card.mid) > 2) problems.push(`${where}: Skip is ${Math.round(m.skip.x + m.skip.w / 2 - m.card.mid)}px off centre`);
+        if (m.skip.y < m.next.y + m.next.h - 1) problems.push(`${where}: Skip is not below Next`);
+        skipAt.push({ x: m.skip.x + m.skip.w / 2, y: m.skip.y }); // its centre: step 11's label is longer
+        if (m.warn && (m.warn.left < 15.5 || m.warn.right < 15.5)) problems.push(`${where}: the warning banner is ${Math.round(m.warn.left)}px and ${Math.round(m.warn.right)}px from the card's edges`);
+        if (m.touching.length) problems.push(`${where}: touches or passes the card's edge: ${m.touching.join(", ")}`);
+        if (m.card.scroll > 0) problems.push(`${where}: the card scrolls by ${m.card.scroll}px`);
+        if (m.card.top < -0.5 || m.card.bottom > viewport.height + 0.5) problems.push(`${where}: the card is not wholly on screen (${Math.round(m.card.top)} to ${Math.round(m.card.bottom)})`);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      const first = skipAt[0];
+      skipAt.forEach((p, i) => { if (Math.abs(p.x - first.x) > 1 || Math.abs(p.y - first.y) > 1) problems.push(`step ${i + 1}: Skip moved to ${Math.round(p.x)}, ${Math.round(p.y)} from ${Math.round(first.x)}, ${Math.round(first.y)}`); });
       expect([...new Set(problems)]).toEqual([]);
       await context.close();
     });

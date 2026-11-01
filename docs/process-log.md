@@ -1510,7 +1510,7 @@ Commits: 189
 
 ## 189. 2026-11-01: Buttons: one border and shadow style, nothing clips a shadow
 
-- **Commit:** [`2bb9e23`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/2bb9e23c0a5d93c367e9c4b49b8f186723c86a6f)
+- **Commit:** [`0c596cc`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/0c596cce7770707b0af098cba4844230a5f4d0c5)
 - **Why:** Leave, Stay, Close and the power-up buttons had uneven or cut-off borders and shadows, because popup buttons sat inside a clipping form and the power-up row clipped its own shadow.
 - **What:** look-and-feel.md U9b and qa-checklist Q31 first; components.css gives the popup Close the shared outline, shadow and radius, leaves 8px under popup buttons, and gives the power-up row the full shadow with no overflow: hidden; layout.spec.ts measures borders and shadows; the player card line gap is tightened so the laptop game still fits.
 - **Harness:** U9b and Q31 added; Q31 row in spec/CHECKS.md.
