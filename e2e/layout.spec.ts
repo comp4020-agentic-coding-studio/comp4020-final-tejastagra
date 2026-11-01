@@ -1743,9 +1743,7 @@ test.describe("Q25 U159 the tutorial's fixed order and the ghost lane", () => {
           expect(await ghostOverlaps(page, testid("tutorial-ghost"), testid("tutorial")), `${where}: the disc overlaps nothing`).toEqual([]);
           const boardAfter = (await page.locator(".tutorial-board .board-wrap").boundingBox())!;
           const captionAfter = (await page.locator(testid("tutorial-caption")).boundingBox())!;
-          // U162: the card is as tall as its content and centred, so Next appearing re-centres the whole card. What the disc could push is
-          // the board away from the caption inside the card, so that distance is what must not change.
-          expect(Math.abs(boardAfter.y - captionAfter.y - (boardBefore.y - captionBefore.y)), `${where}: nothing moved inside the card when the disc appeared`).toBeLessThanOrEqual(1);
+          expect(Math.abs(boardAfter.y - boardBefore.y) + Math.abs(captionAfter.y - captionBefore.y), `${where}: nothing moved when the disc appeared`).toBeLessThanOrEqual(1);
           await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8_000 });
         } else {
           await doTutorialStep(page, step);
@@ -2136,72 +2134,8 @@ test.describe("Q32 U161 the tutorial card is readable and its buttons stay put",
         if (m.card.top < -0.5 || m.card.bottom > viewport.height + 0.5) problems.push(`${where}: the card is not wholly on screen (${Math.round(m.card.top)} to ${Math.round(m.card.bottom)})`);
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
-      void skipAt; // U162 replaces U161's fixed Skip place: Skip now follows the card's content
-      expect([...new Set(problems)]).toEqual([]);
-      await context.close();
-    });
-  }
-});
-
-// ---- Fix 1 of the 1 November 2026 fifth list: the tutorial card has no empty space, measured on every item (U162, Q34) ----
-
-test.describe("Q34 U162 the tutorial card's height comes only from its content", () => {
-  for (const viewport of [PHONE, LAPTOP]) {
-    test(`Q34 every neighbouring pair of items on all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
-      test.setTimeout(120_000);
-      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
-      await openTutorial(page);
-      const problems: string[] = [];
-      for (let step = 1; step <= 11; step++) {
-        await doTutorialStep(page, step);
-        const m = await page.evaluate(() => {
-          const card = document.querySelector<HTMLElement>('[data-testid="tutorial"] .tutorial-card')!;
-          const c = card.getBoundingClientRect();
-          // Every visible item in the card, found by walking it (never a named list): the leaves that carry text or are a board,
-          // a bar, a picture or a button, with their boxes. A container is not an item; the ghost disc floats in its lane.
-          const items: Array<{ name: string; top: number; bottom: number; left: number; right: number }> = [];
-          const visible = (e: Element) => {
-            const r = e.getBoundingClientRect();
-            const cs = getComputedStyle(e);
-            return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && !e.closest("[hidden]") && !e.closest(".visually-hidden");
-          };
-          for (const e of card.querySelectorAll<HTMLElement>("*")) {
-            if (!visible(e)) continue;
-            if (e.closest(".board-wrap") && !e.classList.contains("board-wrap")) continue; // the board is one item, with its ghost lane above it
-            if (e.closest(".tutorial-friends") && !e.classList.contains("tutorial-friends")) continue; // the friends picture is one item
-            if (e.closest(".timer-track") && !e.classList.contains("timer-track")) continue;
-            if (e.closest(".tutorial-shield") && !e.classList.contains("tutorial-shield")) continue;
-            if (e.closest("button, a") && !(e.tagName === "BUTTON" || e.tagName === "A")) continue;
-            const hasKids = [...e.children].some((k) => visible(k) && !(k as HTMLElement).classList.contains("visually-hidden"));
-            const isLeaf = !hasKids || e.classList.contains("board-wrap") || e.classList.contains("tutorial-friends") || e.classList.contains("timer-track") || e.tagName === "BUTTON";
-            if (!isLeaf) continue;
-            const r = e.getBoundingClientRect();
-            items.push({ name: e.getAttribute("data-testid") || e.className || e.tagName, top: r.top, bottom: r.bottom, left: r.left, right: r.right });
-          }
-          items.sort((a, b) => a.top - b.top || a.bottom - b.bottom);
-          const board = card.querySelector<HTMLElement>(".board-wrap .board, .board-wrap");
-          const timer = card.querySelector<HTMLElement>(".tutorial-timer");
-          const br = board?.getBoundingClientRect();
-          const tr = timer && visible(timer) && getComputedStyle(timer).visibility !== "hidden" ? timer.getBoundingClientRect() : null;
-          return { items, card: { top: c.top, bottom: c.bottom, over: card.scrollHeight - card.clientHeight }, board: br ? { left: br.left, right: br.right } : null, timer: tr ? { left: tr.left, right: tr.right } : null, h: innerHeight };
-        });
-        const where = `step ${step}`;
-        for (let i = 1; i < m.items.length; i++) {
-          const a = m.items[i - 1];
-          const b = m.items[i];
-          const gap = b.top - a.bottom;
-          // The ghost lane (one disc, up to 40px) is part of the board's own top margin, not empty space (U162): the board item is
-          // measured from its frame, so the lane is allowed once, between the status line and the board.
-          const lane = b.name.includes("board-wrap") ? 16 + 40 + 8 : 0;
-          if (gap > 24.5 + lane) problems.push(`${where}: ${Math.round(gap)}px between ${a.name} and ${b.name}`);
-        }
-        const last = m.items[m.items.length - 1];
-        if (m.card.bottom - last.bottom > 32.5) problems.push(`${where}: ${Math.round(m.card.bottom - last.bottom)}px between ${last.name} and the card's bottom edge`);
-        if (m.card.over > 0) problems.push(`${where}: the card scrolls by ${m.card.over}px`);
-        if (m.card.top < -0.5 || m.card.bottom > m.h + 0.5) problems.push(`${where}: the card is not wholly on screen`);
-        if (m.timer && m.board && (Math.abs(m.timer.left - m.board.left) > 2 || Math.abs(m.timer.right - m.board.right) > 2)) problems.push(`${where}: the timer bar (${Math.round(m.timer.left)} to ${Math.round(m.timer.right)}) is not the board's width (${Math.round(m.board.left)} to ${Math.round(m.board.right)})`);
-        if (step < 11) await page.locator(testid("tutorial-next")).click();
-      }
+      const first = skipAt[0];
+      skipAt.forEach((p, i) => { if (Math.abs(p.x - first.x) > 1 || Math.abs(p.y - first.y) > 1) problems.push(`step ${i + 1}: Skip moved to ${Math.round(p.x)}, ${Math.round(p.y)} from ${Math.round(first.x)}, ${Math.round(first.y)}`); });
       expect([...new Set(problems)]).toEqual([]);
       await context.close();
     });

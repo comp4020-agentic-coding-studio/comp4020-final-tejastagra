@@ -102,7 +102,7 @@ const STEPS: Step[] = [
   },
   {
     title: "The round timer",
-    caption: "Each round lasts up to 10 seconds. The bar under the board shows the time left. If you do not choose in time, you miss the round.",
+    caption: "Each round lasts up to 10 seconds, and the bar under the board shows the time left. If you do not choose in time, you miss the round and drop nothing. If both players miss 3 rounds in a row, the game is abandoned.",
     async run(s) {
       s.reset();
       s.timer(true);
@@ -233,7 +233,7 @@ const STEPS: Step[] = [
   },
   {
     title: "Leaving and playing again",
-    caption: "Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. If both players miss 3 rounds in a row, the game is abandoned. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.",
+    caption: "Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.",
     async run(s) {
       s.reset();
       s.hideStatus();
