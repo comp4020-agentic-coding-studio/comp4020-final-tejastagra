@@ -2603,3 +2603,30 @@ test.describe("Q45 R31 U174 no tag, and the power-up row is the board's width", 
     for (const c of [host, guest, watcher]) await c.context.close();
   });
 });
+
+// ---- No excess space in the tutorial card (U172, Q46): the real gaps, measured from the real boxes ----
+
+test.describe("Q46 U172 the tutorial card has no excess space", () => {
+  for (const viewport of MARKING) {
+    test(`Q46 all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      const problems: string[] = [];
+      for (let step = 1; step <= 11; step++) {
+        await doTutorialStep(page, step);
+        const m = await tutorialParts(page);
+        const above = m.board.y - (m.top.y + m.top.h); // the instruction area's bottom to the board's top
+        const below = m.next.y - (m.board.y + m.board.h); // the board's bottom to Next's top
+        const maxAbove = 24 + m.ghostSize;
+        const maxBelow = 12 + m.slot.h + 24;
+        if (above > maxAbove + 1) problems.push(`step ${step}: ${above.toFixed(1)}px between the instructions and the board, at most ${maxAbove}px allowed`);
+        if (below > maxBelow + 1) problems.push(`step ${step}: ${below.toFixed(1)}px between the board and Next, at most ${maxBelow}px allowed`);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});
+
