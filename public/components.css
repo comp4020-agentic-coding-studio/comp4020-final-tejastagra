@@ -346,13 +346,10 @@ h3 {
   box-shadow: var(--glow-focus);
 }
 
-/* The popup close button has no border of its own, so its focus state adds one (inside the button, so nothing resizes),
-   with the same glow as every other focused control (U9a). */
+/* The popup close button is a plain icon (U85a): on keyboard focus only, a yellow ring shows around the icon. */
 .dialog-close:focus-visible {
-  outline: none;
-  border: var(--outline-thin);
-  border-color: var(--focus);
-  box-shadow: var(--glow-focus);
+  outline: 3px solid var(--focus);
+  outline-offset: -8px;
   border-radius: var(--radius-pill);
 }
 
@@ -1142,12 +1139,16 @@ input {
   border-radius: var(--radius-button);
 }
 
-/* U51a: one border only. Focused, it turns yellow at the same width and radius, with a soft glow outside it
-   (a box-shadow, never a second outline or a gap), so nothing moves. This replaces the browser's own focus ring. */
+/* U51a: one border only. Focused, it turns yellow at the same width and radius, with no glow, no outline and no box-shadow
+   (the glow blended into a muddy ring), so nothing moves. Unfocused fields have no shadow either. */
+input {
+  box-shadow: none;
+}
+
 input:focus {
   border-color: var(--focus);
   outline: none;
-  box-shadow: var(--glow-focus);
+  box-shadow: none;
 }
 
 .form {
@@ -2541,24 +2542,24 @@ input:focus {
 
 .dialog-close {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: -1px; /* the 20px icon sits 12px inside this 44px tappable area, so 16px from the card's outer edge past its 5px border (U85a) */
+  right: -1px;
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
   padding: 0;
   color: var(--text);
-  background: var(--panel);
-  border: var(--outline);
-  border-radius: var(--radius-button);
-  box-shadow: var(--shadow);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   cursor: pointer;
 }
 
 .dialog-close svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .dialog-form {

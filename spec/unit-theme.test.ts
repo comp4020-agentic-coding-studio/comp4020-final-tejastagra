@@ -200,14 +200,14 @@ describe("theme: no colour or font outside public/theme.css (ADR 0006)", () => {
     expect(layers.length, "one layer only: the dark offset, no second ring").toBe(1);
   });
 
-  it("U51a a focused field has one border (yellow) and a glow, never a second outline", () => {
+  it("U51a a focused field has one yellow border and no glow, outline or shadow", () => {
     const css = readFileSync("public/components.css", "utf8");
     const rule = css.match(/input:focus\s*{[^}]*}/)?.[0] ?? "";
     expect(rule, "input:focus exists").not.toBe("");
     expect(rule).toMatch(/border-color:\s*var\(--focus\)/);
     expect(rule).toMatch(/outline:\s*none/);
-    expect(rule).toMatch(/box-shadow:\s*var\(--glow-focus\)/);
-    expect(theme).toMatch(/--glow-focus:/);
+    expect(rule).toMatch(/box-shadow:\s*none/);
+    expect(rule).not.toMatch(/glow-focus/);
   });
 
   it("U9a a button's border turns yellow on keyboard focus only, with the same glow, never a second outline", () => {

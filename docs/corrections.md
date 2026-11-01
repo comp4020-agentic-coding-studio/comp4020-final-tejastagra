@@ -395,3 +395,17 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Why the earlier checks missed it:** they measured named gaps (hint to Next, board to hint), not every gap, and U161 had even excused the gap above Next from the 24px limit.
 - **Harness fix:** U162 says the card's height comes only from its content, with no height, min-height or bottom-pinned item, and fixes the order and gaps. Q34 walks every visible item on all 11 steps and checks every neighbouring gap (24px), the last item to the card's bottom (32px), no scrolling and the timer bar matching the board's width.
 - **Rule for the future:** a spacing check must walk every item in the container, never a list of named ones, and no element may be pinned to a container's bottom edge.
+
+### C50. The focus glow blended into a muddy ring
+- **Date:** 1 November 2026
+- **What went wrong:** U51a asked for a yellow border plus a soft yellow glow (`--glow-focus`) on a focused field. On the dark popup the glow blended into a muddy ring outside the border, and the Q28 check and a unit test even required the glow.
+- **How it was caught:** Tejas looked at a focused field.
+- **Harness fix:** U51a now says no glow, no box-shadow, no outline and no offset shadow, focused or not. Q35 measures every text field (nickname, join code, log in, sign up, change password) at both viewports; Q28 and `spec/unit-theme.test.ts` now assert `box-shadow: none`.
+- **Rule for the future:** a check that demands a visual effect must be re-read when the effect is judged ugly; the rule and the check change together.
+
+### C51. The popup X was a bordered button jammed into the corner
+- **Date:** 1 November 2026
+- **What went wrong:** the X shared the outlined, shadowed button style (U9b, "every button one style") and sat 4px from the card's corner.
+- **How it was caught:** Tejas looked at a popup.
+- **Harness fix:** U85a makes the X a plain icon, at least 44px tappable, with its icon 16px from the card's top and right edges and a yellow ring on `:focus-visible` only. U9b and Q31 no longer count it as an outlined button. Q36 measures the X in every popup.
+- **Rule for the future:** "every button" rules name their exceptions, so a later rule about one control does not fight them.

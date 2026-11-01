@@ -1926,7 +1926,7 @@ test.describe("Q28 a focused field shows one yellow border, the same size as unf
       expect(after.radius, "same corner radius").toBe(before.radius);
       expect(after.borderColor, "the border is the --focus yellow").toBe("rgb(255, 199, 44)");
       expect(after.outline, "no separate outline when focused").toBe("none");
-      expect(after.shadow, "a glow, not a second ring").not.toBe("none");
+      expect(after.shadow, "no glow: the border alone shows focus (U51a)").toBe("none");
       expect(Math.abs(after.x - before.x), "focusing moves nothing").toBeLessThanOrEqual(1);
       expect(Math.abs(after.y - before.y), "focusing moves nothing").toBeLessThanOrEqual(1);
       expect(Math.abs(after.w - before.w), "focusing resizes nothing").toBeLessThanOrEqual(1);
@@ -2019,7 +2019,7 @@ async function buttonProblems(page: Page, root: string): Promise<string[]> {
       const r = b.getBoundingClientRect();
       // The practice columns are transparent hit areas and Skip is a text link (U159a): neither is an outlined button.
       const id = b.getAttribute("data-testid") ?? "";
-      if (/^tutorial-column-|^tutorial-skip$/.test(id)) return false;
+      if (/^tutorial-column-|^tutorial-skip$|^dialog-close$/.test(id)) return false; // the popup X is a plain icon too (U85a)
       return r.width > 0 && r.height > 0 && !b.closest("[hidden]") && getComputedStyle(b).visibility !== "hidden";
     });
     for (const b of buttons) {
@@ -2203,6 +2203,110 @@ test.describe("Q34 U162 the tutorial card's height comes only from its content",
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
       expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});
+
+// ---- Fixes 2 and 3 of the 1 November 2026 fifth list: a focused field shows only a yellow border; the popup X is a plain icon (U51a, U85a, Q35, Q36) ----
+
+async function signedInHere(page: Page): Promise<void> {
+  const username = `lay_${Math.random().toString(36).slice(2, 8)}`;
+  await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+  expect((await page.request.post("/api/account/signup", { data: { username, password: "first password here" } })).ok()).toBe(true);
+}
+
+async function popupsToCheck(page: Page, viewportName: string): Promise<Array<{ name: string; open: () => Promise<void>; dialog: string }>> {
+  void viewportName;
+  return [
+    { name: "nickname", dialog: "nickname-dialog", open: async () => { await page.goto("/"); await page.locator(testid("rename")).click(); } },
+    { name: "join code", dialog: "code-dialog", open: async () => { await page.goto("/"); await page.locator(testid("join-toggle")).click(); } },
+    { name: "sign up", dialog: "signup-dialog", open: async () => { await page.goto("/account"); await page.locator(testid("open-signup")).click(); } },
+    { name: "log in", dialog: "signin-dialog", open: async () => { await page.goto("/account"); await page.locator(testid("open-signin")).click(); } },
+  ];
+}
+
+test.describe("Q35 U51a a focused text field shows only a yellow border", () => {
+  for (const viewport of [PHONE, LAPTOP]) {
+    test(`Q35 every text field at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(60_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+      const problems: string[] = [];
+      const measure = (input: import("@playwright/test").Locator) => input.evaluate((el) => {
+        const c = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        return { border: c.borderTopWidth, radius: c.borderTopLeftRadius, color: c.borderTopColor, shadow: c.boxShadow, outline: c.outlineStyle, outlineWidth: c.outlineWidth, w: r.width, h: r.height };
+      });
+      const check = async (name: string, dialog: string) => {
+        const inputs = page.locator(`${testid(dialog)} input`);
+        const n = await inputs.count();
+        if (n === 0) problems.push(`${name}: no text field found`);
+        for (let i = 0; i < n; i++) {
+          const input = inputs.nth(i);
+          await input.evaluate((el) => (el as HTMLElement).blur()); // the first field of a popup starts focused
+          const before = await measure(input);
+          if (before.shadow !== "none") problems.push(`${name} field ${i}: unfocused it has a box-shadow (${before.shadow})`);
+          await input.focus();
+          const after = await measure(input);
+          if (after.color !== "rgb(255, 199, 44)") problems.push(`${name} field ${i}: focused border is ${after.color}, not yellow`);
+          if (after.shadow !== "none") problems.push(`${name} field ${i}: focused box-shadow is ${after.shadow}`);
+          if (after.outline !== "none" && after.outlineWidth !== "0px") problems.push(`${name} field ${i}: focused outline is ${after.outline}`);
+          if (after.border !== before.border || after.radius !== before.radius) problems.push(`${name} field ${i}: the border width or radius changed`);
+          if (Math.abs(after.w - before.w) > 0.5 || Math.abs(after.h - before.h) > 0.5) problems.push(`${name} field ${i}: its size changed when focused`);
+        }
+      };
+      for (const popup of await popupsToCheck(page, "")) {
+        await popup.open();
+        await expect(page.locator(testid(popup.dialog))).toBeVisible();
+        await check(popup.name, popup.dialog);
+      }
+      await signedInHere(page);
+      await page.goto("/account");
+      await page.locator(testid("open-password")).click();
+      await expect(page.locator(testid("password-dialog"))).toBeVisible();
+      await check("change password", "password-dialog");
+      expect(problems).toEqual([]);
+      await context.close();
+    });
+  }
+});
+
+test.describe("Q36 U85a the popup X is a plain icon", () => {
+  for (const viewport of [PHONE, LAPTOP]) {
+    test(`Q36 the X in every popup at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(60_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+      const problems: string[] = [];
+      const check = async (name: string, dialog: string) => {
+        const m = await page.locator(`${testid(dialog)} ${testid("dialog-close")}`).evaluate((el) => {
+          const c = getComputedStyle(el);
+          const r = el.getBoundingClientRect();
+          const card = el.closest(".dialog-card, .popup-card")!.getBoundingClientRect();
+          const icon = el.querySelector("svg")!.getBoundingClientRect(); // the icon is what sits 16px from the edges (U85a)
+          const bg = c.backgroundColor;
+          return { border: c.borderTopWidth, borderStyle: c.borderTopStyle, bg, shadow: c.boxShadow, w: r.width, h: r.height, top: icon.top - card.top, right: card.right - icon.right };
+        });
+        if (m.borderStyle !== "none" && m.border !== "0px") problems.push(`${name}: the X has a border (${m.border} ${m.borderStyle})`);
+        if (m.bg !== "rgba(0, 0, 0, 0)" && m.bg !== "transparent") problems.push(`${name}: the X has a background (${m.bg})`);
+        if (m.shadow !== "none") problems.push(`${name}: the X has a box-shadow (${m.shadow})`);
+        if (m.w < 44 || m.h < 44) problems.push(`${name}: the X is ${Math.round(m.w)} x ${Math.round(m.h)}`);
+        if (m.top < 12 || m.right < 12) problems.push(`${name}: the X icon is ${Math.round(m.top)}px from the top and ${Math.round(m.right)}px from the right edge`);
+      };
+      for (const popup of await popupsToCheck(page, "")) {
+        await popup.open();
+        await expect(page.locator(testid(popup.dialog))).toBeVisible();
+        await check(popup.name, popup.dialog);
+      }
+      await openComputerGame(page);
+      for (const [opener, dialog] of [["shield-info", "shield-help"], ["earthquake-info", "earthquake-help"]]) {
+        await page.locator(testid(opener)).click();
+        await expect(page.locator(testid(dialog))).toBeVisible();
+        await check(dialog, dialog);
+        await page.keyboard.press("Escape");
+      }
+      expect(problems).toEqual([]);
       await context.close();
     });
   }
