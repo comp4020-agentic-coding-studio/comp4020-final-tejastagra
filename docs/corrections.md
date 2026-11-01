@@ -409,3 +409,11 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **How it was caught:** Tejas looked at a popup.
 - **Harness fix:** U85a makes the X a plain icon, at least 44px tappable, with its icon 16px from the card's top and right edges and a yellow ring on `:focus-visible` only. U9b and Q31 no longer count it as an outlined button. Q36 measures the X in every popup.
 - **Rule for the future:** "every button" rules name their exceptions, so a later rule about one control does not fight them.
+
+### C52. The tutorial card still changed size when Next appeared, and the shield button was a full-width bar
+- **Date:** 1 November 2026
+- **What went wrong:** U162 made the card as tall as its content but took away every reserved place, so Next (hidden with `display: none`), the timer bar and the step 8 warning each added or removed height mid-step, and the card grew about 56px and re-centred when Next appeared. The shield and Earthquake buttons were `width: 100%` and read as bars. I also had not re-run the older tutorial checks after U162, so two of them (Q25 at 320 and U159) had been failing since that commit.
+- **How it was caught:** Tejas saw it on the live site and sent two screenshots, after asking for this fix several times.
+- **Why my checks missed it:** Q34 measured gaps in one moment, never the card's box before and after Next. The global `[hidden] { display: none !important }` also silently beat my `visibility: hidden` rule for Next.
+- **Harness fix:** U165 and Q39 compare the card's x, y, width and height at the start of every step with after Next appears, at both viewports, and measure the power-up button width (180 to 260px). Next, the timer and the warning keep their place with `visibility` and a `data-ready` or `data-shown` attribute, never `hidden`. Q34 now counts invisible reserved places as items. Q25 and U159 updated for steps with no hint.
+- **Rule for the future:** after any change to a screen, run every check that names that screen, not only the new one. A layout rule must be measured over time (before and after each state change), not at one moment.

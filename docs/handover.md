@@ -440,5 +440,7 @@ From `/Users/tejastagra/comp4020/comp4020-final-tejastagra`: `pnpm dev` (Tejas r
 
 ### Added after the fifth list (1 November 2026)
 
+- **Tutorial card stability (U165, Q39, C52).** The card no longer changes size when Next appears: Next, the timer bar and the step 8 warning keep their place (invisible, not removed). The Arm shield and Use Earthquake buttons are 180 to 260px wide (150px below 360px). This also fixed Q25 (320) and U159, which had been failing since U162 because I had not re-run them. I did not run an agent: CLAUDE.md bans general-purpose and background agents. The tutorial now has a gap between the hint and Skip on steps where Next is not showing yet; that is Next's reserved place, and it is the price of a card that never moves. If you would rather see Skip jump up and the card resize, say so, but that is what you complained about.
+
 - `d254cb6` The friend waiting screen shows the Rubble title 16px above the waiting card (U163, Q37), because that screen has no header. The Q24 and Q27 checks still pass.
 - The phone home stack is vertically centred on the screen (U164, Q38). The Q23, Q17 and home Q12/Q13/Q15 checks still pass. The laptop was already centred.
