@@ -2339,3 +2339,27 @@ test.describe("Q37 U163 the waiting card has the Rubble title above it", () => {
     });
   }
 });
+
+// ---- The phone home stack is centred on the screen (U164, Q38) ----
+
+test.describe("Q38 U164 the home stack is vertically centred on a phone", () => {
+  test("Q38 equal space above the title and below the icon row at 390 x 844", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await page.goto("/");
+    await page.locator(testid("home-screen")).waitFor();
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(() => document.fonts.ready);
+    const m = await page.evaluate(() => {
+      const els = [...document.querySelectorAll<HTMLElement>('[data-testid="home-screen"] *')].filter((e) => {
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden" && !e.closest("[hidden]") && !e.closest(".demo, .bubbles, [aria-hidden='true']");
+      });
+      const top = Math.min(...els.map((e) => e.getBoundingClientRect().top));
+      const bottom = Math.max(...els.map((e) => e.getBoundingClientRect().bottom));
+      return { top, below: innerHeight - bottom, scroll: document.documentElement.scrollHeight - innerHeight };
+    });
+    expect(m.scroll, "no scrolling").toBeLessThanOrEqual(0);
+    expect(Math.abs(m.top - m.below), `space above ${Math.round(m.top)}px and below ${Math.round(m.below)}px`).toBeLessThanOrEqual(8);
+    await context.close();
+  });
+});

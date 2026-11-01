@@ -55,6 +55,7 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q35, U51a | A focused text field (nickname, join code, log in, sign up, change password) has a yellow border, no box-shadow, no outline and unchanged size, at 390 x 844 and 1366 x 768 | `e2e/layout.spec.ts` | passing |
 | Q36, U85a | The X in every popup has no border, background or box-shadow, is at least 44 x 44px and at least 12px from the card's top and right edges, at 390 x 844 and 1366 x 768 | `e2e/layout.spec.ts` | passing |
 | Q37, U163 | The friend waiting screen shows the Rubble title centred, 16px above the waiting card, wholly on screen and overlapping nothing, at 390 x 844, 1366 x 768 and 320 x 568 | `e2e/layout.spec.ts` | passing |
+| Q38, U164 | On a phone the home stack is vertically centred: the space above the title and below the icon row are equal within 8px, with no scrolling, at 390 x 844 | `e2e/layout.spec.ts` | passing |
 | Q29, U52b | No popup card carries a light or white second ring; `--shadow-popup` is a plain dark offset | `e2e/layout.spec.ts`, `spec/unit-theme.test.ts` | passing |
 | Q30, U114a | On a laptop the account page is two columns, vertically centred within 24px, the page itself never scrolls and the history scrolls in its own card; on a phone it stays one column | `e2e/account.spec.ts` | passing |
 | U151 | The result line is a visually hidden aria-live region, never visible, and updates after each round; at least 16px between the power-up row and the bottom of the screen | `e2e/layout.spec.ts` | passing |

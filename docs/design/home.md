@@ -32,3 +32,7 @@ The home screen is a stacked button menu with a round icon row underneath, dress
   - With Top players gone (U35), the right half (player card, buttons and icon row) is **vertically centred beside the left half**: the centre of the right-hand column is within 24px of the centre of the left-hand column.
 - **U39** The menu pieces pop in one after another when the screen opens (U26), and respect reduced motion.
 - **U40** Everything meets the standards in `docs/design.md`, and every existing home test hook keeps working (`play-computer`, `play-friend`, `quick-match`, `join-toggle`, `rename`, `code-dialog`, `nickname-dialog`, `code-input`, `nickname-input`, `leaderboard-wins`, `leaderboard-rounds` on `/leaderboard`, plus `how-to-play`).
+
+## The phone stack is centred on the screen (added 1 November 2026)
+
+- **U164** On a phone the whole home stack (title, tagline, player card, four buttons and icon row) is **vertically centred on the screen**: the space between the top of the screen and the title and the space between the icon row's labels and the bottom of the screen are **equal within 8px**, as the laptop already does (U38). If the stack is taller than the screen it starts at the top and the page scrolls as before, never clipping. Browser check Q38.

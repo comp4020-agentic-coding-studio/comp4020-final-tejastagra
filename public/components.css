@@ -1304,6 +1304,9 @@ input:focus {
 .home {
   display: flex;
   flex-direction: column;
+  justify-content: center; /* U164: the phone stack is centred on the screen; a taller stack starts at the top and scrolls */
+  min-height: 100dvh;
+  box-sizing: border-box;
 }
 
 .home-left {

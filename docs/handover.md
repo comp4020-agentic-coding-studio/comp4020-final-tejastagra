@@ -437,3 +437,8 @@ Phase 8: run the multi-user test session from `docs/testing/multi-user-test-plan
 ## Run the dev server
 
 From `/Users/tejastagra/comp4020/comp4020-final-tejastagra`: `pnpm dev` (Tejas runs it himself; do not start another). `http://localhost:8080` for the laptop and `http://<LAN IP>:8080` for the phone (`ipconfig getifaddr en0`). `pnpm check` and `pnpm test:e2e` need the app running on port 8080 (or `APP_URL`).
+
+### Added after the fifth list (1 November 2026)
+
+- `d254cb6` The friend waiting screen shows the Rubble title 16px above the waiting card (U163, Q37), because that screen has no header. The Q24 and Q27 checks still pass.
+- The phone home stack is vertically centred on the screen (U164, Q38). The Q23, Q17 and home Q12/Q13/Q15 checks still pass. The laptop was already centred.
