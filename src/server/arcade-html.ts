@@ -120,7 +120,9 @@ export function tutorialOverlay(): string {
           <h2 id="tutorial-title" data-testid="tutorial-title"></h2>
           <p class="tutorial-caption" data-testid="tutorial-caption" aria-live="polite"></p>
         </div>
+        <div class="tutorial-lane" data-testid="tutorial-lane" aria-hidden="true"></div>
         <div class="tutorial-board" data-testid="tutorial-board"></div>
+        <div class="tutorial-slot" data-testid="tutorial-slot"></div>
         <div class="tutorial-actions" data-testid="tutorial-bottom">
           <button type="button" class="btn btn-red" data-testid="tutorial-next">Next</button>
           <button type="button" class="link-button" data-testid="tutorial-skip">Skip tutorial</button>

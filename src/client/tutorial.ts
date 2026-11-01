@@ -233,6 +233,8 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   const progress = $("tutorial-progress");
   const caption = $("tutorial-caption");
   const host = $("tutorial-board");
+  const lane = $("tutorial-lane");
+  const slotHost = $("tutorial-slot");
   const next = $("tutorial-next") as HTMLButtonElement;
   const skip = $("tutorial-skip");
 
@@ -340,11 +342,9 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   let timerTick: ReturnType<typeof setInterval> | undefined;
   // U167: the middle area holds only the board (or the friends picture) and what a step needs around it, each in a place reserved
   // for it: the warning banner above, the timer bar and the step's power-up button below. No text sits under the board.
-  // They share one slot under the board, because no step shows more than one of them.
-  const slot = document.createElement("div");
-  slot.className = "tutorial-slot";
-  slot.append(warning, timerBar, shield, quake);
-  host.replaceChildren(wrap, friends, slot);
+  // They share one slot under the board, because no step shows more than one of them. The slot is its own block under the board.
+  slotHost.replaceChildren(warning, timerBar, shield, quake);
+  host.replaceChildren(wrap, friends);
 
   const heights = new Array<number>(7).fill(0);
   const ghost = document.createElement("span");
@@ -366,9 +366,14 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
       return row;
     },
     reset() {
+      // The one place everything a step added is removed (U173): banners, highlighted columns, power-up buttons, timer bars and demo
+      // discs. It runs when a step is entered and when it is left, so a step that was left early cannot leave anything behind.
       stage.picture(false);
       stage.timer(false);
+      stage.warn(null);
       board.clear();
+      board.setSeats(null);
+      for (let c = 0; c < 7; c++) for (let r = 0; r < 6; r++) board.setClosed(c, r, false);
       heights.fill(0);
       stage.clearGhost();
       stage.glow(null);
@@ -592,6 +597,8 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
 
   function onNext(): void {
     if (index < STEPS.length - 1) {
+      running++; // the step being left can no longer draw
+      stage.reset(); // and everything it added is removed before the next one starts (U173)
       index++;
       render();
       return;
@@ -599,6 +606,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     void close("finished"); // the last step: the chosen match starts, or From How to play nothing does (U136)
   }
   function onSkip(): void {
+    stage.reset();
     void close(index === STEPS.length - 1 ? "finished" : "skipped");
   }
   function onKey(event: KeyboardEvent): void {

@@ -26,3 +26,8 @@ On a screen smaller than the marking viewports the card shrinks to the screen an
 ## Evidence
 
 The browser checks named Q41 in `e2e/layout.spec.ts`, and correction C54.
+
+## Amendment, 2 November 2026 (second fix list, Fix 1)
+
+The first build used a fixed card height of `min(720px, 100vh - 32px)` with the board centred in the spare room, which left large empty gaps (about 60px above and below the board on a phone). The card is still one fixed size per viewport, but its height is now the sum of its parts: padding, the instruction area, 16px, the ghost lane, 8px, the board, 12px, one reserved slot, 24px, Next, 12px, Skip tutorial and equal bottom padding (docs/design/tutorial.md U172). Each part is its own block in normal flow, so there is no spare room for a gap to appear and nothing can overlap. What it costs: a change to any part (a longer instruction, a taller button) changes the card height, which is the intent, and the table in U172 must be updated with it.
+

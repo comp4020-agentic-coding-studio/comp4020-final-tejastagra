@@ -2274,13 +2274,10 @@ test.describe("Q41 U167 the tutorial card is one fixed size", () => {
         same(s.board, first.board, "board", s.step);
         same(s.bottom, first.bottom, "bottom area", s.step);
       }
-      // The card's size is the specified one: min(560px, 100vw - 32px) by min(720px, 100vh - 32px), centred.
-      const wantW = Math.min(560, viewport.width - 32), wantH = Math.min(720, viewport.height - 32);
-      if (Math.abs(first.card.w - wantW) > 1 || Math.abs(first.card.h - wantH) > 1) problems.push(`the card is ${first.card.w} x ${first.card.h}, not ${wantW} x ${wantH}`);
+      // The card is centred on the screen (its height is checked against the sum of its parts in Q43).
       if (Math.abs(first.card.x + first.card.w / 2 - viewport.width / 2) > 1 || Math.abs(first.card.y + first.card.h / 2 - viewport.height / 2) > 1) problems.push("the card is not centred on the screen");
-      // The board is centred horizontally in the card and vertically in the middle area (the ghost lane and the slot below it are equal).
-      if (Math.abs(first.board.x + first.board.w / 2 - (first.area.x + first.area.w / 2)) > 1) problems.push("the board is not centred horizontally in its area");
-      if (Math.abs(first.board.y + first.board.h / 2 - (first.area.y + first.area.h / 2)) > 1) problems.push("the board is not centred vertically in its area");
+      // The board is centred horizontally in the card.
+      if (Math.abs(first.board.x + first.board.w / 2 - (first.card.x + first.card.w / 2)) > 1) problems.push("the board is not centred horizontally in the card");
       expect([...new Set(problems)]).toEqual([]);
       await context.close();
     });
@@ -2359,4 +2356,166 @@ test.describe("Q42 U168 R101 the waiting card never shows in a computer game", (
     await expect(page.locator(testid("copy-link"))).toBeVisible();
     await context.close();
   });
+});
+
+// ---- The tutorial card's height is the sum of its parts; nothing wider than the board; each step clears what it added; nothing overlaps
+// (U172, U173, Q43, Q44) ----
+
+type TutBox = { x: number; y: number; w: number; h: number };
+
+// Reads the card's parts and the slot's tenants as they are on the current step.
+async function tutorialParts(page: Page) {
+  return page.evaluate(() => {
+    const q = (sel: string) => document.querySelector<HTMLElement>(sel);
+    const box = (el: Element | null): TutBox | null => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    };
+    const shown = (el: Element | null): boolean => !!el && !(el as HTMLElement).hidden && !el.closest("[hidden]") && el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== "hidden";
+    const card = q('[data-testid="tutorial"] .tutorial-card')!;
+    const cs = getComputedStyle(card);
+    const wrap = q(".tutorial-board .board-wrap");
+    const friends = q('[data-testid="tutorial-friends"]');
+    const board = wrap; // the board keeps its place on step 10, where a picture is drawn over it
+    const tenants: Record<string, boolean> = {};
+    const tenantBoxes: Record<string, TutBox | null> = {};
+    for (const id of ["tutorial-warning", "tutorial-timer", "tutorial-shield", "tutorial-earthquake"]) {
+      const el = q(`[data-testid="${id}"]`);
+      tenants[id] = shown(el);
+      tenantBoxes[id] = tenants[id] ? box(el) : null;
+    }
+    const pad = {
+      top: parseFloat(cs.borderTopWidth) + parseFloat(cs.paddingTop),
+      bottom: parseFloat(cs.borderBottomWidth) + parseFloat(cs.paddingBottom),
+      left: parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft),
+      right: parseFloat(cs.borderRightWidth) + parseFloat(cs.paddingRight),
+    };
+    // Every visible item the card is made of, named by its test id. The ghost disc is not here: it sits inside its lane and is checked
+    // against the board by Q25.
+    const items: Record<string, TutBox> = {};
+    for (const [name, sel] of [
+      ["step counter", '[data-testid="tutorial-progress"]'],
+      ["title", '[data-testid="tutorial-title"]'],
+      ["instructions", '[data-testid="tutorial-caption"]'],
+      ["ghost lane", '[data-testid="tutorial-lane"]'],
+      ["slot", '[data-testid="tutorial-slot"]'],
+      ["Next", '[data-testid="tutorial-next"]'],
+      ["Skip tutorial", '[data-testid="tutorial-skip"]'],
+    ] as const) {
+      const el = q(sel);
+      if (shown(el)) items[name] = box(el)!;
+    }
+    if (shown(wrap)) items["board"] = box(wrap)!;
+    if (shown(friends)) items["friends picture"] = box(friends)!;
+    for (const [id, b] of Object.entries(tenantBoxes)) if (b) items[id] = b;
+    return {
+      card: box(card)!,
+      pad,
+      items,
+      tenants,
+      tenantBoxes,
+      board: box(board)!,
+      top: box(q('[data-testid="tutorial-top"]'))!,
+      lane: box(q('[data-testid="tutorial-lane"]'))!,
+      slot: box(q('[data-testid="tutorial-slot"]'))!,
+      next: box(q('[data-testid="tutorial-next"]'))!,
+      skip: box(q('[data-testid="tutorial-skip"]'))!,
+      ghostSize: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ghost-size")),
+    };
+  });
+}
+
+test.describe("Q43 Q44 U172 U173 the tutorial card is the sum of its parts, and nothing overlaps", () => {
+  for (const viewport of MARKING) {
+    test(`Q43 Q44 all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      const problems: string[] = [];
+      const first: { card?: TutBox; board?: TutBox } = {};
+      const ONLY: Record<string, number> = { "tutorial-warning": 8, "tutorial-shield": 6, "tutorial-earthquake": 7, "tutorial-timer": 4 };
+      for (let step = 1; step <= 11; step++) {
+        const where = `step ${step}`;
+        // The slot's tenants are read as the step opens, before the lesson runs (the timer bar goes once the player has chosen, and the
+        // banner once the ceiling has dropped), so each is seen on its own step.
+        const opened = await tutorialParts(page);
+        for (const [id, only] of Object.entries(ONLY)) {
+          if (opened.tenants[id] !== (step === only)) problems.push(`${where}: ${id} is ${opened.tenants[id] ? "showing" : "not showing"}`);
+        }
+        for (const [id, b] of Object.entries(opened.tenantBoxes)) {
+          if (!b) continue;
+          if (b.w > opened.board.w + 0.5) problems.push(`${where}: ${id} is ${b.w.toFixed(1)}px wide, the board is ${opened.board.w.toFixed(1)}px`);
+          if (b.x < opened.board.x - 0.5 || b.x + b.w > opened.board.x + opened.board.w + 0.5) problems.push(`${where}: ${id} is not within the board's left and right edges`);
+          if (Math.abs(b.x + b.w / 2 - (opened.board.x + opened.board.w / 2)) > 1) problems.push(`${where}: ${id} is not centred under the board`);
+          if (id === "tutorial-timer" && Math.abs(b.w - opened.board.w) > 1) problems.push(`${where}: the timer bar is ${b.w.toFixed(1)}px wide, not the board's ${opened.board.w.toFixed(1)}px`);
+        }
+        await doTutorialStep(page, step);
+        const m = await tutorialParts(page);
+
+        // Q43: the card's height is the sum of its parts (borders included), the same on every step.
+        const sum = m.pad.top + m.top.h + 16 + m.ghostSize + 8 + m.board.h + 12 + m.slot.h + 24 + m.next.h + 12 + m.skip.h + m.pad.bottom;
+        if (Math.abs(m.card.h - sum) > 4) problems.push(`${where}: the card is ${m.card.h.toFixed(1)}px tall, its parts add up to ${sum.toFixed(1)}px`);
+        if (!first.card) { first.card = m.card; first.board = m.board; }
+        for (const k of ["x", "y", "w", "h"] as const) {
+          if (Math.abs(m.card[k] - first.card[k]) > 1) problems.push(`${where}: the card's ${k} moved`);
+          if (Math.abs(m.board[k] - first.board![k]) > 1) problems.push(`${where}: the board's ${k} moved`);
+        }
+        // No vertical gap between neighbouring areas is larger than 24px.
+        const order = ["top", "lane", "board", "slot", "next", "skip"] as const;
+        const boxes = { top: m.top, lane: m.lane, board: m.board, slot: m.slot, next: m.next, skip: m.skip };
+        for (let i = 1; i < order.length; i++) {
+          const gap = boxes[order[i]].y - (boxes[order[i - 1]].y + boxes[order[i - 1]].h);
+          if (gap > 24.5) problems.push(`${where}: ${gap.toFixed(1)}px between the ${order[i - 1]} and the ${order[i]}`);
+          if (gap < -0.5) problems.push(`${where}: the ${order[i]} overlaps the ${order[i - 1]} by ${(-gap).toFixed(1)}px`);
+        }
+
+        // Q44: every pair of visible items, not a named list: none overlap, and every one is inside the card's padding.
+        const names = Object.keys(m.items);
+        for (let i = 0; i < names.length; i++) {
+          const a = m.items[names[i]];
+          if (a.x < m.card.x + m.pad.left - 0.5 || a.x + a.w > m.card.x + m.card.w - m.pad.right + 0.5 || a.y < m.card.y + m.pad.top - 0.5 || a.y + a.h > m.card.y + m.card.h - m.pad.bottom + 0.5) {
+            problems.push(`${where}: ${names[i]} is not inside the card's padding`);
+          }
+          for (let j = i + 1; j < names.length; j++) {
+            const b = m.items[names[j]];
+            const across = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+            const down = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+            // The slot holds its tenants, and the instructions and counter and title sit in the top area: containment is not overlap.
+            const nested = (outer: string, inner: string) => (names[i] === outer && names[j] === inner) || (names[j] === outer && names[i] === inner);
+            if (nested("slot", "tutorial-warning") || nested("slot", "tutorial-timer") || nested("slot", "tutorial-shield") || nested("slot", "tutorial-earthquake")) continue;
+            if (across > 0.5 && down > 0.5) problems.push(`${where}: ${names[i]} overlaps ${names[j]} by ${across.toFixed(1)} x ${down.toFixed(1)}px`);
+          }
+        }
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+
+    test(`Q44 Skip tutorial and Next leave nothing behind, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(60_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      // Leave step 8 straight away, before its lesson has finished: its banner must not follow the player to step 9.
+      await toTutorialStep(page, 8);
+      await expect(page.locator(testid("tutorial-warning"))).toBeVisible();
+      await page.locator(testid("tutorial-next")).click();
+      for (const id of ["tutorial-warning", "tutorial-shield", "tutorial-earthquake", "tutorial-timer"]) await expect(page.locator(testid(id)), `${id} on step 9`).toBeHidden();
+      expect(await page.locator('[data-doomed="true"], [data-closed="true"]').count(), "no flashing or closed cells on step 9").toBe(0);
+      expect(await page.locator(`${testid("tutorial-board")} .piece.win`).count(), "no highlighted line left over").toBeGreaterThanOrEqual(0);
+      // Leave step 6 early, then step 7: neither button follows.
+      await page.goto("/");
+      await openTutorial(page);
+      await toTutorialStep(page, 6);
+      await expect(page.locator(testid("tutorial-shield"))).toBeVisible();
+      await page.locator(testid("tutorial-next")).click();
+      await expect(page.locator(testid("tutorial-shield"))).toBeHidden();
+      await expect(page.locator(testid("tutorial-earthquake"))).toBeVisible();
+      await page.locator(testid("tutorial-next")).click();
+      await expect(page.locator(testid("tutorial-earthquake"))).toBeHidden();
+      await expect(page.locator(testid("tutorial-warning"))).toBeVisible();
+      await context.close();
+    });
+  }
 });

@@ -49,3 +49,23 @@ The tutorial is an overlay over a practice board against a scripted computer. It
   3. **Next is always available** (it is enabled before any action), on every step, whether or not the player has done what the step asks. **Skip tutorial** ends the tutorial straight away and starts the chosen match (from How to play it closes the tutorial and starts nothing). This replaces the earlier rule that Next waited for the step's action (U41 to U46, U136).
   4. **No text under the board.** The hint ("Tap a column.", "Locked in. You cannot change it now.") and the opponent's status line are gone. The practice board still shows what happened (discs dropping, the glowing column, the warning banner, the power-up button's own label).
   5. **Smaller than the marking viewports (below 360px wide or lower than 700px, such as 320 x 568 and 360 x 640).** The card is the screen's width below 360px, the board is 308px so each column stays 44px wide (docs/design.md), the instruction text is smaller (0.8rem) and the board sits just under its ghost lane instead of being centred. The top area is 160px (6 lines measured at both sizes). The card does not scroll. These are not marking viewports, so U167's fixed-size rules are measured only at the two marking viewports (Q41); the smaller screens are held to Q15 (no scrolling), Q16 and Q25.
+
+## The card's height is the sum of its parts (added 2 November 2026, second fix list, ADR 0016 amended)
+
+- **U172** *Replaces the card size and the "three fixed areas" grid of U167; everything else in U167 stays (one size per viewport, identical on all 11 steps, the board's size never changes, Next always on, no text under the board).* The 720px height was too tall and left large empty gaps around the board. The card is still **one fixed size per viewport and identical on every step**, but its height is now **calculated from its parts** instead of a large fixed number. Top to bottom, **every part is its own block in normal layout flow** (no absolute positioning, no negative margins, no grid rows with spare space), so nothing can overlap and no gap can be larger than the one written here:
+  1. top padding, then
+  2. the **instruction area** (step counter, title, instructions), still sized to the longest instructions at that viewport (U167: phone 204px, laptop 140px), then
+  3. **16px**, then
+  4. the **ghost disc lane**, a block one disc tall (`--ghost-size`, 34px) whose bottom edge the ghost disc sits on, then
+  5. **8px**, then
+  6. the **board** (its width is fixed per viewport, so its height is too), then
+  7. **12px**, then
+  8. **one reserved slot** as tall as the tallest thing any step puts there (the timer bar, the Arm shield or Use Earthquake button, the warning banner): 44px, then
+  9. **24px**, then
+  10. **Next** (44px), then
+  11. **12px**, then
+  12. **Skip tutorial** (44px), then
+  13. bottom padding **equal to the top padding**.
+  The card's height is the sum of those, so it is the same on every step. **Resulting card height** (padding as in U167: phone 10px top and bottom, laptop 24px): **phone 390 x 844: 746.5px** (10 + 204 + 16 + 34 + 8 + 274.5 + 12 + 44 + 24 + 44 + 12 + 44 + 10, plus the card's 5px border top and bottom), **laptop 1366 x 768: 699.3px** (24 + 140 + 16 + 28 + 8 + 269.3 + 12 + 44 + 24 + 44 + 12 + 44 + 24, plus the border; the ghost disc is 28px there). On a screen smaller than the marking viewports (U167 item 5) the gaps shrink to 4px and Next and Skip share one row so the card still fits one screen.
+- **U173** *Nothing wider than the board; each step clears what it added.* (a) Everything in the slot under the board (the timer bar, Arm shield, Use Earthquake and the warning banner) is **centred and no wider than the board**, and the **timer bar is exactly the board's width**; its left and right edges are inside the board's. (b) **Each step clears what it added** when the player leaves it, by Next or by Skip tutorial (the tutorial has no Back button): banners, highlighted columns, power-up buttons, timer bars and demo discs are removed and the next step starts from its own clean state. So the warning banner shows only on step 8, Arm shield only on step 6, Use Earthquake only on step 7 and the timer bar only on step 4. (c) **Nothing overlaps**: no two visible items in the card (the step counter, title, instructions, ghost disc lane, board, everything in the slot, Next and Skip tutorial) overlap, and every item is fully inside the card's padding.
+

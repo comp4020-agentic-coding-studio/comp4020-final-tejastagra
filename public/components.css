@@ -2240,12 +2240,10 @@ input:focus {
     max-width: var(--board-width);
   }
 }
-/* ---- Tutorial card (U27 to U29, U41 to U48, U52, U167, ADR 0016) ----
-   One card of one fixed size, centred, identical on all 11 steps. It has three fixed areas, top to bottom: the step counter, title and
-   instructions; the practice board; Next and Skip tutorial. A step changes what is inside an area, never an area's size. The top
-   area's height is the measured height of the longest instruction at that viewport (docs/design/tutorial.md); the board's size is
-   set once per viewport. The ghost disc's lane, the timer bar, the warning banner and the power-up buttons have reserved space
-   inside the middle area, so none of them moves the board. */
+/* ---- Tutorial card (U27 to U29, U41 to U48, U52, U167, U172, ADR 0016) ----
+   One card of one size per viewport, centred, identical on all 11 steps. Its height is the sum of its parts, each a block in normal
+   flow (see .tutorial-card below). The top area's height is the measured height of the longest instruction at that viewport
+   (docs/design/tutorial.md); the board's size is set once per viewport. */
 
 .tutorial {
   /* The phone's sizes are in theme.css (--tut-top is 7 lines, the longest instruction, measured 202.8px at 390 x 844). */
@@ -2268,11 +2266,12 @@ input:focus {
   }
 }
 
+/* The card is a plain stack of blocks in normal flow (U172): padding, the instruction area, 16px, the ghost lane, 8px, the board, 12px,
+   one reserved slot, 24px, Next, 12px, Skip tutorial, padding. Its height is the sum of those, so it is the same on every step and
+   nothing can overlap or leave a gap bigger than the one written here. No absolute positioning, no negative margins. */
 .tutorial-card {
-  display: grid;
-  grid-template-rows: var(--tut-top) minmax(0, 1fr) auto;
   width: min(560px, 100vw - 32px);
-  height: min(720px, 100dvh - 32px);
+  height: auto;
   margin: 0;
   padding: var(--tut-pad-y) var(--tut-pad-x);
   text-align: center;
@@ -2280,6 +2279,7 @@ input:focus {
 
 /* Top: the counter, the title and the instructions, from the top of the area. Shorter instructions leave blank space below. */
 .tutorial-top {
+  height: var(--tut-top);
   min-width: 0;
 }
 
@@ -2299,12 +2299,20 @@ input:focus {
   line-height: 1.25;
 }
 
-/* Middle: the board, centred in the area. Everything a step shows around it is laid over the area in a place of its own. */
+/* The ghost disc's lane: one disc tall, 16px under the instructions. The disc sits in it, 8px above the board. */
+.tutorial-lane {
+  height: var(--ghost-size);
+  margin-top: 16px;
+}
+
+.tutorial-board .ghost {
+  top: -12px; /* its bottom edge is 8px above the board (the lane's own 8px), not 2px */
+}
+
+/* The board, 8px under the lane. Its width is set once per viewport, so its height is too. */
 .tutorial-board {
-  position: relative;
   display: grid;
-  place-items: center;
-  min-height: 0;
+  margin-top: 8px;
 }
 
 .tutorial-board > .board-wrap,
@@ -2314,7 +2322,7 @@ input:focus {
 
 .tutorial-board .board-wrap {
   width: min(var(--tut-board-w), 100%);
-  margin: 0;
+  margin: 0 auto;
   padding-bottom: 0;
 }
 
@@ -2328,26 +2336,28 @@ input:focus {
   bottom: var(--frame);
 }
 
-/* The friends step's picture takes the board's place. */
+/* The friends step's picture takes the board's place and stays inside it. */
 .tutorial-board .tutorial-friends {
   align-self: center;
   min-height: 0;
   margin: 0;
 }
 
-/* The slot under the board, as tall as its tallest tenant (a 44px power-up button). One tenant shows at a time. */
+/* The slot under the board: 12px below it, as tall as its tallest tenant (a 44px button), exactly as wide as the board. One tenant
+   shows at a time, and none is wider than the slot (U172). */
 .tutorial-slot {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
   display: grid;
   place-items: center;
+  width: min(var(--tut-board-w), 100%);
   height: 44px;
+  margin: 12px auto 0;
 }
 
 .tutorial-slot > * {
   grid-area: 1 / 1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
 }
 
@@ -2355,17 +2365,13 @@ input:focus {
   display: none;
 }
 
-.tutorial-timer {
-  width: min(var(--tut-board-w), 100%);
-}
-
 .tutorial-warning {
-  max-width: 100%;
+  width: auto;
 }
 
 .tutorial-shield {
   min-height: 44px;
-  max-width: var(--stack-width);
+  height: 44px;
   /* The practice badges are free-standing pills, as the game's were before the power-up card (U102): the game's rows are borderless
      because they sit inside a card, and these do not. */
   justify-content: center;
@@ -2385,12 +2391,12 @@ input:focus {
   color: var(--disabled-text);
 }
 
-/* Bottom: Next, centred, with Skip tutorial centred below it, in the same place on every step. */
+/* Bottom: Next, 24px under the slot, centred, with Skip tutorial 12px under it, in the same place on every step. */
 .tutorial-actions {
   display: grid;
   justify-items: center;
-  gap: 8px;
-  padding-top: 8px; /* clear of the middle area's last slot, where a power-up button sits */
+  gap: 12px;
+  margin-top: 24px;
 }
 
 .tutorial-actions .btn {
@@ -2398,9 +2404,9 @@ input:focus {
   height: 44px;
 }
 
-/* A short or narrow screen (not a marking viewport: below 360px wide, or lower than 700px): the instruction text is smaller and the board sits just
-   under its lane, with the slot at the bottom of the area, because there is no room to centre it. The board is 308px so each column stays 44px
-   wide (docs/design.md). Next and Skip share one row. */
+/* A short or narrow screen (not a marking viewport: below 360px wide, or lower than 700px): the instruction text is smaller, the gaps
+   are gone and Next and Skip share one row, so the card still fits one screen. The board is 308px so each column stays 44px wide
+   (docs/design.md). */
 @media (max-width: 359px), (max-height: 700px) {
   .tutorial {
     --tut-pad-y: 4px;
@@ -2417,18 +2423,17 @@ input:focus {
     font-size: 0.8rem;
   }
 
-  .tutorial-board {
-    place-items: start center;
-  }
-
-  .tutorial-board .board-wrap {
-    margin-top: var(--ghost-size);
+  .tutorial-lane,
+  .tutorial-board,
+  .tutorial-slot {
+    margin-top: 0;
   }
 
   .tutorial-actions {
     grid-auto-flow: column;
     align-items: center;
-    padding-top: 4px;
+    gap: 8px;
+    margin-top: 4px;
   }
 }
 
@@ -2440,7 +2445,6 @@ input:focus {
 
   .tutorial-card {
     width: 100vw;
-    height: min(720px, 100dvh);
     border: var(--outline);
   }
 }
