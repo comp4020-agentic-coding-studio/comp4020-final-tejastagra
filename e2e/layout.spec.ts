@@ -1743,23 +1743,21 @@ test.describe("Q25 U159 the tutorial's fixed order and the ghost lane", () => {
           expect(await ghostOverlaps(page, testid("tutorial-ghost"), testid("tutorial")), `${where}: the disc overlaps nothing`).toEqual([]);
           const boardAfter = (await page.locator(".tutorial-board .board-wrap").boundingBox())!;
           const captionAfter = (await page.locator(testid("tutorial-caption")).boundingBox())!;
-          // U162: the card is as tall as its content and centred, so Next appearing re-centres the whole card. What the disc could push is
-          // the board away from the caption inside the card, so that distance is what must not change.
-          expect(Math.abs(boardAfter.y - captionAfter.y - (boardBefore.y - captionBefore.y)), `${where}: nothing moved inside the card when the disc appeared`).toBeLessThanOrEqual(1);
+          // U166: the card is a fixed grid, so nothing at all moves when the disc appears.
+          expect(Math.abs(boardAfter.y - boardBefore.y) + Math.abs(captionAfter.y - captionBefore.y), `${where}: nothing moved when the disc appeared`).toBeLessThanOrEqual(1);
           await page.locator(testid("tutorial-next")).waitFor({ state: "visible", timeout: 8_000 });
         } else {
           await doTutorialStep(page, step);
         }
-        // The order: caption, the opponent's status on its own line, 16px, the lane (a disc), 8px, the board, 16px, the buttons.
-        const caption = (await page.locator(testid("tutorial-caption")).boundingBox())!;
+        // U166: the lane is the board's own room above it (one disc tall) and nothing but the disc is in it; the board never overlaps the
+        // status line above it or the footer.
         const board = (await page.locator(".tutorial-board .board-wrap .board").boundingBox().catch(() => null));
         if (board) {
           const lane = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ghost-size")));
-          const status = await page.locator(testid("tutorial-status")).boundingBox();
-          const above = status && status.y > caption.y ? status.y + status.height : caption.y + caption.height;
-          expect(board.y - above, `${where}: a lane of ${lane}px and gaps of 16px and 8px between the status or caption and the board`).toBeGreaterThanOrEqual(lane + 16 + 8 - 4);
-          const next = (await page.locator(testid("tutorial-next")).boundingBox())!;
-          expect(next.y - (board.y + board.height), `${where}: 16px between the board and the buttons`).toBeGreaterThanOrEqual(12);
+          const status = (await page.locator(testid("tutorial-status")).boundingBox())!;
+          expect(board.y - (status.y + status.height), `${where}: a lane of ${lane}px between the status line and the board`).toBeGreaterThanOrEqual(lane - 0.5);
+          const foot = (await page.locator(".tutorial-actions").boundingBox())!;
+          expect(foot.y - (board.y + board.height), `${where}: the board ends above the footer`).toBeGreaterThanOrEqual(0);
         }
         const overlay = await page.locator(testid("tutorial")).evaluate((el) => el.scrollHeight - el.clientHeight);
         expect.soft(overlay, `Q15 ${where}: the tutorial does not scroll`).toBeLessThanOrEqual(0);
@@ -1774,7 +1772,7 @@ test.describe("Q25 U159 the tutorial's fixed order and the ghost lane", () => {
 
 // ---- Part 4 of the 31 October 2026 fix list: U159, the tutorial's hint sits 16px below the board, never against its edge ----
 
-test.describe("U159 the hint sits at least 16px below the board, and no gap in the order is larger than 24px", () => {
+test.describe("U159 U166 the hint sits under the board and its timer bar and touches neither", () => {
   for (const viewport of FULL_SCREENS) {
     test(`at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       test.setTimeout(60_000);
@@ -1784,29 +1782,13 @@ test.describe("U159 the hint sits at least 16px below the board, and no gap in t
         const where = `step ${step} at ${viewport.width} x ${viewport.height}`;
         await doTutorialStep(page, step);
         const board = await page.locator(".tutorial-board .board-wrap .board").boundingBox().catch(() => null);
-        const hint = await page.locator(testid("tutorial-hint")).boundingBox(); // U162: a step with no hint (10, 11) has none in the layout
-        // The practice timer bar's place is reserved (visibility: hidden, not removed) once a step has shown it, so it
-        // always takes layout space between the board and the hint from step 4 onwards; it is not empty space, so the
-        // gap is measured from whichever of the two sits lowest.
         const timer = await page.locator(testid("tutorial-timer")).boundingBox().catch(() => null);
-        if (board && hint) {
+        const hint = (await page.locator(testid("tutorial-hint")).boundingBox())!;
+        // The practice timer bar's place is always kept (visibility), so the hint is measured from whichever of the two sits lowest.
+        if (board) {
           const above = timer ? Math.max(board.y + board.height, timer.y + timer.height) : board.y + board.height;
-          const gap = hint.y - above;
-          expect(gap, `${where}: at least 16px between the board (or its timer bar) and the hint`).toBeGreaterThanOrEqual(15.5);
-          expect(gap, `${where}: no gap larger than 24px`).toBeLessThanOrEqual(24.5);
+          expect(hint.y - above, `${where}: the hint is below the board and its timer bar`).toBeGreaterThanOrEqual(0);
         }
-        // Steps 6 and 7 (shield, Earthquake) put the step's own action button between the hint and Next.
-        const action = await page
-          .locator(`${testid("tutorial-shield")}, ${testid("tutorial-earthquake")}`)
-          .filter({ visible: true })
-          .first()
-          .boundingBox()
-          .catch(() => null);
-        const next = (await page.locator(testid("tutorial-next")).boundingBox())!;
-        const hintToAction = action && hint ? action.y - (hint.y + hint.height) : null;
-        if (hintToAction !== null) expect(hintToAction, `${where}: no gap larger than 24px between the hint and its button`).toBeLessThanOrEqual(24.5);
-        const buttonGap = next.y - (action ? action.y + action.height : hint ? hint.y + hint.height : (board ? board.y + board.height : 0));
-        if (viewport.width < 360) expect(buttonGap, `${where}: no gap larger than 24px between the hint (or its button) and Next`).toBeLessThanOrEqual(24.5); // U161: Next is pinned from 360px up
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
       await context.close();
@@ -2126,9 +2108,10 @@ test.describe("Q32 U161 the tutorial card is readable and its buttons stay put",
         });
         const min = (label: string, got: number | null, want: number) => { if (got !== null && got < want - 0.01) problems.push(`${where}: ${label} is ${got}px, below ${want}px`); };
         min("step counter", m.progress, 14); min("title", m.title, 24); min("caption", m.caption, 17); min("opponent status", m.status, 16); min("hint", m.hint, 16);
-        if (m.next.visible && Math.abs(m.next.x + m.next.w / 2 - m.card.mid) > 2) problems.push(`${where}: Next is ${Math.round(m.next.x + m.next.w / 2 - m.card.mid)}px off centre`);
-        if (Math.abs(m.skip.x + m.skip.w / 2 - m.card.mid) > 2) problems.push(`${where}: Skip is ${Math.round(m.skip.x + m.skip.w / 2 - m.card.mid)}px off centre`);
-        if (m.skip.y < m.next.y + m.next.h - 1) problems.push(`${where}: Skip is not below Next`);
+        // U166 replaces U161's "Next centred, Skip below it": Next and Skip are one row, centred as a pair in the footer.
+        const pairMid = (Math.min(m.next.x, m.skip.x) + Math.max(m.next.x + m.next.w, m.skip.x + m.skip.w)) / 2;
+        if (Math.abs(pairMid - m.card.mid) > 2) problems.push(`${where}: Next and Skip are ${Math.round(pairMid - m.card.mid)}px off centre as a pair`);
+        if (Math.abs(m.skip.y - m.next.y) > 2) problems.push(`${where}: Skip is not level with Next`);
         skipAt.push({ x: m.skip.x + m.skip.w / 2, y: m.skip.y }); // its centre: step 11's label is longer
         if (m.warn && (m.warn.left < 15.5 || m.warn.right < 15.5)) problems.push(`${where}: the warning banner is ${Math.round(m.warn.left)}px and ${Math.round(m.warn.right)}px from the card's edges`);
         if (m.touching.length) problems.push(`${where}: touches or passes the card's edge: ${m.touching.join(", ")}`);
@@ -2143,71 +2126,8 @@ test.describe("Q32 U161 the tutorial card is readable and its buttons stay put",
   }
 });
 
-// ---- Fix 1 of the 1 November 2026 fifth list: the tutorial card has no empty space, measured on every item (U162, Q34) ----
-
-test.describe("Q34 U162 the tutorial card's height comes only from its content", () => {
-  for (const viewport of [PHONE, LAPTOP]) {
-    test(`Q34 every neighbouring pair of items on all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
-      test.setTimeout(120_000);
-      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
-      await openTutorial(page);
-      const problems: string[] = [];
-      for (let step = 1; step <= 11; step++) {
-        await doTutorialStep(page, step);
-        const m = await page.evaluate(() => {
-          const card = document.querySelector<HTMLElement>('[data-testid="tutorial"] .tutorial-card')!;
-          const c = card.getBoundingClientRect();
-          // Every visible item in the card, found by walking it (never a named list): the leaves that carry text or are a board,
-          // a bar, a picture or a button, with their boxes. A container is not an item; the ghost disc floats in its lane.
-          const items: Array<{ name: string; top: number; bottom: number; left: number; right: number }> = [];
-          const visible = (e: Element) => {
-            const r = e.getBoundingClientRect();
-            const cs = getComputedStyle(e);
-            // U165: a reserved place (Next before its step is done, the timer bar or warning after it clears) is invisible but still an item, since it takes room.
-            return r.width > 0 && r.height > 0 && cs.display !== "none" && !e.closest("[hidden]") && !e.closest(".visually-hidden");
-          };
-          for (const e of card.querySelectorAll<HTMLElement>("*")) {
-            if (!visible(e)) continue;
-            if (e.closest(".board-wrap") && !e.classList.contains("board-wrap")) continue; // the board is one item, with its ghost lane above it
-            if (e.closest(".tutorial-friends") && !e.classList.contains("tutorial-friends")) continue; // the friends picture is one item
-            if (e.closest(".timer-track") && !e.classList.contains("timer-track")) continue;
-            if (e.closest(".tutorial-shield") && !e.classList.contains("tutorial-shield")) continue;
-            if (e.closest("button, a") && !(e.tagName === "BUTTON" || e.tagName === "A")) continue;
-            const hasKids = [...e.children].some((k) => visible(k) && !(k as HTMLElement).classList.contains("visually-hidden"));
-            const isLeaf = !hasKids || e.classList.contains("board-wrap") || e.classList.contains("tutorial-friends") || e.classList.contains("timer-track") || e.tagName === "BUTTON";
-            if (!isLeaf) continue;
-            const r = e.getBoundingClientRect();
-            items.push({ name: e.getAttribute("data-testid") || e.className || e.tagName, top: r.top, bottom: r.bottom, left: r.left, right: r.right });
-          }
-          items.sort((a, b) => a.top - b.top || a.bottom - b.bottom);
-          const board = card.querySelector<HTMLElement>(".board-wrap .board, .board-wrap");
-          const timer = card.querySelector<HTMLElement>(".tutorial-timer");
-          const br = board?.getBoundingClientRect();
-          const tr = timer && visible(timer) && getComputedStyle(timer).visibility !== "hidden" ? timer.getBoundingClientRect() : null;
-          return { items, card: { top: c.top, bottom: c.bottom, over: card.scrollHeight - card.clientHeight }, board: br ? { left: br.left, right: br.right } : null, timer: tr ? { left: tr.left, right: tr.right } : null, h: innerHeight };
-        });
-        const where = `step ${step}`;
-        for (let i = 1; i < m.items.length; i++) {
-          const a = m.items[i - 1];
-          const b = m.items[i];
-          const gap = b.top - a.bottom;
-          // The ghost lane (one disc, up to 40px) is part of the board's own top margin, not empty space (U162): the board item is
-          // measured from its frame, so the lane is allowed once, between the status line and the board.
-          const lane = b.name.includes("board-wrap") ? 16 + 40 + 8 : 0;
-          if (gap > 24.5 + lane) problems.push(`${where}: ${Math.round(gap)}px between ${a.name} and ${b.name}`);
-        }
-        const last = m.items[m.items.length - 1];
-        if (m.card.bottom - last.bottom > 32.5) problems.push(`${where}: ${Math.round(m.card.bottom - last.bottom)}px between ${last.name} and the card's bottom edge`);
-        if (m.card.over > 0) problems.push(`${where}: the card scrolls by ${m.card.over}px`);
-        if (m.card.top < -0.5 || m.card.bottom > m.h + 0.5) problems.push(`${where}: the card is not wholly on screen`);
-        if (m.timer && m.board && (Math.abs(m.timer.left - m.board.left) > 2 || Math.abs(m.timer.right - m.board.right) > 2)) problems.push(`${where}: the timer bar (${Math.round(m.timer.left)} to ${Math.round(m.timer.right)}) is not the board's width (${Math.round(m.board.left)} to ${Math.round(m.board.right)})`);
-        if (step < 11) await page.locator(testid("tutorial-next")).click();
-      }
-      expect([...new Set(problems)]).toEqual([]);
-      await context.close();
-    });
-  }
-});
+// Q34 (U162, no gap over 24px in a flowing card) was retired on 1 November 2026: U166 replaces the flowing card with a fixed grid, and Q40 above
+// measures it more strictly (identical boxes for the card, every row, the board, Next and Skip on all 11 steps at five viewports).
 
 // ---- Fixes 2 and 3 of the 1 November 2026 fifth list: a focused field shows only a yellow border; the popup X is a plain icon (U51a, U85a, Q35, Q36) ----
 
@@ -2386,7 +2306,7 @@ test.describe("Q39 U165 the tutorial card keeps its size when Next appears", () 
           const b = page.locator(testid(id));
           if (await b.isVisible()) {
             const w = (await b.boundingBox())!;
-            if (w.width < 180 - 0.5 || w.width > 260 + 0.5 || w.width > before.width * 0.6 + 0.5) problems.push(`step ${step}: ${id} is ${Math.round(w.width)}px wide in a ${Math.round(before.width)}px card`);
+            if (w.width < 150 - 0.5 || w.width > 260 + 0.5 || w.width > before.width * 0.7 + 0.5) problems.push(`step ${step}: ${id} is ${Math.round(w.width)}px wide in a ${Math.round(before.width)}px card`);
           }
         }
         await doTutorialStep(page, step);
@@ -2398,11 +2318,95 @@ test.describe("Q39 U165 the tutorial card keeps its size when Next appears", () 
           const b = page.locator(testid(id));
           if (await b.isVisible()) {
             const w = (await b.boundingBox())!;
-            if (w.width < 180 - 0.5 || w.width > 260 + 0.5) problems.push(`step ${step}: ${id} is ${Math.round(w.width)}px wide after the action`);
+            if (w.width < 150 - 0.5 || w.width > 260 + 0.5) problems.push(`step ${step}: ${id} is ${Math.round(w.width)}px wide after the action`);
           }
         }
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});
+
+// ---- The tutorial card is a fixed four-row grid (U166, Q40) ----
+
+const Q40_VIEWPORTS = [
+  { width: 360, height: 640 },
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+  { width: 768, height: 1024 },
+  { width: 1280, height: 720 },
+];
+
+test.describe("Q40 U166 the tutorial card is a fixed grid of four rows", () => {
+  for (const viewport of Q40_VIEWPORTS) {
+    test(`Q40 all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      type R = { x: number; y: number; w: number; h: number };
+      const boxes: Array<Record<string, any>> = [];
+      const problems: string[] = [];
+      const measure = () => page.evaluate(() => {
+        const rect = (sel: string): R | null => {
+          const e = document.querySelector<HTMLElement>(sel);
+          if (!e) return null;
+          const r = e.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 ? { x: r.x, y: r.y, w: r.width, h: r.height } : null;
+        };
+        type R = { x: number; y: number; w: number; h: number };
+        const card = document.querySelector<HTMLElement>(".tutorial-card")!;
+        const rows = ["tutorial-head", "tutorial-text", "tutorial-board", "tutorial-actions"].map((c) => rect(`.${c}`));
+        return {
+          card: rect(".tutorial-card"), head: rows[0], text: rows[1], zone: rows[2], foot: rows[3],
+          board: rect(".tutorial-board .board-wrap .board"), next: rect('[data-testid="tutorial-next"]'), skip: rect('[data-testid="tutorial-skip"]'),
+          overflow: card.scrollHeight - card.clientHeight, w: innerWidth, h: innerHeight,
+          // Anything that sticks out of its row.
+          out: ["tutorial-head", "tutorial-text", "tutorial-board", "tutorial-actions"].flatMap((c) => {
+            const row = document.querySelector<HTMLElement>(`.${c}`)!;
+            const rr = row.getBoundingClientRect();
+            return [...row.querySelectorAll<HTMLElement>("*")].filter((e) => {
+              const r = e.getBoundingClientRect();
+              const cs = getComputedStyle(e);
+              if (r.width === 0 || r.height === 0 || cs.position === "absolute" || e.closest(".board, .columns-hit, .columns-glow, .shield-badge svg, [hidden]")) return false;
+              return r.top < rr.top - 1 || r.bottom > rr.bottom + 1 || r.left < rr.left - 1 || r.right > rr.right + 1;
+            }).map((e) => `${c}: ${e.getAttribute("data-testid") || e.className || e.tagName}`);
+          }),
+        } as Record<string, any>;
+      });
+      for (let step = 1; step <= 11; step++) {
+        await doTutorialStep(page, step);
+        await page.mouse.move(1, 1); // a button under the pointer lifts 2px by its hover transform (U8): measure with the pointer away
+        await page.waitForTimeout(250);
+        boxes.push(await measure());
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      const same = (name: string, key: string, tol = 1) => {
+        const first = boxes[0][key] as R | null;
+        boxes.forEach((b, i) => {
+          const r = b[key] as R | null;
+          if (!r || !first) { if (!!r !== !!first && key !== "board") problems.push(`step ${i + 1}: ${name} is ${r ? "there" : "missing"} but was ${first ? "there" : "missing"} on step 1`); return; }
+          for (const k of ["x", "y", "w", "h"] as const) if (Math.abs(r[k] - first[k]) > tol) problems.push(`step ${i + 1}: ${name} ${k} is ${Math.round(r[k])}, was ${Math.round(first[k])} on step 1`);
+        });
+      };
+      for (const [name, key] of [["the card", "card"], ["the header row", "head"], ["the text row", "text"], ["the board row", "zone"], ["the footer row", "foot"], ["Next", "next"], ["Skip", "skip"]] as const) same(name, key);
+      // The board is the same on every step that shows it (step 10 shows the friends picture instead).
+      const withBoard = boxes.map((b, i) => ({ b: b.board as R | null, i })).filter((x) => x.b);
+      withBoard.forEach(({ b, i }) => { for (const k of ["x", "y", "w", "h"] as const) if (Math.abs(b![k] - withBoard[0].b![k]) > 1) problems.push(`step ${i + 1}: the board ${k} is ${Math.round(b![k])}, was ${Math.round(withBoard[0].b![k])}`); });
+      boxes.forEach((b, i) => {
+        const where = `step ${i + 1}`;
+        const card = b.card as R, next = b.next as R, skip = b.skip as R;
+        if (card.y < 24 - 0.5) problems.push(`${where}: the card is ${Math.round(card.y)}px from the top, under 24`);
+        if (card.y + card.h > (b.h as number) + 0.5) problems.push(`${where}: the card runs off the bottom`);
+        if (card.x < -0.5 || card.x + card.w > (b.w as number) + 0.5) problems.push(`${where}: the card runs off the side`);
+        for (const [name, r] of [["Next", next], ["Skip", skip]] as const) if (!r || r.x < 0 || r.y < 0 || r.x + r.w > (b.w as number) || r.y + r.h > (b.h as number)) problems.push(`${where}: ${name} is not inside the viewport`);
+        const rows = [b.head, b.text, b.zone, b.foot] as R[];
+        for (let r = 1; r < rows.length; r++) if (rows[r].y < rows[r - 1].y + rows[r - 1].h - 0.5) problems.push(`${where}: row ${r + 1} overlaps row ${r}`);
+        if (next && skip && !(skip.y >= next.y + next.h - 0.5 || next.y >= skip.y + skip.h - 0.5 || skip.x >= next.x + next.w - 0.5 || next.x >= skip.x + skip.w - 0.5)) problems.push(`${where}: Next and Skip overlap`);
+        if ((b.overflow as number) > 0) problems.push(`${where}: the card scrolls by ${b.overflow}px`);
+        for (const o of b.out as string[]) problems.push(`${where}: ${o} sticks out of its row`);
+      });
       expect([...new Set(problems)]).toEqual([]);
       await context.close();
     });

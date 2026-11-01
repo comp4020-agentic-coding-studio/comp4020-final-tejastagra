@@ -2240,199 +2240,45 @@ input:focus {
     max-width: var(--board-width);
   }
 }
-/* ---- Tutorial and end popup (U27 to U29, U41 to U48, U52) ---- */
 
-.tutorial {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  background: var(--backdrop);
-  overflow-y: auto;
-}
 
-.tutorial-card {
-  width: 100%;
-  max-width: 440px;
-  max-height: 100%;
-  overflow-y: auto;
-  text-align: center;
-}
 
-.tutorial-caption {
-  margin: 4px 0;
-  font-size: 1.05rem;
-}
 
-/* "Step N of 11" (U136). */
-.tutorial-progress {
-  margin: 0;
-  font: 700 0.85rem/1.2 var(--font-display);
-  color: var(--text-muted);
-}
 
-.tutorial-card h2 {
-  margin-top: 4px;
-}
 
-/* The practice round timer (U140): the game's bar, under the practice board. Its own bottom margin stays 0: the hint's
-   margin-top already gives the 16px gap U159 asks for below the board (or the timer bar, when it is showing). */
-.tutorial-timer {
-  margin: 0;
-}
 
-.tutorial-board {
-  margin: 4px 0;
-}
 
-.tutorial-board .board-wrap {
-  /* U148: the board is sized from the height left under the caption, so a laptop's card never scrolls. */
-  width: 100%;
-  margin: calc(var(--ghost-size) + 4px) auto 8px;
-  padding-bottom: 20px;
-}
 
-.tutorial-status,
-.tutorial-hint {
-  margin: 0;
-  font-weight: 700;
-}
 
-.tutorial-status {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
 
-.tutorial-hint {
-  margin-top: 4px;
-}
 
-.tutorial-shield[hidden] {
-  display: none;
-}
 
-.tutorial-shield {
-  margin: 4px auto;
-  max-width: var(--stack-width);
-  /* The practice badges are free-standing pills, as the game's were before the power-up card (U102): the game's rows are borderless
-     because they sit inside a card, and these do not. */
-  justify-content: center;
-  background: var(--panel);
-  border: var(--outline);
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-small);
-}
 
-.tutorial-shield[aria-pressed="true"] {
-  background: var(--yellow);
-  color: var(--ink);
-}
 
-.tutorial-shield[data-state="spent"] {
-  background: var(--disabled);
-  color: var(--disabled-text);
-}
 
-.tutorial-status[hidden],
-.tutorial-hint[hidden] {
-  display: none;
-}
 
-/* Next and Skip stay on screen however short it is: they stick to the bottom of the card. */
-.tutorial-actions {
-  position: sticky;
-  bottom: 0;
-  display: grid;
-  gap: 8px; /* Next and Skip are clear of each other (U148) */
-  justify-items: center;
-  padding: 4px 0 2px;
-  background: var(--panel);
-}
 
-/* On a small or short screen the card is compact, so all of it, with Next and Skip, fits. */
-@media (max-width: 359px), (max-height: 640px) {
-  .tutorial {
-    padding: 4px;
-  }
 
-  .tutorial-card {
-    padding-top: 8px;
-    padding-bottom: 4px;
-  }
 
-  .tutorial-card h2 {
-    margin: 0 0 2px;
-    font-size: 1.1rem;
-  }
 
-  .tutorial-caption {
-    margin: 2px 0;
-    font-size: 0.9rem;
-    line-height: 1.25;
-  }
 
-  .tutorial-board {
-    margin: 2px 0;
-  }
 
-  .tutorial-hint {
-    font-size: 0.85rem;
-    line-height: 1.2;
-  }
 
-  .tutorial-board .board-wrap {
-    margin: calc(var(--ghost-size) + 2px) 0 2px;
-    padding-bottom: 12px;
-  }
 
-  .tutorial-board .board-wrap::before,
-  .tutorial-board .board-wrap::after {
-    height: 12px;
-  }
 
-  .tutorial-board .columns-hit,
-  .tutorial-board .columns-glow {
-    bottom: calc(12px + var(--frame));
-  }
 
-  .tutorial-shield {
-    min-height: 44px;
-    margin: 2px auto;
-  }
-}
 
-@media (max-width: 359px) {
-  /* The practice board gets the full width of the card, so every column is 44 px. */
-  .tutorial-card {
-    padding-left: 0;
-    padding-right: 0;
-  }
 
-  .tutorial-card > * {
-    padding-left: 8px;
-    padding-right: 8px;
-  }
 
-  .tutorial-card > .tutorial-board {
-    padding-left: 0;
-    padding-right: 0;
-  }
 
-  .tutorial-board > :not(.board-wrap) {
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-}
 
-/* U148: on a laptop the practice board is sized from the height left under the caption, so the card never scrolls. */
-@media (min-width: 900px) {
-  .tutorial-board .board-wrap {
-    width: clamp(336px, calc((100dvh - 500px) * 7 / 6), 100%);
-  }
-}
+
+
+
+
+
+
+
 
 /* ---- Wider screens ---- */
 
@@ -3807,49 +3653,7 @@ input:focus {
   }
 }
 
-/* The eleven-step tutorial on short screens (U47, U136): the longer captions still leave the board, its power-up badge, the hint and
-   Skip on one screen at 320 x 568. The ghost disc overlaps the board's frame here instead of having a row of its own. */
-@media (max-width: 359px), (max-height: 800px) {
-  .tutorial-progress {
-    font-size: 0.75rem;
-  }
 
-  .tutorial-card h2 {
-    font-size: 1rem;
-  }
-
-  .tutorial-caption {
-    font-size: 0.8rem;
-    line-height: 1.2;
-  }
-
-  .tutorial-board .board-wrap {
-    margin-top: calc(var(--ghost-size) / 2);
-  }
-
-  /* The opponent's status sits on the progress line's row, at the card's top right, so it costs no row. */
-  .tutorial-card {
-    position: relative;
-  }
-
-  .tutorial-status {
-    position: absolute;
-    top: 8px;
-    right: 10px;
-    max-width: 38%;
-    font-size: 0.7rem;
-    text-align: right;
-  }
-
-  /* Q5: "Step N of 11" stays centred with the title and caption under it; the status sits clear of it at the right. */
-  .tutorial-progress {
-    text-align: center;
-  }
-
-  .tutorial-hint {
-    min-height: 0;
-  }
-}
 
 /* Phone-width fixes found by the phone-tester on 29 October 2026.
    1. A link spectator's notice keeps a whole line of its own, and the watcher count goes under it, so the row never widens the
@@ -3911,22 +3715,7 @@ input:focus {
 }
 
 
-/* U148, Q15: on a short or narrow phone, Next and Skip share one row under the board (8px apart, each at least 44px tall), so every
-   step, even the ones with a power-up button and a hint, fits one screen with no scrolling. */
-@media (max-width: 359px), (max-height: 640px), (min-width: 900px) {
-  .tutorial-actions {
-    position: static;
-    grid-auto-flow: column;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 0 0;
-  }
 
-  .tutorial-actions .btn {
-    min-height: 44px;
-  }
-}
 
 /* The power-up rows keep their natural width (the info buttons are never clipped); if the board column is narrower than the row,
    the centred row overflows it evenly on both sides (U132, U149). */
@@ -4364,222 +4153,37 @@ input:focus {
   }
 }
 
-/* ---- The tutorial's fixed order (U159, Q25) ----
-   step counter, title, caption, the opponent's status on its own centred line, 16px, the ghost lane (one disc), 8px, the practice
-   board, 16px, the step's buttons 16px apart, then Skip. Nothing but the disc is ever in the lane. */
-.tutorial-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-.tutorial-status {
-  position: static;
-  max-width: none;
-  margin: 4px 0 0;
-  text-align: center;
-  font-size: 0.8rem;
-  line-height: 1.2;
-}
-
-.tutorial-board .board-wrap {
-  margin: calc(16px + var(--ghost-size) + 8px) auto 0; /* 16px under the status line, the lane, then 8px to the board */
-  padding-bottom: 0;
-}
-
-.tutorial-board .board-wrap::before,
-.tutorial-board .board-wrap::after {
-  display: none;
-}
-
-.tutorial-board .columns-hit,
-.tutorial-board .columns-glow {
-  bottom: var(--frame);
-}
-
-/* U159 (fixed 31 October 2026): the hint sits 16px under the board, never against its edge; the step's button (shield
-   or Earthquake, when the step has one) follows 16px under the hint. */
-.tutorial-hint {
-  min-height: 0;
-  margin: 16px 0 0;
-}
-
-.tutorial-shield {
-  margin: 16px auto 0;
-}
-
-.tutorial-actions {
-  position: static;
-  display: grid;
-  grid-auto-flow: row;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  margin-top: 16px;
-  padding: 0;
-}
-
-@media (max-width: 359px), (max-height: 640px) {
-  .tutorial-actions {
-    grid-auto-flow: column;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 16px;
-  }
-
-  .tutorial-card h2 {
-    margin: 0;
-  }
-
-  .tutorial-caption {
-    margin: 2px 0 0;
-  }
-}
-
-/* On a short or narrow phone the card is compact so every step, with its status line, lane, board, buttons and Skip, fits one screen
-   (Q15, Q25): the step counter and the title share one row, the caption is a little smaller, and the opponent's status sits on its
-   own centred line right under it. The lane and the gaps of U159 are never given up; the hint line (which repeats the caption) is
-   one short line under the board. */
-@media (max-width: 599px), (max-height: 800px) {
-  .tutorial {
-    padding: 4px 0;
-  }
-
-  /* At 320px the card is the screen's width and the board fills it with the card's 3px border and 3px padding, so each of the seven
-     columns is at least 44px wide (docs/design.md). */
-  .tutorial-card {
-    padding: 6px 3px 8px;
-    border-radius: var(--radius-panel);
-  }
-
-  .tutorial-caption,
-  .tutorial-card h2,
-  .tutorial-progress,
-  .tutorial-status,
-  .tutorial-hint {
-    padding: 0 6px;
-  }
-
-  .tutorial-actions {
-    grid-auto-flow: column;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 16px;
-  }
-
-  .tutorial-progress {
-    display: inline;
-    font-size: 0.7rem;
-  }
-
-  .tutorial-card h2 {
-    display: inline;
-    margin-left: 6px;
-    font-size: 0.95rem;
-  }
-
-  .tutorial-caption {
-    font-size: 0.76rem;
-    line-height: 1.15;
-  }
-
-  .tutorial-status {
-    margin: 2px 0 0;
-    font-size: 0.72rem;
-  }
-
-  .tutorial-board .board-wrap {
-    margin-top: calc(16px + var(--ghost-size) + 8px);
-  }
-
-  .tutorial-shield {
-    margin-top: 4px;
-  }
-
-  /* U159 (fixed 31 October 2026): at least 16px between the board and the hint, never against its edge, even on a
-     compact screen; the gaps after the hint stay tighter here so the step still fits one screen (Q15). */
-  .tutorial-hint {
-    margin: 16px 0 0;
-    font-size: 0.8rem;
-    line-height: 1.15;
-  }
-
-  .tutorial-actions {
-    margin-top: 4px;
-  }
-}
-
-/* Steps with an action button (shield, Earthquake): the button and the hint that goes with it share one row, so the card still fits
-   one screen at 320 x 568 (Q15) with the lane and the gaps of U159 untouched. The button keeps its 44px height.
-   U159's DOM order (changed 31 October 2026) is status, board, hint, then the button, so the hint is matched by its own
-   class rather than by a sibling combinator that assumed the old order. */
-@media (max-width: 359px) {
-  .tutorial-board {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    column-gap: 8px;
-    align-items: center;
-  }
-
-  .tutorial-board > * {
-    grid-column: 1 / -1;
-    min-width: 0;
-  }
-
-  .tutorial-board > .board-wrap {
-    justify-self: stretch;
-    width: 100%;
-  }
-
-  /* The hint now comes before the button in the DOM (U159's reading order). Dense packing lets the button, which
-     follows it, backfill the same row's empty first column instead of starting a new row (which sparse packing would
-     do, since it never looks backward), so the two still share one row here exactly as when the button came first. */
-  .tutorial-board:has(> .tutorial-shield:not([hidden])) {
-    grid-auto-flow: dense;
-  }
-
-  .tutorial-board:has(> .tutorial-shield:not([hidden])) > .tutorial-hint {
-    grid-column: 2;
-    margin: 16px 0 0;
-    text-align: left;
-  }
-
-  .tutorial-board:has(> .tutorial-shield:not([hidden])) > .tutorial-shield {
-    grid-column: 1;
-    width: auto;
-    margin: 8px 0 0;
-  }
-}
-
-/* The hint changes as a step goes on ("Tap a column." then "Locked in. You cannot change it now."), and a card centred on the
-   screen would move everything above it whenever it grew or shrank. Its two lines are reserved from the start, so nothing moves
-   when the disc, or the words, appear (Q25, U159). */
-.tutorial-hint {
-  margin: 0;
-}
 
 
-/* Next appears when a step's action is done. Its place is reserved from the start (hidden, not removed), and it is the same 44px
-   as Skip, so the card never changes height when it shows (Q25, U159). */
-.tutorial-actions .btn {
-  min-height: 44px;
-  height: 44px;
-}
 
 
-/* The practice timer bar's place is kept when it goes after the player acts (the code hides it with data-shown instead of removing
-   it), so the card does not shrink (Q25, U159). A step that never shows it has no place kept for it (it is hidden outright). */
-.tutorial-timer[data-shown="false"] {
-  visibility: hidden;
-}
 
-@media (max-width: 359px) {
-  .tutorial-card {
-    padding-top: 4px;
-    padding-bottom: 6px;
-  }
 
-  .tutorial-caption {
-    margin-top: 0;
-  }
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /* The game's board has no stand padding under it any more (U157), so the tap and glow layers end at the frame, not 20px above it. */
@@ -4637,166 +4241,10 @@ input:focus {
 }
 
 
-/* At 320px the tutorial card is the screen's width and the board fills it, so its seven columns are at least 44px wide (docs/design.md):
-   there its outline is the ordinary 3px and its stronger shadow carries the edge (U52b). */
-@media (max-width: 359px) {
-  .tutorial-card {
-    border: var(--outline);
-    padding-left: 3px;
-    padding-right: 3px;
-  }
-}
 
 
-/* ---- The tutorial card's height comes only from its content (U162, Q34) ----
-   No height, min-height or bottom-pinned item anywhere in the card: the card is as tall as its items and the gaps between them,
-   centred on the screen by the overlay. Order and gaps: counter 4 title 8 caption 8 status 16 lane (one disc) 8 board 12 timer 16
-   hint 24 Next 12 Skip. A step with no Next lets Skip take its place. The text sizes of U161 stay. */
-@media (min-width: 360px) {
 
-.tutorial-card {
-  height: auto;
-  min-height: 0;
-  max-height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  overflow: visible;
-}
 
-.tutorial-card > * {
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
-.tutorial-progress {
-  display: block;
-  padding: 0 16px;
-  font-size: 0.875rem; /* 14px */
-  line-height: 1.2;
-  text-align: center;
-}
-
-.tutorial-card h2 {
-  display: block;
-  margin: 4px 0 0;
-  padding: 0 16px;
-  font-size: 1.5rem; /* 24px */
-  line-height: 1.15;
-}
-
-.tutorial-caption {
-  margin: 8px 0 0;
-  padding: 0 16px;
-  font-size: 1.0625rem; /* 17px */
-  line-height: 1.25;
-}
-
-.tutorial-board {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  margin: 0;
-}
-
-.tutorial-board > * {
-  margin-top: 0;
-  margin-bottom: 0;
-  min-height: 0;
-}
-
-.tutorial-status,
-.tutorial-hint {
-  position: static;
-  max-width: none;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0 16px;
-  font-size: 1rem; /* 16px */
-  line-height: 1.25;
-  text-align: center;
-}
-
-.tutorial-status {
-  margin: 8px 0 0; /* 8px under the caption */
-}
-
-.tutorial-warning {
-  margin: 8px 16px 0;
-}
-
-.tutorial-warning[data-shown="false"] {
-  visibility: hidden; /* U165: its place is kept once the step has shown it */
-}
-
-/* The practice board is sized from the height available, never the gaps or the text; the ghost lane is its top margin (one disc), 16px
-   under the status line. */
-.tutorial-board .board-wrap {
-  box-sizing: border-box;
-  width: min(100%, max(308px, calc((100dvh - 500px) * 7 / 6)));
-  margin: calc(16px + var(--ghost-size) + 8px) auto 0;
-  padding-bottom: 0;
-}
-
-/* The timer bar is exactly the board's width, edge to edge with it, as in the real game. */
-.tutorial-timer {
-  box-sizing: border-box;
-  width: min(100%, max(308px, calc((100dvh - 500px) * 7 / 6)));
-  margin: 12px auto 0;
-}
-
-.tutorial-timer[data-shown="false"] {
-  visibility: hidden; /* U165: on a step that shows the bar its place is kept after the action, so the card never shrinks */
-}
-
-.tutorial-hint {
-  margin: 16px 0 0;
-}
-
-.tutorial-hint:empty {
-  display: none; /* a step with no hint keeps no empty line (U162) */
-}
-
-/* U165: the hint's text changes inside a step ("Tap a column." then "Locked in. You cannot change it now."). It always has room for
-   two lines, so a longer hint never grows the card. Measured in lines (the line-height), never a pixel height. */
-.tutorial-hint:not(:empty) {
-  min-height: 2.5em; /* two lines of the 1.25 line-height */
-}
-
-.tutorial-shield {
-  /* U165: a button, not a bar: centred, 180 to 260px wide, its icon and label centred. */
-  box-sizing: border-box;
-  width: min(260px, 60%);
-  min-width: 180px;
-  min-height: 48px;
-  margin: 12px auto 0;
-  justify-content: center;
-}
-
-.tutorial-actions {
-  position: static;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin: 24px 0 0;
-  padding: 0;
-}
-
-.tutorial-actions [data-testid="tutorial-next"][data-ready="false"] {
-  visibility: hidden; /* U165: Next keeps its place from the start of the step (the global [hidden] rule would remove it), so the card never changes size when it shows; hidden, it cannot be focused or tapped */
-}
-
-.tutorial-actions .btn {
-  min-width: 140px;
-}
-
-.tutorial-actions .link-button {
-  padding: 0 16px;
-}
-}
 
 
 /* ---- The Rubble title above the waiting card (U163, Q37) ----
@@ -4815,24 +4263,291 @@ input:focus {
 }
 
 
-/* ---- 320 x 568 (U165): the compact variant keeps the card on one screen and Next 16px under a board that has no hint ---- */
-@media (max-width: 359px) {
-  .tutorial-card .tutorial-board > .tutorial-hint {
-    margin-top: 16px; /* U159: 16px under the board, which the bare margin: 0 above would otherwise remove */
+
+
+
+/* ---- The tutorial overlay (U166, Q40): a fixed grid of four rows ----
+   header, text, board (1fr) and footer. The card's size never depends on the step: a step may change what is inside a row, never a
+   row's size. There is no other tutorial layout rule in this file. */
+.tutorial {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  padding: calc(24px + env(safe-area-inset-top)) 8px 0;
+  background: var(--backdrop);
+  overflow: hidden;
+}
+
+.tutorial-card {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  width: min(440px, 100%);
+  height: min(780px, calc(100dvh - 48px - env(safe-area-inset-top)));
+  padding: 8px 8px 10px; /* room under Next for its whole 5px shadow (Q31) */
+  overflow: hidden;
+  text-align: center;
+}
+
+.tutorial-head {
+  display: grid;
+  gap: 2px;
+  padding-top: 2px;
+}
+
+.tutorial-progress {
+  margin: 0;
+  font: 700 0.875rem/1.2 var(--font-display);
+  color: var(--text-muted);
+}
+
+.tutorial-card h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.15;
+}
+
+/* The text row: the real caption and every step's caption sit in one cell, the others invisible, so the row is as tall as the
+   longest copy at this width and never changes. */
+.tutorial-text {
+  display: grid;
+  align-items: start;
+  margin: 4px 0 6px;
+}
+
+.tutorial-text > * {
+  grid-area: 1 / 1;
+}
+
+.tutorial-caption {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 1.0625rem;
+  line-height: 1.25;
+}
+
+.tutorial-sizer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* The board row: status, stage (1fr), one accessory slot, hint. */
+.tutorial-board {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 44px auto;
+  justify-items: stretch;
+  min-height: 0;
+  row-gap: 4px;
+}
+
+.tutorial-status {
+  margin: 0;
+  min-height: 1.25em;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.tutorial-status[data-off="true"],
+.tutorial-hint[data-off="true"],
+.tutorial-shield[data-off="true"],
+.tutorial-warning[data-off="true"],
+.tutorial-timer[data-shown="false"] {
+  visibility: hidden; /* every slot keeps its place on every step (U166) */
+}
+
+/* The stage: the lane for the ghost disc, the board scaled to fit, the timer bar under it at exactly the board's width. */
+.tutorial-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 0;
+  padding-top: calc(var(--ghost-size) + 8px); /* the ghost disc's lane, one disc tall (U159) */
+  box-sizing: border-box;
+  container-type: size; /* lets the board and the timer bar take their size from the stage (100cqh) */
+}
+
+.tutorial-stage .board-wrap {
+  /* The board is as tall as the stage allows (less its timer slot) and as wide as its aspect ratio gives, never wider than the stage:
+     the width comes from the stage's height through container units, so the board never depends on the step. */
+  flex: none;
+  align-self: center;
+  box-sizing: border-box;
+  height: calc(100cqh - 20px);
+  width: auto;
+  max-width: 100%;
+  max-height: calc(100% - 20px);
+  aspect-ratio: 7 / 6.7; /* seven columns by six rows, with the frame */
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.tutorial-stage .board-wrap::before,
+.tutorial-stage .board-wrap::after {
+  display: none;
+}
+
+.tutorial-stage .board-wrap .board {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.tutorial-stage .columns-hit,
+.tutorial-stage .columns-glow {
+  bottom: var(--frame);
+}
+
+.tutorial-stage .tutorial-friends {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+}
+
+.tutorial-stage [data-off="true"] {
+  display: none !important; /* the other picture; the stage's own size is fixed by the board row, not by what is in it */
+}
+
+.tutorial-timer {
+  flex: none;
+  width: 100%;
+  max-width: 100%;
+  margin: 8px 0 0;
+}
+
+/* The accessory slot: the warning, the shield and Earthquake share one cell. */
+.tutorial-slot {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  min-height: 44px;
+}
+
+.tutorial-slot > * {
+  grid-area: 1 / 1;
+}
+
+/* The accessory slot: a button or the warning, centred, always 44px tall in its row. */
+.tutorial-shield,
+.tutorial-warning {
+  align-self: center;
+  margin: 0;
+}
+
+.tutorial-shield {
+  box-sizing: border-box;
+  width: min(260px, 70%);
+  min-width: 150px;
+  min-height: 44px;
+  justify-content: center;
+  /* A free-standing pill, not a bar: the game's rows are borderless because they sit in a card, this one does not (U165). */
+  background: var(--panel);
+  border: var(--outline);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-small);
+}
+
+.tutorial-shield[aria-pressed="true"] {
+  background: var(--yellow);
+  color: var(--ink);
+}
+
+.tutorial-shield[data-state="spent"] {
+  background: var(--disabled);
+  color: var(--disabled-text);
+}
+
+.tutorial-warning {
+  max-width: 100%;
+}
+
+.tutorial-hint {
+  margin: 4px 0 0; /* clear of the accessory slot above it */
+  min-height: 2.5em; /* two lines */
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+/* The footer: Next, then Skip, in the same place on every step. */
+.tutorial-actions {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: start;
+  grid-template-rows: 44px;
+  column-gap: 16px;
+  padding-top: 6px;
+}
+
+.tutorial-actions .btn {
+  min-width: 140px;
+  min-height: 44px;
+}
+
+.tutorial-actions .link-button {
+  min-height: 44px;
+  min-width: 88px; /* "Skip" and "Close" take the same room, so Next and Skip never move between steps */
+  padding: 0 16px;
+}
+
+.tutorial-actions [data-testid="tutorial-next"][data-ready="false"] {
+  visibility: hidden;
+}
+
+
+/* Short screens (U166): the rows keep their order and stay fixed, but their own spacing tightens so the board keeps as much room as it
+   can. Every row is still the same on every step. */
+@media (max-height: 760px) {
+  .tutorial-card {
+    padding: 4px 6px 8px;
   }
 
-  .tutorial-board:has(> .tutorial-hint:empty) + .tutorial-actions {
-    margin-top: 16px;
+  .tutorial-head {
+    gap: 0;
+    padding-top: 0;
   }
 
-  .tutorial-card .tutorial-board:has(> .tutorial-shield:not([hidden])) > .tutorial-hint {
-    margin-top: 16px; /* U159: 16px under the board even beside the step's button */
+  .tutorial-progress {
+    font-size: 0.8125rem;
+    line-height: 1.1;
   }
 
-  .tutorial-board:has(> .tutorial-shield:not([hidden])) > .tutorial-shield {
-    margin-top: 16px;
-    align-self: start;
-    width: 150px; /* U165: below 360px the button shares its row with the hint, so it is 150px, which leaves the hint three lines, not four */
-    min-width: 150px;
+  .tutorial-card h2 {
+    font-size: 1.25rem;
+    line-height: 1.1;
+  }
+
+  .tutorial-text {
+    margin: 2px 0 2px;
+  }
+
+  .tutorial-caption {
+    font-size: 0.9375rem;
+    line-height: 1.2;
+  }
+
+  .tutorial-board {
+    row-gap: 2px;
+  }
+
+  .tutorial-stage {
+    padding-top: calc(var(--ghost-size) + 4px);
+  }
+
+  .tutorial-hint {
+    margin-top: 2px;
+    font-size: 0.9375rem;
+    line-height: 1.2;
+    min-height: 2.4em;
+  }
+
+  .tutorial-actions {
+    padding-top: 2px;
   }
 }

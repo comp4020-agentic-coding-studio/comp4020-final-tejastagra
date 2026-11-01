@@ -302,7 +302,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   const friends = document.createElement("div");
   friends.className = "tutorial-friends";
   friends.dataset.testid = "tutorial-friends";
-  friends.hidden = true;
+  friends.dataset.off = "true";
   friends.setAttribute("role", "img");
   friends.setAttribute("aria-label", "You and a friend playing each other, and a second friend watching");
   const person = (role: "you" | "opponent" | "spectator", seed: string): HTMLElement => {
@@ -345,14 +345,14 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   shield.type = "button";
   shield.className = "shield-badge tutorial-shield";
   shield.dataset.testid = "tutorial-shield";
-  shield.hidden = true;
+  shield.dataset.off = "true";
   shield.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/></svg><span></span>`;
   const shieldLabel = shield.querySelector("span")!;
   const quake = document.createElement("button");
   quake.type = "button";
   quake.className = "shield-badge tutorial-shield tutorial-earthquake";
   quake.dataset.testid = "tutorial-earthquake";
-  quake.hidden = true;
+  quake.dataset.off = "true";
   quake.append(earthquakeIcon());
   const quakeLabel = document.createElement("span");
   quake.append(quakeLabel);
@@ -360,7 +360,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   warning.className = "shrink-warning tutorial-warning";
   warning.dataset.testid = "tutorial-warning";
   warning.setAttribute("role", "status");
-  warning.hidden = true;
+  warning.dataset.off = "true";
   const timerBar = document.createElement("div");
   timerBar.className = "timer-track tutorial-timer";
   timerBar.dataset.testid = "tutorial-timer";
@@ -368,7 +368,6 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   timerBar.setAttribute("aria-label", "Time left in this practice round");
   timerBar.setAttribute("aria-valuemin", "0");
   timerBar.setAttribute("aria-valuemax", "10");
-  timerBar.hidden = true;
   const timerFill = document.createElement("span");
   timerFill.className = "timer-fill";
   timerBar.append(timerFill);
@@ -379,7 +378,26 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   hint.setAttribute("role", "status");
   // U159's fixed order: the opponent's status, the lane (the board-wrap's own top margin), the board, then the hint,
   // then the step's own button (shield or Earthquake) if it has one, then Next (a sibling in tutorial-actions).
-  host.replaceChildren(status, warning, wrap, friends, timerBar, hint, shield, quake);
+  // U166: the board row has fixed slots: the status line, the stage (board or friends picture, with the timer bar under the board),
+  // one accessory slot (the warning, the shield or Earthquake button) and the hint. A step changes what is in a slot, never a slot's size.
+  const stageBox = document.createElement("div");
+  stageBox.className = "tutorial-stage";
+  stageBox.append(wrap, friends, timerBar);
+  const slot = document.createElement("div"); // one accessory slot: the warning, the shield or Earthquake, stacked in the same cell
+  slot.className = "tutorial-slot";
+  slot.append(warning, shield, quake);
+  host.replaceChildren(status, stageBox, slot, hint);
+
+  // U166: the text row is as tall as the longest caption at this width. Every caption is laid out, invisibly, in the same cell as the
+  // real one, so the row never changes size from step to step and nothing is measured or guessed.
+  const textRow = caption.parentElement!;
+  for (const step of STEPS) {
+    const sizer = document.createElement("p");
+    sizer.className = "tutorial-caption tutorial-sizer";
+    sizer.setAttribute("aria-hidden", "true");
+    sizer.textContent = step.caption;
+    textRow.append(sizer);
+  }
 
   const heights = new Array<number>(7).fill(0);
   const ghost = document.createElement("span");
@@ -402,12 +420,10 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     },
     reset() {
       stage.picture(false);
-      timerBar.dataset.reserved = "false"; // a new step starts with no place kept
-      warning.dataset.reserved = "false";
       stage.warn(null);
       stage.timer(false);
-      status.hidden = false;
-      hint.hidden = false;
+      status.dataset.off = "false";
+      hint.dataset.off = "false";
       board.clear();
       heights.fill(0);
       stage.clearGhost();
@@ -451,14 +467,11 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
       });
     },
     picture(show) {
-      friends.hidden = !show;
-      wrap.hidden = show;
+      friends.dataset.off = String(!show);
+      wrap.dataset.off = String(show);
     },
     warn(text) {
-      // U165: once a step has shown the warning its place is kept (made invisible, not removed), so the card does not shrink when it clears.
-      if (text !== null) warning.dataset.reserved = "true";
-      warning.hidden = text === null && warning.dataset.reserved !== "true";
-      warning.dataset.shown = String(text !== null);
+      warning.dataset.off = String(text === null);
       if (text !== null) warning.textContent = text;
       // The top row of the practice board flashes while the warning shows (U69).
       markDoomed(board, FULL_ROWS, text !== null, SHRUNK_ROWS);
@@ -473,7 +486,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
       });
     },
     showQuake(show) {
-      quake.hidden = !show;
+      quake.dataset.off = String(!show);
     },
     quakeUsed() {
       quake.dataset.state = "spent";
@@ -496,7 +509,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     },
     armed: () => armed,
     showShield(show) {
-      shield.hidden = !show;
+      shield.dataset.off = String(!show);
     },
     shieldUsed() {
       shield.dataset.state = "spent";
@@ -505,18 +518,16 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
       shieldLabel.textContent = "Shield used";
     },
     status(text) {
-      status.hidden = false;
+      status.dataset.off = "false";
       status.textContent = `Opponent: ${text}`;
     },
     hideStatus() {
-      status.hidden = true;
+      status.dataset.off = "true";
     },
     timer(show) {
       clearInterval(timerTick);
       // Once shown on a step, the bar's place is kept when it goes (Q25, U159): it is made invisible, not removed, so the card does not
       // shrink. A step that never shows it has no place kept, and it is removed from the layout as before.
-      if (show) timerBar.dataset.reserved = "true";
-      timerBar.hidden = !show && timerBar.dataset.reserved !== "true";
       timerBar.dataset.shown = String(show);
       if (!show) return;
       // It drains from 10 to 2 seconds and stops there, so the practice round never times out on its own (U140).
@@ -628,7 +639,7 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     caption.textContent = step.caption; // an aria-live region, so it is announced (U47)
     next.textContent = last ? (mode === "match" ? "Start the match" : "Done") : "Next";
     skip.textContent = mode === "replay" && last ? "Close" : "Skip";
-    hint.hidden = false;
+    hint.dataset.off = "false";
     next.dataset.ready = "false"; // Next only shows once the step's action is done (U41 to U46); its place is kept meanwhile (U165)
     tapWaiter = null;
     shieldWaiter = null;
@@ -656,9 +667,9 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     if (event.key === "Escape") void close("skipped");
     else if (event.key >= "1" && event.key <= "7") buttons[Number(event.key) - 1].click();
     else if (event.key === "s" || event.key === "S") {
-      if (!shield.hidden) shield.click();
+      if (shield.dataset.off !== "true") shield.click();
     } else if (event.key === "e" || event.key === "E") {
-      if (!quake.hidden) quake.click();
+      if (quake.dataset.off !== "true") quake.click();
     }
   }
 
