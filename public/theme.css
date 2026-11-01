@@ -170,6 +170,7 @@
   --tut-pad-x: 16px;
   --tut-top: 204px;
   --tut-board-w: 316px;
+  --tut-gap: 1; /* the phone tutorial's gaps as a fraction of U172's (1 is all of them, 0 none); the script lowers it on a short screen (U176) */
   --list-width: 560px; /* forms and lists are never wider than this (U60) */
   --vv-top: 0px; /* the visible area above the phone keyboard; src/client/dialog.ts sets both on an open popup (Q21, U91) */
   --vv-height: 100%;

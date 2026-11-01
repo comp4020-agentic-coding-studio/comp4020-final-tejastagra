@@ -2,6 +2,20 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## The eighth fix list of 2 November 2026: the phone tutorial is full screen (read this first)
+
+Foreground, harness first, no background or general-purpose agents. **Nothing is pushed or deployed.** `pnpm check:fast` passes (417 tests). Commit: see `git log` (the one after `95c223f`).
+
+**What changed (U176, ADR 0018, Q48, C60).** Below 600px wide the tutorial fills the visible screen (`100svh`) in the card's colour with no edge, margin or backdrop, respects the safe areas and holds the page still (`overflow: hidden` on the page and the body). At 600px and wider the centred card is unchanged. A small script (`fitToScreen` in `src/client/tutorial.ts`) measures the longest of the eleven instructions at the real width and sizes the stack once when the tutorial opens, and again only on a resize or rotation.
+
+**One conflict you decided.** The full gaps plus a 44px-column board need 686 to 730px, more than a 664px screen. You chose to tighten the gaps first and keep 44px columns: the gaps close, then Next and Skip share a row with smaller text (`data-tight`), then the board shrinks, never below 308px. At 390 x 664 the gaps close to about 0.3 and everything fits; at 320 x 568 it goes tight.
+
+**Checks changed because the rule changed, none weakened.** Q43's "card height is the sum of its parts" now applies to the laptop only (a phone card is the screen). Q27 skips the phone tutorial (no backdrop or edge, Q48 checks that) and keeps the laptop one. The existing 320 x 568 checks (Q15, Q16, Q25) still pass.
+
+**Tests run (by name).** Q48 (3), Q41 (4), Q43 Q44 (4), Q46 (2), Q15 Q16 tutorial (3), Q25 tutorial (3), Q31 tutorial (2), Q27 tutorial (laptop), Q18. Q48 fails with the fitting removed (Skip at y=682 to 726 on a 664px screen). Screenshots of steps 1 and 6 at 390 x 664 looked at: full screen, Skip fully visible. No check was given up on.
+
+**Not done / for you.** I could not test on a real iPhone, so the safe-area insets (`env(safe-area-inset-*)`, with `viewport-fit=cover` already set) are untested in practice: the browser reports 0 for them. Please check it on your phone. `100svh` is the small viewport height, so when Safari's toolbars hide the tutorial stays at the smaller height rather than growing, which is the safe choice. The full suites and `/visual-qa` were not run, by your instruction.
+
 ## The seventh fix list of 2 November 2026 (read this first)
 
 Foreground, harness first, one commit per fix, no background or general-purpose agents. **Nothing is pushed or deployed.** `pnpm check:fast` passes (417 tests).

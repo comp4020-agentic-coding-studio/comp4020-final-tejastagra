@@ -2405,48 +2405,74 @@ input:focus {
   height: 44px;
 }
 
-/* A short or narrow screen (not a marking viewport: below 360px wide, or lower than 700px): the instruction text is smaller, the gaps
-   are gone and Next and Skip share one row, so the card still fits one screen. The board is 308px so each column stays 44px wide
-   (docs/design.md). */
-@media (max-width: 359px), (max-height: 700px) {
+/* ---- A phone: the tutorial is full screen (U176, ADR 0018) ----
+   Below 600px wide the card is not a card: it fills the whole visible screen (100svh, the height that stays visible with Safari's
+   toolbars showing) in the card's own colour, with no rounded edge, outline, shadow, outer margin or backdrop, and the page never
+   scrolls. Its content keeps the safe areas clear. The layout inside is the same stack as the laptop's (U172); the script sets
+   --tut-board-w, --tut-top and --tut-gap once when the tutorial opens (and again on a resize or a rotation, never on a step), so the
+   board is the same size and in the same place on every step. The gaps close first on a short screen, then the board gets smaller,
+   never below seven 44px columns, so the defaults here are the largest layout and the script only ever reduces them. */
+@media (max-width: 599px) {
   .tutorial {
-    --tut-pad-y: 4px;
-    --tut-pad-x: 0px;
-    --tut-top: 160px; /* the longest instruction at this text size on 320 x 568 and 360 x 640, measured */
-    --tut-board-w: 308px;
-  }
-
-  .tutorial-top {
-    padding: 0 8px;
-  }
-
-  .tutorial-caption {
-    font-size: 0.8rem;
-  }
-
-  .tutorial-lane,
-  .tutorial-board,
-  .tutorial-slot {
-    margin-top: 0;
-  }
-
-  .tutorial-actions {
-    grid-auto-flow: column;
-    align-items: center;
-    gap: 8px;
-    margin-top: 4px;
-  }
-}
-
-/* Narrower than a phone: the card is the screen's width, so the board's seven columns stay 44px wide. */
-@media (max-width: 359px) {
-  .tutorial {
+    --tut-gap: 1; /* 1 is the gaps of U172; 0 is no gaps at all. Set by the script (src/client/tutorial.ts), default here. */
+    --tut-pad-y: 10px;
+    --tut-pad-x: 16px;
+    display: block;
+    height: 100svh;
     padding: 0;
+    background: var(--panel);
+    overflow: hidden;
   }
 
   .tutorial-card {
-    width: 100vw;
-    border: var(--outline);
+    box-sizing: border-box;
+    width: 100%;
+    height: 100svh;
+    margin: 0;
+    padding: calc(var(--tut-pad-y) + env(safe-area-inset-top)) calc(var(--tut-pad-x) + env(safe-area-inset-right)) calc(var(--tut-pad-y) + env(safe-area-inset-bottom)) calc(var(--tut-pad-x) + env(safe-area-inset-left));
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  .tutorial-lane {
+    margin-top: calc(16px * var(--tut-gap));
+  }
+
+  .tutorial-board {
+    margin-top: calc(8px * var(--tut-gap));
+  }
+
+  .tutorial-slot {
+    margin-top: calc(12px * var(--tut-gap));
+  }
+
+  .tutorial-actions {
+    margin-top: calc(24px * var(--tut-gap));
+    gap: calc(12px * var(--tut-gap));
+  }
+
+  /* Still too short with every gap closed (an iPhone SE in Safari, or a 320 x 568 phone): the script sets data-tight, Next and Skip
+     tutorial share one row and the instructions use the smaller text, the same last resorts the 320px layout always had. The board
+     keeps its seven 44px columns. */
+  .tutorial[data-tight="true"] {
+    --tut-pad-x: 0px;
+  }
+
+  .tutorial[data-tight="true"] .tutorial-top {
+    padding: 0 8px;
+  }
+
+  .tutorial[data-tight="true"] .tutorial-caption {
+    font-size: 0.8rem;
+  }
+
+  .tutorial[data-tight="true"] .tutorial-actions {
+    grid-auto-flow: column;
+    align-items: center;
+    margin-top: calc(4px * var(--tut-gap));
+    gap: 8px;
   }
 }
 
@@ -4363,13 +4389,20 @@ input:focus {
 
 .dialog-card,
 .popup-card,
-.tutorial-card,
 .share,
 .get-ready,
 .watch-result,
 .no-live {
   border: var(--outline-popup);
   box-shadow: var(--shadow-popup);
+}
+
+/* The tutorial's card has the popup edge on a laptop only: on a phone it is full screen with no edge (U176). */
+@media (min-width: 600px) {
+  .tutorial-card {
+    border: var(--outline-popup);
+    box-shadow: var(--shadow-popup);
+  }
 }
 
 

@@ -1830,6 +1830,8 @@ test.describe("Q27 every popup and overlay sits over the shared backdrop with a 
       { name: "end popup", open: async (p) => { await openEndPopup(p); }, selector: testid("end-popup"), pseudo: "" },
     ];
     for (const overlay of overlays) {
+      // U176: on a phone the tutorial is full screen with no backdrop and no card edge, which Q48 checks; Q27 keeps it on a laptop.
+      if (overlay.name === "tutorial" && viewport.width < 600) continue;
       test(`Q27 the ${overlay.name} at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
         const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
         await overlay.open(page);
@@ -2427,6 +2429,8 @@ async function tutorialParts(page: Page) {
 
 test.describe("Q43 Q44 U172 U173 the tutorial card is the sum of its parts, and nothing overlaps", () => {
   for (const viewport of MARKING) {
+    // On a phone the tutorial is the whole visible screen (U176, Q48), so the card's height is the screen's, not the sum of its parts.
+    const fullScreen = viewport.width < 600;
     test(`Q43 Q44 all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       test.setTimeout(120_000);
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
@@ -2454,7 +2458,7 @@ test.describe("Q43 Q44 U172 U173 the tutorial card is the sum of its parts, and 
 
         // Q43: the card's height is the sum of its parts (borders included), the same on every step.
         const sum = m.pad.top + m.top.h + 16 + m.ghostSize + 8 + m.board.h + 12 + m.slot.h + 24 + m.next.h + 12 + m.skip.h + m.pad.bottom;
-        if (Math.abs(m.card.h - sum) > 4) problems.push(`${where}: the card is ${m.card.h.toFixed(1)}px tall, its parts add up to ${sum.toFixed(1)}px`);
+        if (!fullScreen && Math.abs(m.card.h - sum) > 4) problems.push(`${where}: the card is ${m.card.h.toFixed(1)}px tall, its parts add up to ${sum.toFixed(1)}px`);
         if (!first.card) { first.card = m.card; first.board = m.board; }
         for (const k of ["x", "y", "w", "h"] as const) {
           if (Math.abs(m.card[k] - first.card[k]) > 1) problems.push(`${where}: the card's ${k} moved`);
@@ -2622,6 +2626,77 @@ test.describe("Q46 U172 the tutorial card has no excess space", () => {
         const maxBelow = 12 + m.slot.h + 24;
         if (above > maxAbove + 1) problems.push(`step ${step}: ${above.toFixed(1)}px between the instructions and the board, at most ${maxAbove}px allowed`);
         if (below > maxBelow + 1) problems.push(`step ${step}: ${below.toFixed(1)}px between the board and Next, at most ${maxBelow}px allowed`);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});
+
+// ---- The tutorial is full screen on a phone (U176, ADR 0018, Q48) ----
+// 390 x 664 is a 390 x 844 iPhone in Safari with its address bar and toolbar showing; 375 x 667 is an iPhone SE.
+
+const PHONE_SIZES = [PHONE, { width: 390, height: 664 }, { width: 375, height: 667 }];
+
+test.describe("Q48 U176 the tutorial is full screen on a phone", () => {
+  for (const viewport of PHONE_SIZES) {
+    test(`Q48 all 11 steps at ${viewport.width} x ${viewport.height}: fills the screen, everything inside it, no scrolling, the board identical`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      const problems: string[] = [];
+      let first: TutBox | null = null;
+      for (let step = 1; step <= 11; step++) {
+        await doTutorialStep(page, step);
+        const where = `step ${step}`;
+        const m = await page.evaluate(() => {
+          const q = (sel: string) => document.querySelector<HTMLElement>(sel)!;
+          const box = (el: Element) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
+          const root = q('[data-testid="tutorial"]');
+          const card = q(".tutorial-card");
+          const cs = getComputedStyle(card);
+          const items: Record<string, { x: number; y: number; w: number; h: number }> = {};
+          for (const [name, sel] of [["step counter", '[data-testid="tutorial-progress"]'], ["title", '[data-testid="tutorial-title"]'], ["instructions", '[data-testid="tutorial-caption"]'], ["board", ".tutorial-board .board-wrap"], ["slot", '[data-testid="tutorial-slot"]'], ["Next", '[data-testid="tutorial-next"]'], ["Skip tutorial", '[data-testid="tutorial-skip"]']] as const) items[name] = box(q(sel));
+          return {
+            vw: innerWidth, vh: innerHeight,
+            root: box(root), card: box(card),
+            edge: { border: cs.borderTopWidth, radius: cs.borderTopLeftRadius, shadow: cs.boxShadow, margin: cs.marginTop },
+            rootBg: getComputedStyle(root).backgroundColor,
+            panel: (() => { const p = document.createElement("span"); p.style.background = "var(--panel)"; document.body.append(p); const c = getComputedStyle(p).backgroundColor; p.remove(); return c; })(),
+            // The page behind may be taller than the screen (the home page is 712px at 375 wide); what matters is that a person cannot
+            // scroll it, which is tried below with a real wheel gesture. Here: nothing across, nothing inside the card.
+            scroll: { doc: 0, docX: document.documentElement.scrollWidth - innerWidth, card: card.scrollHeight - card.clientHeight },
+            held: getComputedStyle(document.documentElement).overflowY === "hidden" && getComputedStyle(document.body).overflowY === "hidden",
+            items,
+            board: items["board"],
+            column: q('[data-testid="tutorial-column-0"]')?.getBoundingClientRect().width ?? 0,
+          };
+        });
+        // Fills the viewport, with no card edge, outline, shadow, margin or backdrop.
+        for (const [name, b] of [["tutorial", m.root], ["card", m.card]] as const) {
+          if (Math.abs(b.x) > 0.5 || Math.abs(b.y) > 0.5 || Math.abs(b.w - m.vw) > 0.5 || Math.abs(b.h - m.vh) > 0.5) problems.push(`${where}: the ${name} is ${b.w.toFixed(1)} x ${b.h.toFixed(1)} at (${b.x.toFixed(1)}, ${b.y.toFixed(1)}), not the whole ${m.vw} x ${m.vh} screen`);
+        }
+        if (m.edge.border !== "0px") problems.push(`${where}: the card has a ${m.edge.border} border`);
+        if (m.edge.radius !== "0px") problems.push(`${where}: the card has rounded corners (${m.edge.radius})`);
+        if (m.edge.shadow !== "none") problems.push(`${where}: the card has a shadow`);
+        if (m.edge.margin !== "0px") problems.push(`${where}: the card has a margin`);
+        if (m.rootBg !== m.panel) problems.push(`${where}: the background is ${m.rootBg}, not the card colour ${m.panel} (no backdrop)`);
+        // Everything, including Skip tutorial, is inside the viewport, and nothing scrolls.
+        for (const [name, b] of Object.entries(m.items)) {
+          if (b.x < -0.5 || b.y < -0.5 || b.x + b.w > m.vw + 0.5 || b.y + b.h > m.vh + 0.5) problems.push(`${where}: ${name} is not inside the screen (${b.x.toFixed(0)}, ${b.y.toFixed(0)}, ${(b.x + b.w).toFixed(0)}, ${(b.y + b.h).toFixed(0)}) on ${m.vw} x ${m.vh}`);
+        }
+        if (m.scroll.docX > 0.5) problems.push(`${where}: the page is ${m.scroll.docX}px wider than the screen`);
+        if (!m.held) problems.push(`${where}: the page behind is not held still (overflow is not hidden on the page and the body)`);
+        await page.mouse.wheel(0, 500); // a real scroll gesture, as a finger or a wheel makes it
+        await page.waitForTimeout(60);
+        const scrolled = await page.evaluate(() => window.scrollY);
+        if (scrolled > 0) problems.push(`${where}: a scroll gesture moved the page by ${scrolled}px`);
+        if (m.scroll.card > 0.5) problems.push(`${where}: the card scrolls by ${m.scroll.card}px`);
+        if (m.column < 43.5) problems.push(`${where}: a practice column is ${m.column.toFixed(1)}px wide, below 44px`);
+        // The board is the same size and in the same place on every step.
+        if (!first) first = m.board;
+        else for (const k of ["x", "y", "w", "h"] as const) if (Math.abs(m.board[k] - first[k]) > 1) problems.push(`${where}: the board's ${k} is ${m.board[k].toFixed(1)}, step 1 had ${first[k].toFixed(1)}`);
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
       expect([...new Set(problems)]).toEqual([]);

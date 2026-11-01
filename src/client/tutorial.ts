@@ -538,14 +538,92 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
 
   root.hidden = false;
   document.body.style.overflow = "hidden";
+  document.documentElement.style.overflow = "hidden"; // Safari scrolls the page itself, not the body: nothing scrolls while it is open (U176)
+
+  // ---- U176: on a phone the tutorial is full screen, and its size is worked out here, once, when it opens ----
+  // The card is as tall as the visible screen (100svh), and the stack inside it is the same as the laptop's (U172). If the visible
+  // height is too short for that, the gaps close first (--tut-gap from 1 to 0), then the board gets smaller, never below seven 44px
+  // columns. The instruction area is sized to the longest of the eleven instructions as they really lay out at this width. All of this is
+  // done on open and on a resize or rotation, never on a step, so the board is the same size and in the same place on every step.
+  const phone = window.matchMedia("(max-width: 599px)");
+  const BOARD_RATIO = 0.87; // a board is this much taller than it is wide
+  const MIN_BOARD = 308; // seven 44px columns with their gaps and padding (docs/design.md)
+  function fitToScreen(): void {
+    if (!phone.matches) {
+      for (const name of ["--tut-gap", "--tut-top", "--tut-board-w"]) root.style.removeProperty(name); // a laptop keeps its card exactly as it is
+      delete root.dataset.tight;
+      return;
+    }
+    const card = root.querySelector<HTMLElement>(".tutorial-card")!;
+    const lane = themeNumber("--ghost-size");
+    // How the stack would be, for one layout (tight or not): the height the instruction area needs, and the height left for the board.
+    const measure = (tight: boolean) => {
+      if (tight) root.dataset.tight = "true";
+      else delete root.dataset.tight;
+      const cs = getComputedStyle(card);
+      const innerW = card.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const innerH = card.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      // The longest instruction, laid out at this width in a probe that looks like the real one.
+      const area = card.querySelector<HTMLElement>(".tutorial-top")!;
+      const areaCs = getComputedStyle(area);
+      const probe = document.createElement("div");
+      probe.setAttribute("aria-hidden", "true");
+      probe.className = "tutorial-top";
+      probe.style.cssText = `position:absolute;visibility:hidden;height:auto;width:${innerW}px;left:0;top:0;padding:${areaCs.padding}`;
+      probe.innerHTML = `<p class="tutorial-progress">Step 10 of 11</p><h2></h2><p class="tutorial-caption"></p>`;
+      card.append(probe);
+      let top = 0;
+      for (const step of STEPS) {
+        probe.querySelector("h2")!.textContent = step.title;
+        probe.querySelector(".tutorial-caption")!.textContent = step.caption;
+        top = Math.max(top, probe.getBoundingClientRect().height);
+      }
+      probe.remove();
+      top = Math.ceil(top);
+      // Next and Skip are one row when tight, two when not.
+      const buttons = tight ? 44 + 44 : 44 + 44 + 44;
+      // What sits between the parts at gap 1: the lane's 16, the board's 8, the slot's 12, and above Next 24 and between Next and Skip 12
+      // (tight: Next and Skip are one row, so their 4px goes above the row and nothing sits between them).
+      const gaps = tight ? 16 + 8 + 12 + 4 : 16 + 8 + 12 + 24 + 12;
+      return { innerW, top, free: innerH - top - lane - buttons, gaps };
+    };
+    let m = measure(false);
+    let tight = false;
+    const widest = (w: number) => Math.min(w, 316); // the board is never wider than the screen allows
+    // 1. Close the gaps, with the board at its full width. 2. If even no gaps is too tall, go tight (one row, smaller text).
+    // 3. If it is still too tall, make the board smaller, down to its seven 44px columns.
+    if (m.free < m.gaps + widest(m.innerW) * BOARD_RATIO) {
+      const noGaps = m.free - widest(m.innerW) * BOARD_RATIO;
+      if (noGaps < 0) {
+        m = measure(true);
+        tight = true;
+      }
+    }
+    const width = widest(m.innerW);
+    let gap = 1;
+    let boardW = width;
+    if (m.free < m.gaps + width * BOARD_RATIO) {
+      gap = Math.max(0, (m.free - width * BOARD_RATIO) / m.gaps);
+      if (gap === 0) boardW = Math.max(MIN_BOARD, Math.min(width, m.free / BOARD_RATIO));
+    }
+    root.style.setProperty("--tut-top", `${m.top}px`);
+    root.style.setProperty("--tut-gap", String(Math.round(gap * 1000) / 1000));
+    root.style.setProperty("--tut-board-w", `${Math.floor(boardW)}px`);
+    void tight;
+  }
+  fitToScreen();
+  window.addEventListener("resize", fitToScreen);
+  const stopFitting = () => window.removeEventListener("resize", fitToScreen);
 
   dismiss = () => {
     if (!open) return;
     open = false;
+    stopFitting();
     running++;
     stage.timer(false);
     root.hidden = true;
     document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
     next.removeEventListener("click", onNext);
     skip.removeEventListener("click", onSkip);
     document.removeEventListener("keydown", onKey);
@@ -553,10 +631,12 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
 
   async function close(result: "finished" | "skipped"): Promise<void> {
     open = false;
+    stopFitting();
     running++;
     stage.timer(false);
     root.hidden = true;
     document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
     next.removeEventListener("click", onNext);
     skip.removeEventListener("click", onSkip);
     document.removeEventListener("keydown", onKey);
