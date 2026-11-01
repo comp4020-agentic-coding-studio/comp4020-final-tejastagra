@@ -588,7 +588,7 @@ test.describe("Keyboard hint (U18, U46)", () => {
     await expect(page.locator(testid("keys-hint"))).toHaveCount(0);
     expect(await page.locator("main").innerText()).not.toMatch(/Keys 1 to 7/);
     await page.keyboard.press("4");
-    await expect(page.locator(testid("chosen-label"))).toHaveText("Chosen");
+    await expect(page.locator(testid("chosen-label"))).toHaveAttribute("data-state", "ready");
     await context.close();
   });
 });
@@ -698,7 +698,7 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, U132, R81)
     await expect(two.page.locator(testid("result-line"))).toContainText("Your opponent left the game."); // U29: the reason is under the board
     // The game is over: no timer runs and the opponent is not still "Choosing" (found by /visual-qa, 29 October 2026).
     await expect(two.page.locator(testid("timer"))).toBeHidden();
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Finished");
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "choosing");
     await expect(two.page.locator(testid("end-detail"))).toHaveCount(0); // U29: the popup has its title and buttons only
     await one.context.close();
     await two.context.close();
@@ -1279,7 +1279,7 @@ test.describe("Q19, U151 the result is shown once, as a visually hidden aria-liv
 
 // ---- Part 3 of the 31 October 2026 fix list: no coloured stripe, a uniform card layout (U132, U154) ----
 
-test.describe("U132 no coloured stripe on a player card; U154 both cards share one layout and match in size", () => {
+test.describe("U132 no coloured stripe on a player card; U154 both cards share one layout, nothing spills and the ready icon changes", () => {
   for (const viewport of [NARROW, PHONE, LAPTOP]) {
     test(`at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
@@ -1293,11 +1293,32 @@ test.describe("U132 no coloured stripe on a player card; U154 both cards share o
       const opp = (await page.locator(testid("panel-opponent")).boundingBox())!;
       expect(Math.abs(you.width - opp.width), "the two cards match in width within 2px").toBeLessThanOrEqual(2);
       expect(Math.abs(you.height - opp.height), "the two cards match in height within 2px").toBeLessThanOrEqual(2);
-      // The opponent's status and its icons do not overlap or touch (U154: avatar left, name, status, icons 12px apart).
-      const status = (await page.locator(testid("opponent-status")).boundingBox())!;
-      const icons = (await page.locator(testid("opponent-powerups")).boundingBox())!;
-      const overlap = status.x < icons.x + icons.width && icons.x < status.x + status.width && status.y < icons.y + icons.height && icons.y < status.y + status.height;
-      expect(overlap, "the opponent's status text and its icons do not overlap").toBe(false);
+      // U154 (1 November 2026): no words "Ready" or "Choosing" in either card; line 1 is the name and a status icon after it.
+      for (const [id, icon] of [["panel-you", "chosen-label"], ["panel-opponent", "opponent-status"]]) {
+        const card = (await page.locator(testid(id)).boundingBox())!;
+        const text = (await page.locator(testid(id)).innerText()).replace(/\s+/g, " ");
+        expect(text, `${id} shows no Ready or Choosing words`).not.toMatch(/Ready|Choosing|Chosen/);
+        const nameBox = (await page.locator(testid(id === "panel-you" ? "name-you" : "name-opponent")).boundingBox())!;
+        const iconBox = (await page.locator(testid(icon)).boundingBox())!;
+        expect(iconBox.x, `${id}: the status icon comes after the name`).toBeGreaterThanOrEqual(nameBox.x + nameBox.width - 1);
+        expect(Math.abs(iconBox.y + iconBox.height / 2 - (nameBox.y + nameBox.height / 2)), `${id}: the icon is on the name's line`).toBeLessThanOrEqual(nameBox.height);
+        // Nothing inside the card extends beyond the card's edge.
+        const inside = await page.locator(testid(id)).evaluate((el) => {
+          const c = el.getBoundingClientRect();
+          return [...el.querySelectorAll("*")].filter((n) => {
+            const r = n.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && getComputedStyle(n).position !== "absolute" && !n.closest(".visually-hidden") && (r.left < c.left - 0.5 || r.right > c.right + 0.5 || r.top < c.top - 0.5 || r.bottom > c.bottom + 0.5);
+          }).map((n) => n.className || n.tagName);
+        });
+        expect(inside, `${id}: nothing extends beyond the card's edge at ${viewport.width}`).toEqual([]);
+        expect(card.width).toBeGreaterThan(0);
+      }
+      // Both cards carry the same two power-up icons.
+      for (const id of ["my-shield-state", "my-earthquake-state", "opponent-shield-state", "opponent-earthquake-state"]) await expect(page.locator(testid(id))).toBeVisible();
+      // The ready icon changes from dots to a tick when the computer chooses.
+      await expect(page.locator(testid("opponent-status"))).toHaveAttribute("aria-label", /Choosing|Ready/);
+      await expect(page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "ready", { timeout: 6000 });
+      await expect(page.locator(testid("opponent-status"))).toHaveAttribute("aria-label", "Ready");
       const shieldBox = (await page.locator(testid("opponent-shield-state")).boundingBox())!;
       const quakeBox = (await page.locator(testid("opponent-earthquake-state")).boundingBox())!;
       const gap = quakeBox.x - (shieldBox.x + shieldBox.width);
@@ -1691,7 +1712,7 @@ test.describe("Q25 U157 the game screen's fixed vertical order and the ghost lan
       await expect(page.locator(testid("ghost-disc"))).toBeVisible();
       expect(await ghostOverlaps(page, testid("ghost-disc"), "main"), "hovering: the ghost disc overlaps nothing").toEqual([]);
       await col.click();
-      await expect(page.locator(testid("chosen-label"))).toHaveText("Chosen");
+      await expect(page.locator(testid("chosen-label"))).toHaveAttribute("data-state", "ready");
       expect(await ghostOverlaps(page, testid("ghost-disc"), "main"), "chosen: the ghost disc overlaps nothing").toEqual([]);
       const after = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-testid="topbar"], [data-testid="players"], [data-testid="timer"], [data-testid="powerups"], [data-testid="result-line"]')].map((e) => Math.round(e.getBoundingClientRect().top * 10) / 10));
       expect(after, "nothing moved when the disc appeared").toEqual(before);

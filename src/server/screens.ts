@@ -248,6 +248,18 @@ export function watchScreen(ctx: ScreenContext): string {
   return shell(ctx, "Rubble: Watch live", body, "/static/watch.js");
 }
 
+// U154: the status icon after the name (three dots while choosing, a green tick once chosen) and the power-up line under it.
+// Both cards use these, so they are built the same. The icon's aria-label is the only word for it.
+function readyIcon(testid: string): string {
+  return `<span class="ready-icon" data-testid="${testid}" data-state="choosing" role="img" aria-label="Choosing"><svg class="ready-dots" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="2.4"/><circle cx="12" cy="12" r="2.4"/><circle cx="19" cy="12" r="2.4"/></svg><svg class="ready-tick" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12.5l5 5L20 6.5" fill="none" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+}
+
+function powerLine(who: "you" | "opponent"): string {
+  const t = who === "you" ? "my" : "opponent";
+  const subject = who === "you" ? "Your" : "Opponent";
+  return `<span class="player-meta" data-testid="${t === "my" ? "my-powerups" : "opponent-status-row"}"><span class="opponent-powerups" data-testid="${t === "my" ? "my-powerups-icons" : "opponent-powerups"}"><span class="opp-power"><span class="shield-state" data-shield="ready" data-testid="${t}-shield-state"></span><span class="opp-power-word" aria-hidden="true">Shield</span><span class="visually-hidden" data-testid="${t}-shield">${subject} shield available</span></span><span class="opp-power"><span class="quake-state" data-quake="ready" data-testid="${t}-earthquake-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span><span class="opp-power-word" aria-hidden="true">Quake</span><span class="visually-hidden" data-testid="${t}-earthquake">${subject} Earthquake available</span></span></span></span>`;
+}
+
 export function gameScreen(ctx: ScreenContext, code: string): string {
   let hits = "";
   let glows = "";
@@ -268,17 +280,16 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
           <div class="player player-you" data-testid="panel-you">
             <span data-testid="avatar-you"></span>
             <span class="player-text">
-              <span class="player-name" data-testid="name-you">Player</span><span class="visually-hidden">, your colour is </span><span class="visually-hidden" data-testid="my-colour">Red</span>
-              <span class="player-meta"><span data-testid="chosen-label" role="status"></span></span>
-              <span class="visually-hidden" data-testid="my-shield">available</span>
+              <span class="player-line"><span class="player-name" data-testid="name-you">Player</span>${readyIcon("chosen-label")}</span><span class="visually-hidden">, your colour is </span><span class="visually-hidden" data-testid="my-colour">Red</span>
+              ${powerLine("you")}
             </span>
           </div>
           <span class="vs" aria-hidden="true">VS</span>
           <div class="player player-opponent" data-testid="panel-opponent">
             <span data-testid="avatar-opponent"></span>
             <span class="player-text">
-              <span class="player-name" data-testid="name-opponent">Opponent</span>
-              <span class="player-meta" data-testid="opponent-status-row"><span data-testid="opponent-status">Choosing</span><span class="opponent-powerups" data-testid="opponent-powerups"><span class="opp-power"><span class="shield-state" data-shield="ready" data-testid="opponent-shield-state"></span><span class="opp-power-word" aria-hidden="true">Shield</span><span class="visually-hidden" data-testid="opponent-shield">Shield available</span></span><span class="opp-power"><span class="quake-state" data-quake="ready" data-testid="opponent-earthquake-state"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2 3h5.5v7H2zM9.2 3h5.6v7H9.2zM16.5 3H22v7h-5.5zM2 12.5h4.6l2.2 3.4 3.2-3.4 3.2 4.6 2.6-3.6 4.2.2v3.2l-2.6.1-3.6 4.9-3.2-4.5-3.2 3.6-2.6-3.7H2z"/></svg></span><span class="opp-power-word" aria-hidden="true">Quake</span><span class="visually-hidden" data-testid="opponent-earthquake">Earthquake available</span></span></span></span>
+              <span class="player-line"><span class="player-name" data-testid="name-opponent">Opponent</span>${readyIcon("opponent-status")}</span>
+              ${powerLine("opponent")}
             </span>
           </div>
         </div>

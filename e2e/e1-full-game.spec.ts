@@ -44,7 +44,7 @@ test("E1 a phone and a laptop play a full game through a friend link", async ({ 
   const who = phone.page; // phone is seat A (joined first)
   for (let round = 1; round <= 4; round++) {
     await chooseColumn(phone.page, 0);
-    await expect(laptop.page.locator(testid("opponent-status"))).toHaveText("Ready"); // R21: only "Ready", never the column
+    await expect(laptop.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "ready"); // R21: only "Ready", never the column
     await chooseColumn(laptop.page, 1 + (round % 2));
     if (round < 4) {
       await waitForRound(phone.page, round + 1);

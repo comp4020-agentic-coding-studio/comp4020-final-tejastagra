@@ -167,8 +167,16 @@ function renderChoice(): void {
   if (!over) setText("earthquake-label", quakeLabel);
   quake.setAttribute("aria-label", quakeSpent ? "Earthquake, used" : quakeChosen ? "Earthquake, armed" : nothingToShake ? "Earthquake, nothing to shake yet" : "Earthquake, ready. Tap to use it");
   ($("quake-marker") as HTMLElement).hidden = !quakeChosen;
-  setText("chosen-label", selectedColumn === null && !quakeChosen ? "" : "Chosen");
+  setReady("chosen-label", selectedColumn !== null || quakeChosen || locked);
   showGhost(selectedColumn, true);
+}
+
+// U154: the status icon after a name is dots while that player is still choosing and a green tick once they have chosen. Its
+// aria-label is the only word for it, and it never says which column (R21).
+function setReady(testid: string, ready: boolean): void {
+  const icon = $(testid);
+  icon.dataset.state = ready ? "ready" : "choosing";
+  icon.setAttribute("aria-label", ready ? "Ready" : "Choosing");
 }
 
 // U62: tapping the badge chooses Earthquake for this round, final like a column (R4). It cannot be
@@ -426,12 +434,20 @@ async function reveal(state: State, opponentReady: boolean, previous: State | nu
   first = false;
 
   setText("round-number", String(state.status === "playing" ? state.round + 1 : state.round));
-  setText("opponent-status", state.status !== "playing" ? "Finished" : opponentReady ? "Ready" : "Choosing");
+  setReady("opponent-status", state.status === "playing" && opponentReady);
   if (you) {
     const mineLeft = state.shieldsLeft[you];
     const theirsLeft = state.shieldsLeft[other(you)];
     setText("opponent-shield", theirsLeft ? "Shield available" : "Shield used");
-    setText("my-shield", mineLeft ? "available" : "used");
+    setText("my-shield", mineLeft ? "Your shield available" : "Your shield used");
+    const myQuake = state.earthquakesLeft[you];
+    setText("my-earthquake", myQuake ? "Your Earthquake available" : "Your Earthquake used");
+    const myQuakeHolder = $("my-earthquake-state");
+    myQuakeHolder.dataset.quake = myQuake ? "ready" : "used";
+    myQuakeHolder.replaceChildren(earthquakeIcon());
+    const myShieldHolder = $("my-shield-state");
+    myShieldHolder.dataset.shield = mineLeft ? "ready" : "used";
+    myShieldHolder.replaceChildren(shieldIcon());
     const theirQuake = state.earthquakesLeft[other(you)];
     setText("opponent-earthquake", theirQuake ? "Earthquake available" : "Earthquake used");
     const quakeHolder = $("opponent-earthquake-state");
@@ -600,7 +616,7 @@ socket.addEventListener("message", (event) => {
     case "opponent_ready":
       // The opponent has chosen, which is all this tells us: never their column (R21, R22).
       opponentChosen = true;
-      setText("opponent-status", "Ready");
+      setReady("opponent-status", true);
       break;
     case "rejected":
       if (message.reason === "not_started") {
@@ -632,7 +648,7 @@ socket.addEventListener("message", (event) => {
       // The game is over (R27, R19): no round is open, so no timer runs and nobody is still choosing.
       deadline = null;
       drawTimer();
-      setText("opponent-status", "Finished");
+      setReady("opponent-status", false);
       popupOpen();
       renderChoice();
       break;

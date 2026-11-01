@@ -145,7 +145,7 @@ test.describe("The watching screen (U78 to U83)", () => {
     await expect(page.locator('.column-glow[data-on="true"]')).toHaveCount(0);
     // Keys do nothing either.
     for (const key of ["1", "4", "s", "e"]) await page.keyboard.press(key);
-    await expect(player.page.locator(testid("opponent-status"))).toHaveText("Choosing");
+    await expect(player.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "choosing");
     await expect(player.page.locator(testid("round-number"))).toHaveText("1");
     for (const c of [player, other, spectator]) await c.context.close();
   });

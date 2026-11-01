@@ -73,13 +73,13 @@ test.describe("Q14 players look the same to everyone, and each is told their col
     await expect(one.page.locator(testid("timer"))).toBeHidden();
     await expect(one.page.locator(testid("column-3"))).toHaveAttribute("aria-disabled", "true");
     await one.page.locator(testid("column-3")).click({ force: true }); // a tap during the countdown chooses nothing
-    await expect(one.page.locator(testid("chosen-label"))).toHaveText("");
+    await expect(one.page.locator(testid("chosen-label"))).toHaveAttribute("data-state", "choosing");
     const shownAt = Date.now();
     await expect(one.page.locator(testid("get-ready"))).toBeHidden({ timeout: 5_000 });
     expect(Date.now() - shownAt, "the countdown lasts about 3 seconds").toBeGreaterThan(1_500);
     await expect(one.page.locator(testid("timer"))).toBeVisible();
     await chooseColumn(one.page, 3);
-    await expect(one.page.locator(testid("chosen-label"))).toHaveText("Chosen");
+    await expect(one.page.locator(testid("chosen-label"))).toHaveAttribute("data-state", "ready");
     for (const c of [one, two]) await c.context.close();
   });
 

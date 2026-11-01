@@ -3508,6 +3508,51 @@ input:focus {
   margin: 0;
 }
 
+/* U154: line 1 of a game card is the name and the status icon straight after it: three dots while choosing, a green tick
+   once chosen. The name gives way (cut with an ellipsis) so the icon is always whole. */
+.player-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.player-line .player-name {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.ready-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.ready-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.ready-dots {
+  fill: var(--text-muted);
+}
+
+.ready-tick {
+  stroke: var(--ok);
+  display: none;
+}
+
+.ready-icon[data-state="ready"] .ready-dots {
+  display: none;
+}
+
+.ready-icon[data-state="ready"] .ready-tick {
+  display: block;
+}
+
 .opponent-powerups {
   display: flex;
   flex-wrap: wrap;

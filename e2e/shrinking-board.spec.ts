@@ -122,8 +122,8 @@ test.describe("The ceiling drop (U70 to U73)", () => {
       for (let c = 0; c < 7; c++) await expect(page.locator(testid(`column-${c}`))).toHaveAttribute("aria-disabled", "false");
     }
     await one.page.locator(testid("column-0")).click(); // the outer columns would have been closed by the old walls
-    await expect(one.page.locator(testid("chosen-label"))).toHaveText("Chosen");
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Ready");
+    await expect(one.page.locator(testid("chosen-label"))).toHaveAttribute("data-state", "ready");
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "ready");
     await expect(one.page.locator(testid("game-message"))).not.toHaveText(/closed/);
     await one.context.close();
     await two.context.close();
@@ -137,7 +137,7 @@ test.describe("The ceiling drop (U70 to U73)", () => {
     for (const page of [one.page, two.page]) await expect(page.locator(testid("column-3")), "five of five is full").toHaveAttribute("aria-disabled", "true");
     await one.page.locator(testid("column-3")).click({ force: true });
     await expect(one.page.locator(testid("game-message"))).toHaveText("That column is full. Pick another.");
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Choosing"); // nothing was sent
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "choosing"); // nothing was sent
     await one.context.close();
     await two.context.close();
   });
@@ -174,9 +174,9 @@ test.describe("The ceiling drop (U70 to U73)", () => {
     await waitForRound(one.page, 13);
     // The round counter changes at once; tap straight away and the choice must be accepted.
     await one.page.locator(testid("column-4")).click({ force: true });
-    await expect(one.page.locator(testid("chosen-label"))).toHaveText("Chosen");
+    await expect(one.page.locator(testid("chosen-label"))).toHaveAttribute("data-state", "ready");
     await expect(one.page.locator(testid("game-message"))).not.toHaveText("Your choice is locked in.");
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Ready");
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "ready");
     await one.context.close();
     await two.context.close();
   });

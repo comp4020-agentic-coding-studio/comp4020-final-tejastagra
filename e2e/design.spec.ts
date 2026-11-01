@@ -25,9 +25,9 @@ test.describe("Play on the board", () => {
     const { one, two } = await twoPlayers(browser);
     await chooseColumn(one.page, 2);
     await expect(one.page.locator(testid("column-2"))).toHaveAttribute("aria-pressed", "true");
-    await expect(one.page.locator(testid("chosen-label"))).toHaveText("Chosen");
+    await expect(one.page.locator(testid("chosen-label"))).toHaveAttribute("data-state", "ready");
     await expect(one.page.locator(testid("ghost-disc"))).toBeVisible();
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Ready");
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "ready");
     // Locked: every column and the shield badge are off, and another tap says so and sends nothing.
     await expect(one.page.locator(testid("shield-badge"))).toBeDisabled();
     await one.page.locator(testid("column-5")).click({ force: true });
@@ -79,7 +79,7 @@ test.describe("Play on the board", () => {
     await expect(one.page.locator(testid("game-message"))).toContainText("That column is full");
     await expect(one.page.locator(testid("column-0"))).toHaveClass(/shake/);
     // Nothing was sent: the opponent's panel still says Choosing, not Ready.
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Choosing");
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "choosing");
     await one.context.close();
     await two.context.close();
   });
@@ -132,7 +132,7 @@ test.describe("Motion and endings", () => {
   test("U23 both screens show the round result within 1 second of the second choice, with animations on", async ({ browser }) => {
     const { one, two } = await twoPlayers(browser);
     await chooseColumn(one.page, 1);
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Ready");
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "ready");
     const startedAt = Date.now();
     await chooseColumn(two.page, 4);
     // The disc is visible in its cell, landed, on both screens.

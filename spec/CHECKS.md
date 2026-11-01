@@ -51,7 +51,7 @@ Status: **todo** (stub only), **written**, **passing**.
 | Q29, U52b | No popup card carries a light or white second ring; `--shadow-popup` is a plain dark offset | `e2e/layout.spec.ts`, `spec/unit-theme.test.ts` | passing |
 | Q30, U114a | On a laptop the account page is two columns, vertically centred within 24px, the page itself never scrolls and the history scrolls in its own card; on a phone it stays one column | `e2e/account.spec.ts` | passing |
 | U151 | The result line is a visually hidden aria-live region, never visible, and updates after each round; at least 16px between the power-up row and the bottom of the screen | `e2e/layout.spec.ts` | passing |
-| U132, U154 | No coloured stripe on a player card; both cards share one layout (avatar left, name, status, icons 12px apart) and match in size within 2px | `e2e/layout.spec.ts` | passing |
+| U132, U154 | No coloured stripe on a player card; both cards share one layout (avatar left, line 1 the name and a ready icon that goes from dots to a tick, line 2 shield and Quake 12px apart), match in size within 2px and nothing extends beyond either card | `e2e/layout.spec.ts` | passing |
 | U159 | The tutorial's hint sits at least 16px below the board (or its timer bar); no gap in the fixed order is larger than 24px | `e2e/layout.spec.ts` | passing |
 
 ## Hygiene (`spec/unit-check-isolation.test.ts`)

@@ -57,14 +57,14 @@ test.describe("Earthquake badge (U61 to U64)", () => {
     await one.page.locator(testid("earthquake-badge")).click();
     await expect(one.page.locator(testid("earthquake-label"))).toHaveText("Earthquake armed");
     await expect(one.page.locator(testid("earthquake-badge"))).toHaveAttribute("aria-pressed", "true");
-    await expect(one.page.locator(testid("chosen-label"))).toHaveText("Chosen");
+    await expect(one.page.locator(testid("chosen-label"))).toHaveAttribute("data-state", "ready");
     await expect(one.page.locator(testid("quake-marker"))).toBeVisible();
     await expect(one.page.locator(testid("shield-badge"))).toBeDisabled();
     await expect(one.page.locator(testid("earthquake-badge"))).toBeDisabled();
     await one.page.locator(testid("column-4")).click({ force: true });
     await expect(one.page.locator(testid("game-message"))).toHaveText("Your choice is locked in.");
     // The opponent hears only that A is ready, and sees neither the armed state nor the marker.
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Ready");
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "ready");
     await expect(two.page.locator(testid("opponent-earthquake"))).toHaveText("Earthquake available");
     await expect(two.page.locator(testid("quake-marker"))).toBeHidden();
     await one.context.close();
@@ -137,7 +137,7 @@ test.describe("The earthquake round (U65, U66)", () => {
     const { one, two } = await twoPlayers(browser);
     await playOpeningRound(one.page, two.page);
     await one.page.locator(testid("earthquake-badge")).click();
-    await expect(two.page.locator(testid("opponent-status"))).toHaveText("Ready");
+    await expect(two.page.locator(testid("opponent-status"))).toHaveAttribute("data-state", "ready");
     const started = Date.now();
     await chooseColumn(two.page, 5);
     await waitForRound(one.page, 3);
