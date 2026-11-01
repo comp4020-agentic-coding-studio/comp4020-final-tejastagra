@@ -2,6 +2,32 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## The fifth fix list of 1 November 2026 (read this first)
+
+Done in the foreground, harness first (rule, `spec/CHECKS.md`, check, then code). **Nothing is pushed or deployed.**
+
+| Commit | Fix | What |
+| --- | --- | --- |
+| `c152811` | 1 | Tutorial card: U162. The card's height comes only from its content (no fixed height, min-height, bottom-pinned Next or Skip, or reserved hint line). Order and gaps as specified, timer bar as wide as the board, step 4 caption shortened (the three-missed-rounds rule is now in step 11 only). Q34 walks every visible item on all 11 steps at both viewports. Looked at steps 1, 2, 4 and 8 on the laptop: no empty space beyond the one-disc ghost lane. C49 |
+| `6803f7c` | 2 and 3 | Focused fields show only a yellow border (no glow, shadow or outline, Q35). The popup X is a plain 44px icon with its icon 16px from the card's top and right edges and a yellow ring on `:focus-visible` (U85a, Q36). C50, C51. One commit because both edit the same CSS block and checks |
+| `fbc3fab` | 4 | Already done in the previous list (U114b, Q33). Q33 re-run with 20 games and it passes, so I skipped it |
+
+### Tests run
+
+`pnpm check:fast` passed (403 tests) after each commit. Browser checks by name, all passing: Q34 (2), Q35 (2), Q36 (2), Q28 nickname field (2), Q31 leave popup (2), Q27, Q33. No check was given up on. Q35 first failed on real defects (the glow) and then on my own check reading an autofocused field as unfocused; Q36 failed on the icon offset and was fixed within the cap.
+
+### Decisions to look at
+
+- **Fix 1 changes U161.** The fixed card height and the pinned Next and Skip are gone, so Skip now moves with the content from step to step, and the Q32 check no longer requires it to stay put. The U159 hint-to-Next gap rule is replaced by U162's 24px.
+- **The card is as tall as its content and centred**, so Next appearing re-centres it. The Q25 "nothing moved" check now measures the board's distance from the caption inside the card.
+- **At 320 x 568 the compact tutorial still applies** (see C47); the new CSS is from 360px wide up, as before.
+- **The popup X is no longer an outlined button**, which reverses the "every button one style" part of Fix 2 of the fourth list for the X only. U9b and Q31 say so.
+- **The tutorial's laptop board is smaller** (`100dvh - 500px`) to keep the card on screen with the new gaps.
+
+### What still needs you
+
+Full `pnpm check` (twice), `pnpm test:e2e`, `/visual-qa` and the Docker check were not run, by your instruction. The tutorial screenshots and any popup screenshot baselines are the likeliest to differ.
+
 ## The fourth fix list of 1 November 2026 (four fixes, read this first)
 
 Four fixes, in the order Tejas gave them, each as harness first (the rule in `docs/design/`, then `spec/CHECKS.md`), then the check, then the code, one commit per fix, all in the foreground with no subagents. **Nothing is pushed or deployed.** The working tree is clean.
