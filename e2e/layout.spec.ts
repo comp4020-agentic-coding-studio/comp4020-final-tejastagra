@@ -1784,12 +1784,12 @@ test.describe("U159 the hint sits at least 16px below the board, and no gap in t
         const where = `step ${step} at ${viewport.width} x ${viewport.height}`;
         await doTutorialStep(page, step);
         const board = await page.locator(".tutorial-board .board-wrap .board").boundingBox().catch(() => null);
-        const hint = await page.locator(testid("tutorial-hint")).boundingBox(); // U162: a step with no hint (10, 11) has none in the layout
+        const hint = (await page.locator(testid("tutorial-hint")).boundingBox())!;
         // The practice timer bar's place is reserved (visibility: hidden, not removed) once a step has shown it, so it
         // always takes layout space between the board and the hint from step 4 onwards; it is not empty space, so the
         // gap is measured from whichever of the two sits lowest.
         const timer = await page.locator(testid("tutorial-timer")).boundingBox().catch(() => null);
-        if (board && hint) {
+        if (board) {
           const above = timer ? Math.max(board.y + board.height, timer.y + timer.height) : board.y + board.height;
           const gap = hint.y - above;
           expect(gap, `${where}: at least 16px between the board (or its timer bar) and the hint`).toBeGreaterThanOrEqual(15.5);
@@ -1803,9 +1803,9 @@ test.describe("U159 the hint sits at least 16px below the board, and no gap in t
           .boundingBox()
           .catch(() => null);
         const next = (await page.locator(testid("tutorial-next")).boundingBox())!;
-        const hintToAction = action && hint ? action.y - (hint.y + hint.height) : null;
+        const hintToAction = action ? action.y - (hint.y + hint.height) : null;
         if (hintToAction !== null) expect(hintToAction, `${where}: no gap larger than 24px between the hint and its button`).toBeLessThanOrEqual(24.5);
-        const buttonGap = next.y - (action ? action.y + action.height : hint ? hint.y + hint.height : (board ? board.y + board.height : 0));
+        const buttonGap = next.y - (action ? action.y + action.height : hint.y + hint.height);
         if (viewport.width < 360) expect(buttonGap, `${where}: no gap larger than 24px between the hint (or its button) and Next`).toBeLessThanOrEqual(24.5); // U161: Next is pinned from 360px up
         if (step < 11) await page.locator(testid("tutorial-next")).click();
       }
@@ -2163,8 +2163,7 @@ test.describe("Q34 U162 the tutorial card's height comes only from its content",
           const visible = (e: Element) => {
             const r = e.getBoundingClientRect();
             const cs = getComputedStyle(e);
-            // U165: a reserved place (Next before its step is done, the timer bar or warning after it clears) is invisible but still an item, since it takes room.
-            return r.width > 0 && r.height > 0 && cs.display !== "none" && !e.closest("[hidden]") && !e.closest(".visually-hidden");
+            return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && !e.closest("[hidden]") && !e.closest(".visually-hidden");
           };
           for (const e of card.querySelectorAll<HTMLElement>("*")) {
             if (!visible(e)) continue;
@@ -2363,48 +2362,4 @@ test.describe("Q38 U164 the home stack is vertically centred on a phone", () => 
     expect(Math.abs(m.top - m.below), `space above ${Math.round(m.top)}px and below ${Math.round(m.below)}px`).toBeLessThanOrEqual(8);
     await context.close();
   });
-});
-
-// ---- The tutorial card never changes size inside a step; the power-up button is not a bar (U165, Q39) ----
-
-test.describe("Q39 U165 the tutorial card keeps its size when Next appears", () => {
-  for (const viewport of [PHONE, LAPTOP]) {
-    test(`Q39 every step at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
-      test.setTimeout(120_000);
-      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
-      await openTutorial(page);
-      const problems: string[] = [];
-      const card = () => page.locator(`${testid("tutorial")} .tutorial-card`).boundingBox();
-      for (let step = 1; step <= 11; step++) {
-        await page.locator(testid("tutorial-caption")).waitFor();
-        await page.waitForTimeout(150); // the step has started
-        const before = (await card())!;
-        const nextBefore = await page.locator(testid("tutorial-next")).evaluate((el) => ({ display: getComputedStyle(el).display, visibility: getComputedStyle(el).visibility }));
-        if (nextBefore.display === "none") problems.push(`step ${step}: Next has no reserved place before it appears`);
-        // Every power-up button on the step, measured while it is showing.
-        for (const id of ["tutorial-shield", "tutorial-earthquake"]) {
-          const b = page.locator(testid(id));
-          if (await b.isVisible()) {
-            const w = (await b.boundingBox())!;
-            if (w.width < 180 - 0.5 || w.width > 260 + 0.5 || w.width > before.width * 0.6 + 0.5) problems.push(`step ${step}: ${id} is ${Math.round(w.width)}px wide in a ${Math.round(before.width)}px card`);
-          }
-        }
-        await doTutorialStep(page, step);
-        const after = (await card())!;
-        for (const k of ["x", "y", "width", "height"] as const) {
-          if (Math.abs(after[k] - before[k]) > 1) problems.push(`step ${step}: the card's ${k} changed from ${Math.round(before[k])} to ${Math.round(after[k])} when Next appeared`);
-        }
-        for (const id of ["tutorial-shield", "tutorial-earthquake"]) {
-          const b = page.locator(testid(id));
-          if (await b.isVisible()) {
-            const w = (await b.boundingBox())!;
-            if (w.width < 180 - 0.5 || w.width > 260 + 0.5) problems.push(`step ${step}: ${id} is ${Math.round(w.width)}px wide after the action`);
-          }
-        }
-        if (step < 11) await page.locator(testid("tutorial-next")).click();
-      }
-      expect([...new Set(problems)]).toEqual([]);
-      await context.close();
-    });
-  }
 });

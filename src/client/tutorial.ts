@@ -403,8 +403,6 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     reset() {
       stage.picture(false);
       timerBar.dataset.reserved = "false"; // a new step starts with no place kept
-      warning.dataset.reserved = "false";
-      stage.warn(null);
       stage.timer(false);
       status.hidden = false;
       hint.hidden = false;
@@ -455,11 +453,8 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
       wrap.hidden = show;
     },
     warn(text) {
-      // U165: once a step has shown the warning its place is kept (made invisible, not removed), so the card does not shrink when it clears.
-      if (text !== null) warning.dataset.reserved = "true";
-      warning.hidden = text === null && warning.dataset.reserved !== "true";
-      warning.dataset.shown = String(text !== null);
-      if (text !== null) warning.textContent = text;
+      warning.hidden = text === null;
+      warning.textContent = text ?? "";
       // The top row of the practice board flashes while the warning shows (U69).
       markDoomed(board, FULL_ROWS, text !== null, SHRUNK_ROWS);
     },
@@ -629,14 +624,14 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
     next.textContent = last ? (mode === "match" ? "Start the match" : "Done") : "Next";
     skip.textContent = mode === "replay" && last ? "Close" : "Skip";
     hint.hidden = false;
-    next.dataset.ready = "false"; // Next only shows once the step's action is done (U41 to U46); its place is kept meanwhile (U165)
+    next.hidden = true; // Next only appears once the step's action is done (U41 to U46)
     tapWaiter = null;
     shieldWaiter = null;
     quakeWaiter = null;
     const mine = ++running;
     void step.run(stage).then(() => {
       if (mine !== running) return;
-      next.dataset.ready = "true";
+      next.hidden = false;
       next.focus();
     });
   }

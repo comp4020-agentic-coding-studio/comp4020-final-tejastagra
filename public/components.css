@@ -4727,10 +4727,6 @@ input:focus {
   margin: 8px 16px 0;
 }
 
-.tutorial-warning[data-shown="false"] {
-  visibility: hidden; /* U165: its place is kept once the step has shown it */
-}
-
 /* The practice board is sized from the height available, never the gaps or the text; the ghost lane is its top margin (one disc), 16px
    under the status line. */
 .tutorial-board .board-wrap {
@@ -4747,8 +4743,9 @@ input:focus {
   margin: 12px auto 0;
 }
 
+.tutorial-timer[hidden],
 .tutorial-timer[data-shown="false"] {
-  visibility: hidden; /* U165: on a step that shows the bar its place is kept after the action, so the card never shrinks */
+  display: none; /* no place is kept for a bar that is not showing (U162) */
 }
 
 .tutorial-hint {
@@ -4759,20 +4756,8 @@ input:focus {
   display: none; /* a step with no hint keeps no empty line (U162) */
 }
 
-/* U165: the hint's text changes inside a step ("Tap a column." then "Locked in. You cannot change it now."). It always has room for
-   two lines, so a longer hint never grows the card. Measured in lines (the line-height), never a pixel height. */
-.tutorial-hint:not(:empty) {
-  min-height: 2.5em; /* two lines of the 1.25 line-height */
-}
-
 .tutorial-shield {
-  /* U165: a button, not a bar: centred, 180 to 260px wide, its icon and label centred. */
-  box-sizing: border-box;
-  width: min(260px, 60%);
-  min-width: 180px;
-  min-height: 48px;
   margin: 12px auto 0;
-  justify-content: center;
 }
 
 .tutorial-actions {
@@ -4785,8 +4770,8 @@ input:focus {
   padding: 0;
 }
 
-.tutorial-actions [data-testid="tutorial-next"][data-ready="false"] {
-  visibility: hidden; /* U165: Next keeps its place from the start of the step (the global [hidden] rule would remove it), so the card never changes size when it shows; hidden, it cannot be focused or tapped */
+.tutorial-actions [data-testid="tutorial-next"][hidden] {
+  display: none; /* no Next: Skip takes its place, with the same 24px above it */
 }
 
 .tutorial-actions .btn {
@@ -4812,27 +4797,4 @@ input:focus {
 .waiting-logo .title {
   margin: 0 auto;
   font-size: clamp(40px, min(16vw, 12dvh), 64px);
-}
-
-
-/* ---- 320 x 568 (U165): the compact variant keeps the card on one screen and Next 16px under a board that has no hint ---- */
-@media (max-width: 359px) {
-  .tutorial-card .tutorial-board > .tutorial-hint {
-    margin-top: 16px; /* U159: 16px under the board, which the bare margin: 0 above would otherwise remove */
-  }
-
-  .tutorial-board:has(> .tutorial-hint:empty) + .tutorial-actions {
-    margin-top: 16px;
-  }
-
-  .tutorial-card .tutorial-board:has(> .tutorial-shield:not([hidden])) > .tutorial-hint {
-    margin-top: 16px; /* U159: 16px under the board even beside the step's button */
-  }
-
-  .tutorial-board:has(> .tutorial-shield:not([hidden])) > .tutorial-shield {
-    margin-top: 16px;
-    align-self: start;
-    width: 150px; /* U165: below 360px the button shares its row with the hint, so it is 150px, which leaves the hint three lines, not four */
-    min-width: 150px;
-  }
 }
