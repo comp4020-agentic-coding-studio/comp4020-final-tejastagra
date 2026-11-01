@@ -2304,3 +2304,59 @@ test.describe("Q41 U167 the tutorial card is one fixed size", () => {
     });
   }
 });
+
+// ---- No share link flash when playing the computer (U168, R101, Q42) ----
+
+test.describe("Q42 U168 R101 the waiting card never shows in a computer game", () => {
+  for (const viewport of MARKING) {
+    test(`Q42 from the click on Play the computer to round 1, no frame shows the waiting card, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(60_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      // Started before any page loads and kept across the navigation from Home to the game: it looks at the waiting card's elements on every
+      // animation frame and on every change to the page, and writes down any moment one of them could be seen.
+      await page.addInitScript(() => {
+        const ids = ["waiting-panel", "game-code", "share-text", "copy-link", "share", "cancel-game", "waiting-logo"];
+        const seen = (el: Element): boolean => {
+          if (el.getClientRects().length === 0) return false; // display: none anywhere above it
+          const cs = getComputedStyle(el);
+          return cs.visibility === "visible" && Number(cs.opacity) > 0;
+        };
+        const look = () => {
+          try {
+            const log = JSON.parse(sessionStorage.getItem("flash-log") ?? '{"frames":0,"onGame":0,"flashed":[]}');
+            log.frames++;
+            if (document.querySelector('[data-testid="game-screen"]')) log.onGame++;
+            for (const id of ids) {
+              const el = document.querySelector(`[data-testid="${id}"]`);
+              if (el && seen(el)) log.flashed.push(`${id} at ${location.pathname} frame ${log.frames}`);
+            }
+            sessionStorage.setItem("flash-log", JSON.stringify(log));
+          } catch {
+            // the page is being replaced
+          }
+        };
+        const loop = () => { look(); requestAnimationFrame(loop); };
+        requestAnimationFrame(loop);
+        new MutationObserver(look).observe(document, { subtree: true, childList: true, attributes: true });
+      });
+      await page.goto("/");
+      await page.locator(testid("play-computer")).click();
+      await page.waitForURL(/\/g\/[A-Z2-9]{6}$/);
+      await expect(page.locator(testid("round-number"))).toHaveText("1");
+      await waitForStart(page); // the countdown is over: round 1 is open
+      const log = await page.evaluate(() => JSON.parse(sessionStorage.getItem("flash-log")!));
+      expect(log.onGame, "the observer ran on the game page, so an empty result means something").toBeGreaterThan(3);
+      expect(log.flashed, "the waiting card or share link was visible").toEqual([]);
+      await context.close();
+    });
+  }
+
+  test("Q42 a friend game still shows the waiting card once the server says it is waiting", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await page.goto(`/g/${await makeGameCode(page)}`);
+    await expect(page.locator(testid("waiting-panel"))).toBeVisible();
+    await expect(page.locator(testid("game-code"))).toBeVisible();
+    await expect(page.locator(testid("copy-link"))).toBeVisible();
+    await context.close();
+  });
+});

@@ -4383,3 +4383,11 @@ input:focus {
   margin: 0 auto;
   font-size: clamp(40px, min(16vw, 12dvh), 64px);
 }
+
+/* Nothing on the game screen until the server has said what the game is (U168, R101). The page is the same for every game and starts
+   with its waiting card in the markup, so without this a computer game showed the share link until the first message arrived. It is
+   hidden with visibility, not display, so nothing moves when it shows. */
+.game[data-known="false"] {
+  visibility: hidden;
+}
+

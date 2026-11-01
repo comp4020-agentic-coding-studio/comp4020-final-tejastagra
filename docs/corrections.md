@@ -434,3 +434,10 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Rule for the future:** when a layout depends on content, fix the size and make the content fit it; do not reserve a place for each thing that might appear. Measure the longest content once per viewport and write the number in the design doc.
 - **Also found:** the helpers waited for Next to appear, which no longer means anything once Next is always there, so the tutorial now sets `data-step-done` on its overlay when a step's lesson has finished, and the helpers wait for that.
 
+### C55. The share link card flashed when playing the computer
+- **Date:** 2 November 2026
+- **What went wrong:** the page for a game is the same for every kind of game and was served with the waiting card in its markup and `data-waiting="true"`. Until the first WebSocket message arrived, a computer game showed the card with its share link (about 50 frames in the check). My first fix, revealing the screen when the first snapshot arrived, still left one frame, because the client draws a snapshot through a promise chain and only hides the card a moment later.
+- **How it was caught:** Tejas saw the flash.
+- **Harness fix:** R101 and U168: the game screen is `visibility: hidden` until the server's first snapshot, and the waiting card's state is decided from that snapshot in the same step that reveals the screen. Q42 watches every animation frame and every page change from the click on Play the computer to round 1 and fails on any moment the waiting card, share text, game code, Copy link or Cancel game could be seen. It failed with about 50 frames before the fix and one frame after the first fix, and passes now.
+- **Rule for the future:** a screen that depends on a server answer starts hidden, not in its default state, and the decision that reveals it is made in the same synchronous step as the answer. A check for a flash must observe frames, not the final state.
+

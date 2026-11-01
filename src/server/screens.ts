@@ -268,7 +268,7 @@ export function gameScreen(ctx: ScreenContext, code: string): string {
     glows += `<span class="column-glow" data-testid="column-glow-${column}" aria-hidden="true"></span>`;
   }
   const body = `
-    <main class="arena game" data-testid="game-screen" data-waiting="true" data-started="false">
+    <main class="arena game" data-testid="game-screen" data-known="false" data-waiting="true" data-started="false">
       ${topbar({ middle: '<span class="opponent-heading" data-testid="opponent-heading"></span>', right: '<span class="round-line" data-testid="round-line">Round <span data-testid="round-number">1</span></span>' })}
       <div class="stage" data-testid="game-group">
         <div class="status-row" data-testid="status-row">

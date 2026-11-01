@@ -570,6 +570,14 @@ socket.addEventListener("message", (event) => {
   switch (message.type) {
     case "snapshot": {
       const firstTime = you === null;
+      // U168, R101: the server has said what this game is. Whether to show the waiting card is decided here, in the same step that
+      // reveals the screen, because drawing the board is queued and runs a moment later (a computer game would flash the card).
+      if (typeof message.opponentPresent === "boolean" && message.state) {
+        const waiting = !message.opponentPresent && message.state.round === 0 && message.state.status === "playing";
+        $("waiting-panel").hidden = !waiting;
+        gameRoot.dataset.waiting = String(waiting);
+      }
+      gameRoot.dataset.known = "true";
       you = message.you;
       seatToken = message.seatToken;
       opponentPresent = message.opponentPresent === true;
