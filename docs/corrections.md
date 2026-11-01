@@ -355,3 +355,35 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Harness fix:** CLAUDE.md now says never to use general-purpose or background subagents for this work, to commit each finished fix straight away, to cap browser-check retries at 3 attempts before giving up and recording the failure in `docs/handover.md`, and to run only the individual checks changed, never a whole spec file or the full suites, unless Tejas asks for them.
 - **Rule for the future:** work that must be reviewed commit by commit is done in the foreground, not handed to a background agent; a long unsupervised run with no commit is a sign to stop and check in, not to let it keep going.
 - **Commits:** none; recorded before the next commit.
+
+### C45. A status word on the player card made line 2 too long, and its replacement briefly made the laptop game scroll
+- **Date:** 1 November 2026
+- **What went wrong:** the opponent's card put the words "Ready" or "Choosing" on the same line as the shield and Earthquake icons, so "Quake" spilled out of the card at phone widths. My first fix (an icon after the name) added about 2px of height to both cards, which made the 1366 x 768 game screen scroll by 2px and pushed the result line 0.4px off screen. I had also first read "no overflow" as "the card's box", so my first measurement did not look inside the card.
+- **How it was caught:** the new card check (nothing inside either card passes its edge), then the existing Q15 and U151 checks, which failed on the committed Fix 1 and were bisected against the commit before it.
+- **Harness fix:** U154 rewritten (name and ready icon on line 1, shield and Quake on line 2, nothing past the card's edge); `e2e/layout.spec.ts` measures every descendant against the card, the equal size and the dots-to-tick change.
+- **Rule for the future:** a change to a shared card is run against the screen-fit checks (Q15, U151) before it is committed, not only against its own check.
+- **Commits:** `a72bcfb`, with the height fix in `0c596cc`.
+
+### C46. Buttons were clipped by their own containers, and my first check measured things that are not buttons
+- **Date:** 1 November 2026
+- **What went wrong:** a popup's buttons sat inside a scrolling form that clipped their 5px hard shadow; the popup Close button had no border at all; the power-up row clipped its own shadow with `overflow: hidden`. My first check also counted the tutorial's transparent practice columns and its text link as buttons, so it failed 140 times for the wrong reason.
+- **How it was caught:** the new check failed on the real defects first (a shadow ending 5px below the form's edge), then on its own over-broad selector.
+- **Harness fix:** U9b and Q31, and a check that measures border widths and the shadow against every clipping ancestor.
+- **Rule for the future:** a check about "every button" must say what a button is, and must be seen to fail on the real defect before it is fixed.
+- **Commits:** `0c596cc`.
+
+### C47. Text sizes were fixed by shrinking them, and a pinned button placed a large gap in the card
+- **Date:** 1 November 2026
+- **What went wrong:** earlier tutorial work met the 320 x 568 screen by making the text smaller (11 to 12px), which left it unreadable on every phone. Pinning Next and Skip to the bottom of the card then left a gap above Next that U159 had limited to 24px. Both rules cannot hold at 320 x 568, where the 44px columns need 308px of width and the card has no height left for 17px text.
+- **How it was caught:** Tejas said the text was too small; the new check (Q32) measured the real sizes; the existing U159 gap check failed when Next was pinned.
+- **Harness fix:** U161 and Q32 set the minimum sizes and the fixed button place from 360px wide up, and say in the rule that 320 x 568 keeps the compact tutorial; U159's gap above Next is checked only at 320.
+- **Rule for the future:** when two rules cannot both hold at one viewport, the rule says which wins there and the handover tells Tejas, rather than one check quietly being loosened.
+- **Commits:** `7b34fff`.
+
+### C48. The history list was a stack of cards with 21px of unexplained space under it
+- **Date:** 1 November 2026
+- **What went wrong:** on a laptop the account page was sized by a guessed `calc(100vh - 160px)` instead of the area it actually has, so the right column floated low with a gap above its heading and the history ran past the bottom. When I rebuilt it the empty message was hidden, which let the history card auto-place into the wrong grid row and end 53px up instead of 32px.
+- **How it was caught:** the new Q33 check with 20 games measured the gap above the heading against the gap below the card (32px against 53px, then 37px, then 27px); the numbers pointed to the grid row and then to the shadow.
+- **Harness fix:** U114b and Q33; the history and the empty message now have fixed grid rows; the account laptop screenshot baseline was refreshed after looking at it.
+- **Rule for the future:** size a screen area from the layout around it, never from a subtracted constant, and name the grid row of anything that can be hidden.
+- **Commits:** `fbc3fab`.

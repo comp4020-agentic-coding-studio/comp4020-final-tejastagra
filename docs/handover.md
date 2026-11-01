@@ -2,6 +2,37 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## The fourth fix list of 1 November 2026 (four fixes, read this first)
+
+Four fixes, in the order Tejas gave them, each as harness first (the rule in `docs/design/`, then `spec/CHECKS.md`), then the check, then the code, one commit per fix, all in the foreground with no subagents. **Nothing is pushed or deployed.** The working tree is clean.
+
+| Commit | Fix | What |
+| --- | --- | --- |
+| `a72bcfb` | 1 | Player cards: no "Ready" or "Choosing" words. Line 1 is the name and a status icon (three dots while choosing, a green tick once chosen, `aria-label` "Choosing" or "Ready"); line 2 is the shield and Quake icons for both players, at least 12px apart. U154 rewritten |
+| `0c596cc` | 2 | Buttons: the popup Close button now has the shared outline, shadow and radius; popup buttons have 8px under them so the form no longer clips their shadow; the power-up row has the full `--shadow` and no `overflow: hidden`. U9b and Q31 added |
+| `7b34fff` | 3 | Tutorial: counter 14px, title 24px, caption 17px, status and hint 16px; Next centred with Skip centred under it, pinned to one place on every step; the practice board is sized from the height left; the warning banner keeps 16px from the card's edges. U161 and Q32 added |
+| `fbc3fab` | 4 | Account page on a laptop: 32px under the header bar and 32px above the bottom of the screen; the right column fills the area and the history is one bordered card that scrolls inside itself; the left column is centred in the same area. U114b and Q33 added, and the laptop account screenshot baseline refreshed after looking at it |
+
+### Tests run (by name, per Tejas's limits)
+
+`pnpm check:fast` passed (24 files, 403 tests, exit 0) after every commit. Browser checks, all passing: the new U154 card check (3 viewports), Q31 (4 tests), Q32 (2 tests), Q30 and Q33 with 20 games (1.1 minutes), and the existing checks the changes could break, run by name: Q15 Q16 game and tutorial, Q25, Q26, Q27, Q28, Q18, U151, U159 (6 tests), the power-up row check, the five older checks whose text assertions I changed (`design`, `shrinking-board`, `e1-full-game`, `player-colours`, `earthquake`, `spectating`, `layout`), the account page checks and the two screenshot checks. **No check was given up on.** Several failed on the way and were fixed within three attempts: the new Q31 check first failed on real defects and then on my own over-broad selector, Fix 1 made the 1366 x 768 game screen scroll by 2px (fixed by removing 2px of margin and gap), the Q32 button check needed the card to have one height, and Fix 4 needed three attempts to get the gap below the history to 32px (fixed within the cap).
+
+### Decisions I made, for Tejas to look at
+
+- **At 320 x 568 the tutorial keeps its small text.** The seven practice columns must stay at least 44px wide (308px), and the card then has no height left for 17px text and the buttons. The minimum sizes and the pinned Next and Skip apply from **360px wide up**, which covers 390 x 844 and 1366 x 768, the two marking viewports. This is written into U161. If you want the large text at 320 x 568 too, the board would have to drop below 44px columns, which `docs/design.md` forbids, so one of those rules has to give. Your call.
+- **U159's "no gap larger than 24px" no longer covers the gap above Next from 360px up**, because Next is pinned to the card's bottom and the gap is whatever height the card has left. The gaps above the hint still hold. The check only measures the gap above Next at 320.
+- **The tutorial card is now one fixed height on every step** (up to 780px, or the screen less 8px), so Next and Skip do not move. On a tall screen the card is therefore taller than before.
+- **"Chosen" is gone from your own card too**, not only the opponent's: your card shows the same icon. Your card also now shows your shield and Quake icons on line 2 (they were visually hidden text before), so both cards match.
+- **The leave-popup, info-popup and tutorial Close and Skip:** the popup Close button is now a bordered button with a shadow, as you asked ("every button one style"). Skip stays a text link, as you described it, so Q31 does not count it as a button.
+- **The history card has no row shadows or separate borders**: its rows are divided by thin lines, so it reads as one card. This is on a laptop only; the phone layout is unchanged and still shows separate rows.
+- **The account page is `100dvh` tall on a laptop**, so on a laptop shorter than about 600px the history card gets very small. It was not tested below 768px.
+- **Corrections C45 to C48** record the four fixes; C47 is about the two rules that cannot both hold at 320 x 568.
+
+### What still needs you
+
+- **Run the full suites**, as for the last list: `pnpm check` (twice), `pnpm test:e2e` in full, `/visual-qa` over every screen and the Docker check. None were run, by your instruction. Send back any failures. I expect the places most likely to show something are the tutorial screenshots, the phone game screen and the power-up row.
+- Everything still open from the sections below (migration 22 on the real database, a full `/visual-qa` pass, and the known small gaps) still applies.
+
 ## The third fix list of 31 October 2026 (Parts 1 to 4, read this first)
 
 A background general-purpose agent was first asked to run this whole fix list and the full finishing suites unsupervised. It made real progress on Parts 1 and 2 in the working tree but committed nothing, and was stopped after it had used a large share of the week's budget with no commit to show for it (correction C44). CLAUDE.md now bans general-purpose and background subagents for this project's work, requires each finished fix to be committed straight away, caps retries on a failing check at 3 attempts, and limits testing to the individual checks changed unless Tejas asks for the full suites (`7098289`). The rest of the list was then done in the foreground, one part at a time, salvaging the agent's sound Part 1 and 2 work and building Parts 3 and 4 from scratch, each part as harness first (rules, design docs, `spec/CHECKS.md`), then tests, then code, one commit per part.
