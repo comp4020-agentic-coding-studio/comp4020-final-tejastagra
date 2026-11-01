@@ -115,11 +115,9 @@ export function topbar(o: { middle?: string; right?: string; href?: string } = {
 export function tutorialOverlay(): string {
   return `<div class="tutorial" data-testid="tutorial" hidden role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
       <div class="panel tutorial-card">
-        <div class="tutorial-head">
-          <p class="tutorial-progress" data-testid="tutorial-progress"></p>
-          <h2 id="tutorial-title" data-testid="tutorial-title"></h2>
-        </div>
-        <div class="tutorial-text"><p class="tutorial-caption" data-testid="tutorial-caption" aria-live="polite"></p></div>
+        <p class="tutorial-progress" data-testid="tutorial-progress"></p>
+        <h2 id="tutorial-title" data-testid="tutorial-title"></h2>
+        <p class="tutorial-caption" data-testid="tutorial-caption" aria-live="polite"></p>
         <div class="tutorial-board" data-testid="tutorial-board"></div>
         <div class="tutorial-actions">
           <button type="button" class="btn btn-red" data-testid="tutorial-next">Next</button>

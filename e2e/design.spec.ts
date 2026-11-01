@@ -339,8 +339,7 @@ test.describe("Tutorial", () => {
     await page.click(testid("tutorial-next"));
     await expect(page.locator(testid("tutorial-title"))).toHaveText("The round timer");
     await expect(page.locator(testid("tutorial-caption"))).toContainText("10 seconds");
-    // The three-missed-rounds rule moved to the last step (U162, U147); this step says only how the timer works.
-    await expect(page.locator(testid("tutorial-caption"))).toContainText("you miss the round");
+    await expect(page.locator(testid("tutorial-caption"))).toContainText("3 rounds in a row");
     await expect(page.locator(testid("tutorial-timer"))).toBeVisible();
     await doTutorialStep(page, 4);
     await expect(page.locator(testid("tutorial-timer"))).toBeHidden();
@@ -393,7 +392,7 @@ test.describe("Tutorial", () => {
     await expect(picture.locator('[data-role="opponent"] .piece[data-colour="yellow"]')).toHaveCount(1);
     await expect(picture.locator('[data-role="you"] .piece[data-colour="red"]')).toHaveCount(1);
     await page.click(testid("tutorial-next"));
-    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. If both players miss 3 rounds in a row, the game is abandoned. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.");
+    await expect(page.locator(testid("tutorial-caption"))).toHaveText("Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.");
     await context.close();
   });
 
