@@ -3108,35 +3108,89 @@ input:focus {
   display: none;
 }
 
-/* ---- Q30, U114a: the account page on a laptop is two columns, like the home screen ---- */
+/* ---- Q30, Q33, U114a, U114b: the account page on a laptop is two columns filling the area under the header bar ----
+   The page is one screen tall: the header bar, then 32px, then the columns, then 32px to the bottom of the screen. The right column
+   fills the area (heading, stat cards, then the history as one card that takes the height left and scrolls inside itself); the left
+   column is centred in the same area. */
 @media (min-width: 900px) {
+  .account {
+    box-sizing: border-box;
+    height: 100dvh;
+    padding: 8px 0 32px;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: stretch;
+  }
+
+  .account > .topbar {
+    margin-bottom: 32px;
+  }
+
   .account-columns {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    align-items: center;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
     gap: 64px;
     max-width: 1100px;
-    min-height: calc(100vh - 160px);
+    min-height: 0;
   }
 
   .account-left {
+    align-self: center;
     justify-self: end;
     width: 100%;
     max-width: 480px;
   }
 
   .record {
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    align-content: start;
     justify-self: start;
-    align-self: center;
+    align-self: stretch;
     width: 100%;
     max-width: var(--list-width);
-    max-height: calc(100vh - 160px);
+    min-height: 0;
+    margin-top: 0;
   }
 
+  .record-empty {
+    grid-row: 3;
+    margin: 0;
+  }
+
+  /* One card: a border on every side and the card's shadow, its rows divided by thin lines. It takes all the height left and
+     scrolls inside itself, so its bottom edge is always on screen. */
   .history-list {
+    grid-row: 4; /* always the last row, which takes the height left, even while the empty message is hidden */
+    min-height: 0;
+    max-width: none;
+    margin: 0; /* the card's edge is 32px above the bottom of the screen; its hard shadow (U9b) falls inside that 32px */
+    padding: 4px 12px;
     overflow-y: auto;
-    max-height: calc(100vh - 160px - 220px); /* the heading and the two stat cards take the rest (Q15 does not force the page to scroll) */
-    padding-right: 4px;
+    background: var(--panel);
+    border: var(--outline);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow);
+    align-content: start;
+    gap: 0;
+  }
+
+  .history-list:empty {
+    display: none;
+  }
+
+  .history-list .history-row {
+    padding: 10px 0;
+    background: none;
+    border: 0;
+    border-bottom: var(--outline-thin);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .history-list .history-row:last-child {
+    border-bottom: 0;
   }
 }
 

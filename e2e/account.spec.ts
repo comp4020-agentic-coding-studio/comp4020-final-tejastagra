@@ -228,7 +228,7 @@ test.describe("Q30 U114a the account page on a laptop is two columns", () => {
     await context.close();
   });
 
-  test("Q30 a long history scrolls inside its own card, not the page", async ({ browser }) => {
+  test("Q30 Q33 a long history scrolls inside its own card, not the page, and the columns fill the area between the bar and the bottom", async ({ browser }) => {
     test.setTimeout(120_000); // 20 full games played through the UI take longer than the default 60s
     const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
     await signedIn(page);
@@ -253,6 +253,22 @@ test.describe("Q30 U114a the account page on a laptop is two columns", () => {
     expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight), "the page itself does not scroll with 20 games").toBeLessThanOrEqual(0);
     const listScrolls = await page.locator(testid("history-list")).evaluate((el) => el.scrollHeight > el.clientHeight || (el.closest(".record")?.scrollHeight ?? 0) > (el.closest(".record")?.clientHeight ?? 0));
     expect(listScrolls, "the history scrolls inside its own card instead").toBe(true);
+    // Q33, U114b: 32px above and below the columns, the history card whole and 32px above the bottom of the screen.
+    const topbar = (await page.locator(testid("topbar")).boundingBox())!;
+    const heading = (await page.locator("#record-title").boundingBox())!;
+    const list = (await page.locator(testid("history-list")).boundingBox())!;
+    const gapAbove = heading.y - (topbar.y + topbar.height);
+    const gapBelow = LAPTOP.height - (list.y + list.height);
+    expect(Math.abs(gapAbove - gapBelow), `Q33 the gap above the heading (${gapAbove}) and below the history card (${gapBelow}) are equal within 4px`).toBeLessThanOrEqual(4);
+    expect(gapBelow, "Q33 the history card ends 32px above the bottom of the screen").toBeGreaterThanOrEqual(30);
+    expect(gapBelow, "Q33 the history card ends 32px above the bottom of the screen").toBeLessThanOrEqual(36);
+    expect(list.y + list.height, "Q33 the history card's bottom edge is fully visible").toBeLessThanOrEqual(LAPTOP.height);
+    const border = await page.locator(testid("history-list")).evaluate((el) => { const c = getComputedStyle(el); return [c.borderTopWidth, c.borderRightWidth, c.borderBottomWidth, c.borderLeftWidth].map(parseFloat); });
+    expect(border.every((w) => w > 0 && Math.abs(w - border[0]) < 0.01), "Q33 the history is one card with a border on every side").toBe(true);
+    const left = (await page.locator(".account-left").boundingBox())!;
+    const areaTop = topbar.y + topbar.height + 32;
+    const areaBottom = LAPTOP.height - 32;
+    expect(Math.abs(left.y + left.height / 2 - (areaTop + areaBottom) / 2), "Q33 the left column is vertically centred in the same area").toBeLessThanOrEqual(8);
     await context.close();
   });
 });
