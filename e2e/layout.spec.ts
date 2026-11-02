@@ -2714,3 +2714,60 @@ test.describe("Q48 U176 the tutorial is full screen on a phone", () => {
   }
 });
 
+// ---- A step without a board shows its illustration in a panel the board's size (U177, U178, Q49) ----
+
+test.describe("Q49 U177 U178 an illustration sits in a panel exactly the board's size and place, and fills it", () => {
+  for (const viewport of MARKING) {
+    test(`Q49 every step without a board at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      const problems: string[] = [];
+      let seen = 0;
+      const boards: Array<{ x: number; y: number; w: number; h: number }> = [];
+      for (let step = 1; step <= 11; step++) {
+        const m = await page.evaluate(() => {
+          const q = (sel: string) => document.querySelector<HTMLElement>(sel);
+          const shown = (el: HTMLElement | null) => !!el && !el.hidden && el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== "hidden";
+          const box = (el: Element) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
+          const wrap = q(".tutorial-board .board-wrap")!;
+          const panel = q('[data-testid="tutorial-friends"]');
+          const out: { board: ReturnType<typeof box>; panel: ReturnType<typeof box> | null; picture: ReturnType<typeof box> | null; frame: { radius: string; border: string; background: string; boardRadius: string } | null; boardShown: boolean } = { board: box(wrap), panel: null, picture: null, frame: null, boardShown: shown(wrap) };
+          if (panel && shown(panel)) {
+            out.panel = box(panel);
+            // The illustration is the union of its parts: the share card, the arrows and the two groups below them.
+            const parts = [...panel.children].map(box);
+            const x0 = Math.min(...parts.map((p) => p.x)), x1 = Math.max(...parts.map((p) => p.x + p.w));
+            const y0 = Math.min(...parts.map((p) => p.y)), y1 = Math.max(...parts.map((p) => p.y + p.h));
+            out.picture = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+            const cs = getComputedStyle(panel);
+            const board = getComputedStyle(wrap.querySelector(".board")!);
+            out.frame = { radius: cs.borderTopLeftRadius, border: cs.borderTopWidth + " " + cs.borderTopStyle, background: cs.backgroundColor, boardRadius: board.borderTopLeftRadius };
+          }
+          return out;
+        });
+        boards.push(m.board);
+        if (!m.panel) {
+          if (!m.boardShown) problems.push(`step ${step}: neither the board nor an illustration is shown`);
+          if (step < 11) await page.locator(testid("tutorial-next")).click(); // a step with the board: on to the next
+          continue;
+        }
+        seen++;
+        const where = `step ${step}`;
+        for (const k of ["x", "y", "w", "h"] as const) if (Math.abs(m.panel[k] - m.board[k]) > 1) problems.push(`${where}: the panel's ${k} is ${m.panel[k].toFixed(1)}, the board's is ${m.board[k].toFixed(1)}`);
+        if (m.picture!.w < m.panel.w * 0.8) problems.push(`${where}: the illustration is ${m.picture!.w.toFixed(0)}px wide, ${((m.picture!.w / m.panel.w) * 100).toFixed(0)}% of the panel's ${m.panel.w.toFixed(0)}px (at least 80%)`);
+        if (m.picture!.h < m.panel.h * 0.8) problems.push(`${where}: the illustration is ${m.picture!.h.toFixed(0)}px tall, ${((m.picture!.h / m.panel.h) * 100).toFixed(0)}% of the panel's ${m.panel.h.toFixed(0)}px (at least 80%)`);
+        if (m.picture!.x < m.panel.x - 0.5 || m.picture!.x + m.picture!.w > m.panel.x + m.panel.w + 0.5 || m.picture!.y < m.panel.y - 0.5 || m.picture!.y + m.picture!.h > m.panel.y + m.panel.h + 0.5) problems.push(`${where}: the illustration runs outside its panel`);
+        // Framed like the board: the same corner radius and a dark outline, in a muted navy, not the board's blue.
+        if (m.frame!.radius !== m.frame!.boardRadius) problems.push(`${where}: the panel's corner radius is ${m.frame!.radius}, the board's is ${m.frame!.boardRadius}`);
+        if (!m.frame!.border.startsWith("4px solid")) problems.push(`${where}: the panel's outline is ${m.frame!.border}, not the board's 4px solid`);
+        if (page && m.frame!.background === "rgba(0, 0, 0, 0)") problems.push(`${where}: the panel has no background`);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      expect(seen, "at least one step shows an illustration instead of the board").toBeGreaterThanOrEqual(1);
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});
+

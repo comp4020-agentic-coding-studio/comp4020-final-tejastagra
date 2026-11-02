@@ -267,46 +267,79 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   board.root.setAttribute("aria-hidden", "true");
   wrap.append(board.root, glows, hits);
 
-  // U146: three people drawn with shapes: you (a red ring disc), the first friend who plays you (a yellow cross disc), and the second
-  // friend who only watches (an eye). No words: the caption says it. Built with DOM calls, never innerHTML.
+  // U177, U178: the step 10 illustration, drawn with shapes in a panel the board's size and place. From the top: a mock share card (a
+  // made-up 6-letter code and a Copy link button that is only a shape), two arrows down to the two players (the red face with its ring
+  // disc and the yellow face with its cross disc, joined by a line, "Plays you"), and beside them a dashed box with the eye icon and
+  // three smaller faces ("Watch live"). Built with DOM calls, never innerHTML, and never clickable: one picture with one name.
   const friends = document.createElement("div");
   friends.className = "tutorial-friends";
   friends.dataset.testid = "tutorial-friends";
   friends.hidden = true;
   friends.setAttribute("role", "img");
-  friends.setAttribute("aria-label", "You and a friend playing each other, and a second friend watching");
-  const person = (role: "you" | "opponent" | "spectator", seed: string): HTMLElement => {
-    const wrapPerson = document.createElement("div");
-    wrapPerson.className = "friend";
-    wrapPerson.dataset.role = role;
-    const face = avatar(seed);
-    if (role !== "spectator") colourAvatar(face, role === "you" ? "red" : "yellow");
-    wrapPerson.append(face);
-    if (role === "spectator") {
-      const eye = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      eye.setAttribute("viewBox", "0 0 24 24");
-      eye.setAttribute("aria-hidden", "true");
-      eye.dataset.icon = "eye";
-      eye.classList.add("friend-eye");
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", "M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z");
-      eye.append(path);
-      wrapPerson.append(eye);
-    } else {
-      const disc = document.createElement("span");
-      disc.className = "piece friend-disc";
-      disc.dataset.colour = role === "you" ? "red" : "yellow";
-      wrapPerson.append(disc);
-    }
-    return wrapPerson;
+  friends.setAttribute("aria-label", "A share card with a game code and a Copy link button. Two arrows lead to the two players, who play each other, and a group of three watchers who watch live.");
+  const el = (tag: string, className: string, text?: string): HTMLElement => {
+    const node = document.createElement(tag);
+    node.className = className;
+    if (text !== undefined) node.textContent = text;
+    node.setAttribute("aria-hidden", "true");
+    return node;
   };
-  const link = document.createElement("span");
-  link.className = "friend-link";
-  link.setAttribute("aria-hidden", "true");
-  const players = document.createElement("div");
-  players.className = "friend-pair";
-  players.append(person("you", "tutorial-you"), link, person("opponent", "tutorial-friend-1"));
-  friends.append(players, person("spectator", "tutorial-friend-2"));
+  const svgNS = "http://www.w3.org/2000/svg";
+  const arrow = (): SVGSVGElement => {
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.classList.add("friend-arrow");
+    const path = document.createElementNS(svgNS, "path");
+    path.setAttribute("d", "M12 3v14M6 12l6 7 6-7");
+    svg.append(path);
+    return svg;
+  };
+  const eyeIcon = (): SVGSVGElement => {
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    svg.dataset.icon = "eye";
+    svg.classList.add("friend-eye");
+    const path = document.createElementNS(svgNS, "path");
+    path.setAttribute("d", "M12 5C6.5 5 2.7 9.2 1.5 12c1.2 2.8 5 7 10.5 7s9.3-4.2 10.5-7C21.3 9.2 17.5 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z");
+    svg.append(path);
+    return svg;
+  };
+  const player = (role: "you" | "opponent", seed: string): HTMLElement => {
+    const one = el("div", "friend", undefined);
+    one.dataset.role = role;
+    const face = avatar(seed);
+    colourAvatar(face, role === "you" ? "red" : "yellow");
+    face.setAttribute("aria-hidden", "true");
+    one.append(face);
+    return one;
+  };
+  // 1. The share card: a code and a Copy link button, shapes only.
+  const card = el("div", "friend-card");
+  card.append(el("span", "friend-code", "K7QM2X"), el("span", "friend-copy", "Copy link"));
+  // 2. Two arrows, one to the players and one to the watchers.
+  const arrows = el("div", "friend-arrows");
+  arrows.append(arrow(), arrow());
+  // 3. The two players, joined by a line, with their label.
+  const pair = el("div", "friend-players");
+  const pairRow = el("div", "friend-pair");
+  pairRow.append(player("you", "tutorial-you"), el("span", "friend-link"), player("opponent", "tutorial-friend-1"));
+  pair.append(pairRow, el("span", "friend-label", "Plays you"));
+  // 4. The watchers: a dashed box with the eye icon, three smaller faces and their label.
+  const watchers = el("div", "friend-watchers");
+  const group = el("div", "friend-group");
+  group.append(eyeIcon());
+  for (const seed of ["tutorial-friend-2", "tutorial-friend-3", "tutorial-friend-4"]) {
+    const face = avatar(seed);
+    face.classList.add("friend-small");
+    face.setAttribute("aria-hidden", "true");
+    group.append(face);
+  }
+  watchers.append(group, el("span", "friend-label", "Watch live"));
+  const below = el("div", "friend-below");
+  below.append(pair, watchers);
+  friends.append(card, arrows, below);
 
   const shield = document.createElement("button");
   shield.type = "button";

@@ -382,15 +382,23 @@ test.describe("Tutorial", () => {
     await expect(caption).toContainText("anyone, anywhere in the world");
     await expect(caption).toContainText("The first person to open it plays you");
     await expect(caption).toContainText("the second person to open it, and anyone after them, can watch");
-    // The illustration: you, the first friend as the opponent, the second friend as a spectator with an eye.
+    // The illustration (U178): a share card with a code and a Copy link shape, two arrows, the red and yellow players joined by a line
+    // ("Plays you"), and a dashed box with the eye and three faces ("Watch live"). Nothing in it is clickable.
     const picture = page.locator(testid("tutorial-friends"));
     await expect(picture).toBeVisible();
-    await expect(picture.locator('[data-role="you"]')).toHaveCount(1);
-    await expect(picture.locator('[data-role="opponent"]')).toHaveCount(1);
-    await expect(picture.locator('[data-role="spectator"]')).toHaveCount(1);
-    await expect(picture.locator('[data-role="spectator"] [data-icon="eye"]'), "the spectator wears an eye").toHaveCount(1);
-    await expect(picture.locator('[data-role="opponent"] .piece[data-colour="yellow"]')).toHaveCount(1);
-    await expect(picture.locator('[data-role="you"] .piece[data-colour="red"]')).toHaveCount(1);
+    await expect(picture.locator(".friend-code")).toHaveText(/^[A-Z0-9]{6}$/);
+    await expect(picture.locator(".friend-copy")).toHaveText("Copy link");
+    await expect(picture.locator("button, a, input"), "the picture has nothing to click").toHaveCount(0);
+    await expect(picture.locator(".friend-arrow")).toHaveCount(2);
+    await expect(picture.locator('[data-role="you"] .avatar-badge[data-marker="ring"]'), "you: the red face with its ring").toHaveCount(1);
+    await expect(picture.locator('[data-role="opponent"] .avatar-badge[data-marker="cross"]'), "the opponent: the yellow face with its cross").toHaveCount(1);
+    await expect(picture.locator('[data-role="you"] .avatar')).toHaveAttribute("data-colour", "red");
+    await expect(picture.locator('[data-role="opponent"] .avatar')).toHaveAttribute("data-colour", "yellow");
+    await expect(picture.locator(".friend-link"), "the two players are joined by a line").toHaveCount(1);
+    await expect(picture.locator(".friend-watchers [data-icon='eye']"), "the watchers' box wears an eye").toHaveCount(1);
+    await expect(picture.locator(".friend-watchers .friend-small"), "three smaller faces").toHaveCount(3);
+    await expect(picture.locator(".friend-label").nth(0)).toHaveText("Plays you");
+    await expect(picture.locator(".friend-label").nth(1)).toHaveText("Watch live");
     await page.click(testid("tutorial-next"));
     await expect(page.locator(testid("tutorial-caption"))).toHaveText("Leaving a game counts as a forfeit, so you lose. After a game you can play the same person again with Play again. On a keyboard: keys 1 to 7 pick a column, S arms your shield, E uses Earthquake.");
     await context.close();

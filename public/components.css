@@ -2337,11 +2337,18 @@ input:focus {
   bottom: var(--frame);
 }
 
-/* The friends step's picture takes the board's place and stays inside it. */
+/* The friends step's panel (U177): exactly the board's box. It shares the board's grid cell, so it is stretched to the board's width and
+   height (the board keeps its place, hidden), and it is framed like the board: the same corner radius and dark outline, in a muted navy. */
 .tutorial-board .tutorial-friends {
-  align-self: center;
+  width: min(var(--tut-board-w), 100%);
+  height: 100%;
   min-height: 0;
-  margin: 0;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: var(--field);
+  border: var(--outline-thick);
+  border-radius: var(--radius-board);
+  container-type: size; /* the picture below scales with the panel's own size */
 }
 
 /* The slot under the board: 12px below it, as tall as its tallest tenant (a 44px button), exactly as wide as the board. One tenant
@@ -4171,64 +4178,140 @@ input:focus {
 }
 
 
-/* ---- The friends step's picture (U146): you, the first friend who plays you, the second friend who watches ---- */
+/* ---- The friends step's picture (U146, U177, U178): a share card, two arrows, two players and a group of watchers, scaled to fill the
+   panel. Everything is sized in the panel's own units (cqw, cqh), so it fills the same share of the panel at the phone's and the laptop's
+   board size. Nothing in it is clickable. The picture spans at least 80% of the panel's width and height (Q49). ---- */
 .tutorial-friends {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
-  /* the practice board's room, so the step takes no more space than the others (Q15) */
-  min-height: 140px;
-  margin: 8px 0;
+  justify-content: space-evenly; /* the rows spread over the whole panel's height */
+  padding: 0; /* no padding, so a cqw is 1% of the whole inside width and the rows set their own widths */
+  overflow: hidden;
 }
 
 .tutorial-friends[hidden] {
   display: none;
 }
 
+/* 1. The share card: a code and a Copy link button, shapes only. */
+.friend-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2cqw;
+  width: 90cqw;
+  padding: 3cqh 4cqw;
+  box-sizing: border-box;
+  background: var(--panel);
+  border: var(--outline);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-small);
+}
+
+.friend-code {
+  font: 700 10.5cqw/1 var(--font-display);
+  letter-spacing: 0.1em;
+  color: var(--yellow);
+}
+
+.friend-copy {
+  padding: 2cqh 3.4cqw;
+  font: 700 6cqw/1 var(--font-display);
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--yellow);
+  border: var(--outline);
+  border-radius: var(--radius-button);
+}
+
+/* 2. Two arrows, one over the players and one over the watchers. */
+.friend-arrows {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  width: 90cqw;
+  justify-items: center;
+}
+
+.friend-arrow {
+  width: 12cqw;
+  height: 12cqw;
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 3 and 4. The players on the left and the watchers on the right, with a label under each. */
+.friend-below {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: end;
+  gap: 3cqw;
+  width: 90cqw;
+}
+
+.friend-players,
+.friend-watchers {
+  display: grid;
+  justify-items: center;
+  gap: 2cqh;
+}
+
 .friend-pair {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 1cqw;
 }
 
 .friend {
   display: grid;
   justify-items: center;
-  gap: 8px;
 }
 
 .friend .avatar {
-  width: 52px;
-  height: 52px;
-}
-
-.friend-disc {
-  position: relative;
-  display: inline-block;
-  width: 24px;
-  height: 24px;
+  width: 21cqw;
+  height: 21cqw;
 }
 
 .friend-link {
-  width: 28px;
+  width: 5cqw;
   height: 0;
   border-top: var(--outline);
 }
 
-.friend-eye {
-  width: 28px;
-  height: 28px;
-  fill: var(--text);
-}
-
-.friend[data-role="spectator"] {
-  padding: 8px;
+.friend-group {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  gap: 1.6cqw 2cqw;
+  width: 100%;
+  padding: 2.4cqh 2cqw;
+  box-sizing: border-box;
   border: var(--outline);
   border-style: dashed;
   border-radius: var(--radius-panel);
 }
 
+.friend-eye {
+  width: 11cqw;
+  height: 11cqw;
+  fill: var(--text);
+}
+
+.friend-small {
+  width: 11cqw;
+  height: 11cqw;
+}
+
+.friend-label {
+  font: 700 max(14px, 5.6cqw)/1.1 var(--font-display);
+  color: var(--text);
+  text-align: center;
+}
 
 /* ---- The game screen's fixed vertical order (U157, Q25) ----
    header bar, 16px, versus bar, 16px, the ghost lane (one disc tall), 8px, the board, 12px, the timer bar, 16px, the power-up row.
