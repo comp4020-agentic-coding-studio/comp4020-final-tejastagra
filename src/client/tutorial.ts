@@ -573,30 +573,43 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
   document.body.style.overflow = "hidden";
   document.documentElement.style.overflow = "hidden"; // Safari scrolls the page itself, not the body: nothing scrolls while it is open (U176)
 
-  // ---- U176: on a phone the tutorial is full screen, and its size is worked out here, once, when it opens ----
-  // The card is as tall as the visible screen (100svh), and the stack inside it is the same as the laptop's (U172). If the visible
-  // height is too short for that, the gaps close first (--tut-gap from 1 to 0), then the board gets smaller, never below seven 44px
-  // columns. The instruction area is sized to the longest of the eleven instructions as they really lay out at this width. All of this is
-  // done on open and on a resize or rotation, never on a step, so the board is the same size and in the same place on every step.
+  // ---- U176, U179, U180: on a phone the tutorial is full screen, and its sizes are worked out here, once, when it opens ----
+  // The card is as tall as the visible screen (100svh) and its content block is centred in it. The sizes come in two sets: the large set
+  // (17px counter, 32px title, 19px instructions, Next 52px) when the real text still fits the visible height with 44px board columns and
+  // a 24px margin above and below, and otherwise the short set (15px, 26px, 17px, Next 48px, the floors). On a short screen the gaps
+  // close first, then the board gets smaller (never below seven 44px columns), then the margin shrinks below 24px (to what is left, with
+  // the ghost lane kept), and only when even that is too tall does the last resort apply (Next and Skip on one row, smaller text).
+  // The instruction area is sized to the longest of the eleven instructions as they really lay out at this width and size. All of this
+  // is done on open and on a resize or rotation, never on a step, so the board is the same size and in the same place on every step.
   const phone = window.matchMedia("(max-width: 599px)");
   const BOARD_RATIO = 0.87; // a board is this much taller than it is wide
   const MIN_BOARD = 308; // seven 44px columns with their gaps and padding (docs/design.md)
+  const FULL_MARGIN = 24; // the space above and below the content block (U180)
+  const NEXT_H = { large: 52, short: 48, tight: 44 } as const;
   function fitToScreen(): void {
     if (!phone.matches) {
-      for (const name of ["--tut-gap", "--tut-top", "--tut-board-w"]) root.style.removeProperty(name); // a laptop keeps its card exactly as it is
+      for (const name of ["--tut-gap", "--tut-top", "--tut-board-w", "--tut-margin"]) root.style.removeProperty(name); // a laptop keeps its card exactly as it is
       delete root.dataset.tight;
+      delete root.dataset.size;
       return;
     }
     const card = root.querySelector<HTMLElement>(".tutorial-card")!;
     const lane = themeNumber("--ghost-size");
-    // How the stack would be, for one layout (tight or not): the height the instruction area needs, and the height left for the board.
-    const measure = (tight: boolean) => {
-      if (tight) root.dataset.tight = "true";
-      else delete root.dataset.tight;
+    // The stack for one layout: the height the instruction area needs for the longest instruction, and everything else that has to fit.
+    const measure = (set: "large" | "short" | "tight") => {
+      if (set === "tight") {
+        root.dataset.tight = "true";
+        delete root.dataset.size;
+      } else {
+        delete root.dataset.tight;
+        root.dataset.size = set;
+      }
+      root.style.setProperty("--tut-margin", `${FULL_MARGIN}px`);
+      root.style.setProperty("--tut-gap", "1");
       const cs = getComputedStyle(card);
       const innerW = card.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      const innerH = card.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-      // The longest instruction, laid out at this width in a probe that looks like the real one.
+      // The screen's height less the safe areas, which stay clear whatever the margin is.
+      const safe = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) - 2 * FULL_MARGIN;
       const area = card.querySelector<HTMLElement>(".tutorial-top")!;
       const areaCs = getComputedStyle(area);
       const probe = document.createElement("div");
@@ -613,36 +626,53 @@ export async function showTutorial(options: { mode?: "match" | "replay"; onClose
       }
       probe.remove();
       top = Math.ceil(top);
-      // Next and Skip are one row when tight, two when not.
-      const buttons = tight ? 44 + 44 : 44 + 44 + 44;
+      const next = NEXT_H[set];
+      // Next and Skip are one row in the last resort, two otherwise.
+      const buttons = set === "tight" ? 44 + 44 : 44 + next + 44; // the slot, Next, Skip
       // What sits between the parts at gap 1: the lane's 16, the board's 8, the slot's 12, and above Next 24 and between Next and Skip 12
-      // (tight: Next and Skip are one row, so their 4px goes above the row and nothing sits between them).
-      const gaps = tight ? 16 + 8 + 12 + 4 : 16 + 8 + 12 + 24 + 12;
-      return { innerW, top, free: innerH - top - lane - buttons, gaps };
+      // (the last resort: Next and Skip are one row, so their 4px goes above the row and nothing sits between them).
+      const gaps = set === "tight" ? 16 + 8 + 12 + 4 : 16 + 8 + 12 + 24 + 12;
+      const marginFull = set === "tight" ? 4 : FULL_MARGIN;
+      return { innerW, top, gaps, buttons, lane, marginFull, height: card.clientHeight - safe, safe };
     };
-    let m = measure(false);
-    let tight = false;
     const widest = (w: number) => Math.min(w, 316); // the board is never wider than the screen allows
-    // 1. Close the gaps, with the board at its full width. 2. If even no gaps is too tall, go tight (one row, smaller text).
-    // 3. If it is still too tall, make the board smaller, down to its seven 44px columns.
-    if (m.free < m.gaps + widest(m.innerW) * BOARD_RATIO) {
-      const noGaps = m.free - widest(m.innerW) * BOARD_RATIO;
-      if (noGaps < 0) {
-        m = measure(true);
-        tight = true;
+    // Does a set fit with its gaps closed, a board with 44px columns and its full margin above and below?
+    const fits = (m: ReturnType<typeof measure>) => m.height >= 2 * m.marginFull + m.top + m.lane + m.buttons + MIN_BOARD * BOARD_RATIO;
+    let m = measure("large");
+    let set: "large" | "short" | "tight" = "large";
+    if (!fits(m)) {
+      // The short set: closing the gaps and then the margin is allowed, so ask whether it fits with the margin at its smallest.
+      m = measure("short");
+      set = "short";
+      const nothingLeft = m.height < m.top + m.lane + m.buttons + MIN_BOARD * BOARD_RATIO;
+      if (nothingLeft) {
+        m = measure("tight");
+        set = "tight";
       }
     }
+    // Now fit the board, the gaps and the margin into the height, in the order the docs give: gaps, then the board, then the margin.
     const width = widest(m.innerW);
-    let gap = 1;
     let boardW = width;
-    if (m.free < m.gaps + width * BOARD_RATIO) {
-      gap = Math.max(0, (m.free - width * BOARD_RATIO) / m.gaps);
-      if (gap === 0) boardW = Math.max(MIN_BOARD, Math.min(width, m.free / BOARD_RATIO));
+    let gap = 1;
+    let margin = m.marginFull;
+    const room = m.height - m.top - m.lane - m.buttons; // for the margins, the gaps and the board
+    const wanted = 2 * margin + m.gaps + boardW * BOARD_RATIO;
+    if (room < wanted) {
+      // 1. close the gaps
+      gap = Math.max(0, (room - 2 * margin - boardW * BOARD_RATIO) / m.gaps);
+      if (gap === 0) {
+        // 2. make the board smaller, down to its seven 44px columns
+        boardW = Math.max(MIN_BOARD, Math.min(width, (room - 2 * margin) / BOARD_RATIO));
+        // 3. then let the margin shrink below its full size, to what is left
+        if ((room - 2 * margin) / BOARD_RATIO < MIN_BOARD) margin = Math.max(0, (room - MIN_BOARD * BOARD_RATIO) / 2);
+      }
     }
+    if (set === "tight") delete root.dataset.size;
+    else root.dataset.size = set;
     root.style.setProperty("--tut-top", `${m.top}px`);
     root.style.setProperty("--tut-gap", String(Math.round(gap * 1000) / 1000));
+    root.style.setProperty("--tut-margin", `${Math.floor(margin * 10) / 10}px`);
     root.style.setProperty("--tut-board-w", `${Math.floor(boardW)}px`);
-    void tight;
   }
   fitToScreen();
   window.addEventListener("resize", fitToScreen);

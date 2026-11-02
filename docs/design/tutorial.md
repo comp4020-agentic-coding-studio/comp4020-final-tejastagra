@@ -88,3 +88,21 @@ The tutorial is an overlay over a practice board against a scripted computer. It
   4. **beside them**, a **dashed box with the eye icon** holding a group of **three smaller faces**, labelled **"Watch live"**.
   Everything is scaled together so the whole picture fills the panel (U177). The labels are real text, at least 14px. On a phone the picture is the same, scaled to the panel's width; it is the same size and place at both viewports' own board sizes (phone 316px wide, laptop 310px).
 
+## Phone text sizes, centring and margin (added 2 November 2026, ADR 0018 amended)
+
+- **U179** *On phones only (narrower than 600px); a laptop is exactly as it was.* The tutorial has **two sets of sizes** and uses the larger one when the visible height allows it:
+
+  | | Large set | Short set |
+  | --- | --- | --- |
+  | Step counter | 17px | 15px |
+  | Title | 32px | 26px |
+  | Instructions | 19px | 17px |
+  | Next | exactly the board's width, 52px tall, 20px text | exactly the board's width, 48px tall, 20px text |
+  | Skip tutorial | 17px, tappable area at least 44px tall | 17px, tappable area at least 44px tall |
+
+  The short set is the floor for every size (15px, 26px, 17px, 48px); nothing goes below it. The instruction wording never changes.
+  **The threshold** is where the large set still fits with 44px board columns and a 24px margin above and below: **a visible height of 728px** on a 390px-wide phone (the longest instruction is 7 lines at 19px there; 725px on a 402px-wide phone, where it is 5 lines). The page measures it when the tutorial opens, from the real text, and uses the large set from there up: **390 x 844 and 402 x 874 get the large set; 390 x 664, 375 x 667 and 402 x 720 (an iPhone 17 Pro in Safari with its toolbars showing) get the short set.**
+- **U180** *The whole content block, from the step counter to Skip tutorial, is centred vertically on the screen*, with the same space above and below it (within 4px), **at least 24px** each plus `env(safe-area-inset-top)` and `env(safe-area-inset-bottom)`. The block's own layout, and the board's size and position inside it, are the same on every step (the instruction area is still the height of the longest instruction, with the text at the top of it).
+  **On short phones only (below the threshold) the margin may shrink to what is left, below 24px** (decided with Tejas, 2 November 2026: Option 1; the ghost lane is kept and the board keeps its seven 44px columns). With the short set the stack is 626px, so the margin is **19px** each at 390 x 664 and **20px** each at 375 x 667. At 402 x 720 there is 94px to spare, so the full 24px margin holds there (47px, with the gaps closed first).
+  **The order the height is found in**, on a short screen: (1) the gaps (16, 8, 12, 24 and 12px) close; (2) the board gets smaller, never below 308px (seven 44px columns); (3) only then does the margin shrink below 24px; (4) below about 626px visible height, where even that does not fit (a 320 x 568 phone), the last resort of U176 applies: Next and Skip tutorial share one row and the instructions use the smaller text, and the sizes above give way.
+

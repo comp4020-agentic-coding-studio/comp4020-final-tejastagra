@@ -2771,3 +2771,73 @@ test.describe("Q49 U177 U178 an illustration sits in a panel exactly the board's
   }
 });
 
+// ---- The phone tutorial's sizes, centring and margin (U179, U180, Q50, Q51) ----
+// Read from the browser with getComputedStyle and getBoundingClientRect, never from the CSS file: the earlier checks missed a size that
+// never applied because they did not look at what the page really drew.
+
+const PHONE_FIVE = [PHONE, { width: 390, height: 664 }, { width: 375, height: 667 }, { width: 402, height: 874 }, { width: 402, height: 720 }];
+const THRESHOLD = 728; // the visible height at and above which the large set fits (U179); 402-wide phones have 5-line text and need 725
+
+test.describe("Q50 Q51 U179 U180 the phone tutorial's sizes, centring and margin", () => {
+  for (const viewport of PHONE_FIVE) {
+    test(`Q50 Q51 all 11 steps at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      test.setTimeout(120_000);
+      const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+      await openTutorial(page);
+      const problems: string[] = [];
+      const large = viewport.height >= THRESHOLD;
+      const want = large ? { counter: 17, title: 32, text: 19, nextH: 52 } : { counter: 15, title: 26, text: 17, nextH: 48 };
+      // The margin: at least 24px at or above the threshold, and on the short phones where it cannot be, the most the screen leaves.
+      // At 402 x 720 there is room for the full 24px, so the allowance is only for the two narrowest short phones.
+      const smallest = viewport.width === 402 || large ? 24 : 18.5;
+      for (let step = 1; step <= 11; step++) {
+        await doTutorialStep(page, step);
+        const where = `step ${step}`;
+        const m = await page.evaluate(() => {
+          const q = (sel: string) => document.querySelector<HTMLElement>(sel)!;
+          const box = (el: Element) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
+          const px = (sel: string) => parseFloat(getComputedStyle(q(sel)).fontSize);
+          const next = q('[data-testid="tutorial-next"]');
+          const root = q('[data-testid="tutorial"]');
+          const probe = document.createElement("div");
+          probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top);width:1px";
+          document.body.append(probe);
+          const safeTop = probe.getBoundingClientRect().height;
+          probe.style.height = "env(safe-area-inset-bottom)";
+          const safeBottom = probe.getBoundingClientRect().height;
+          probe.remove();
+          return {
+            vh: innerHeight,
+            counter: px('[data-testid="tutorial-progress"]'), title: px('[data-testid="tutorial-title"]'), text: px('[data-testid="tutorial-caption"]'),
+            nextFont: px('[data-testid="tutorial-next"]'), skipFont: px('[data-testid="tutorial-skip"]'),
+            next: box(next), skip: box(q('[data-testid="tutorial-skip"]')), board: box(q(".tutorial-board .board-wrap")),
+            first: box(q('[data-testid="tutorial-progress"]')),
+            column: q('[data-testid="tutorial-column-0"]')?.getBoundingClientRect().width ?? 0,
+            tight: root.dataset.tight === "true",
+            safeTop, safeBottom,
+          };
+        });
+        if (m.tight) problems.push(`${where}: the last resort layout is on, which no phone in this check should need`);
+        // Q51: the computed sizes.
+        if (Math.abs(m.counter - want.counter) > 0.1) problems.push(`${where}: the step counter is ${m.counter}px, not ${want.counter}px`);
+        if (Math.abs(m.title - want.title) > 0.1) problems.push(`${where}: the title is ${m.title}px, not ${want.title}px`);
+        if (Math.abs(m.text - want.text) > 0.1) problems.push(`${where}: the instructions are ${m.text}px, not ${want.text}px`);
+        if (m.next.h < want.nextH - 0.5) problems.push(`${where}: Next is ${m.next.h.toFixed(1)}px tall, at least ${want.nextH}px`);
+        if (Math.abs(m.nextFont - 20) > 0.1) problems.push(`${where}: Next's text is ${m.nextFont}px, not 20px`);
+        if (Math.abs(m.next.w - m.board.w) > 1) problems.push(`${where}: Next is ${m.next.w.toFixed(1)}px wide, the board is ${m.board.w.toFixed(1)}px`);
+        if (Math.abs(m.skipFont - 17) > 0.1) problems.push(`${where}: Skip tutorial's text is ${m.skipFont}px, not 17px`);
+        if (m.skip.h < 43.5) problems.push(`${where}: Skip tutorial's tappable area is ${m.skip.h.toFixed(1)}px tall, at least 44px`);
+        if (m.column < 43.5) problems.push(`${where}: a board column is ${m.column.toFixed(1)}px wide, at least 44px`);
+        // Q50: the block is centred, with a margin. The space above the step counter and below Skip tutorial, less the safe areas.
+        const above = m.first.y - m.safeTop;
+        const below = m.vh - (m.skip.y + m.skip.h) - m.safeBottom;
+        if (Math.abs(above - below) > 4) problems.push(`${where}: ${above.toFixed(1)}px above the block and ${below.toFixed(1)}px below it`);
+        if (above < smallest - 0.5 || below < smallest - 0.5) problems.push(`${where}: the margin is ${above.toFixed(1)}px above and ${below.toFixed(1)}px below, at least ${smallest}px`);
+        if (step < 11) await page.locator(testid("tutorial-next")).click();
+      }
+      expect([...new Set(problems)]).toEqual([]);
+      await context.close();
+    });
+  }
+});
+

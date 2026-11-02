@@ -2,6 +2,16 @@
 
 For a fresh Claude Code session. Read `START-HERE.md` and `CLAUDE.md` first, then this.
 
+## The ninth fix list of 2 November 2026: phone sizes, centring and the margin (read this first)
+
+Foreground, harness first, no background or general-purpose agents. **Nothing is pushed or deployed.** `pnpm check:fast` passes (417 tests).
+
+**What changed (U179, U180, ADR 0018 amended, Q50, Q51, C62).** On phones only: the large set of sizes (17px counter, 32px title, 19px instructions, Next 52px and the board's width, 20px text; Skip 17px, 44px tall) at a visible height of 728px and above, and the short set (15 / 26 / 17px, Next 48px, your floors) below it. The content block is centred with the same space above and below. The margin is 24px, and **on 390 x 664 and 375 x 667 it shrinks to 19px and 20px** (Option 1; the ghost lane and 44px columns are kept). Measured: 390 x 664 has 19.2px above and below, 375 x 667 has 20.7px, 402 x 720 has 24.2px, 390 x 844 has 42.8px, 402 x 874 has 59.3px. 320 x 568 still uses the old last resort (smaller text, Next and Skip on one row).
+
+**Why the sizes had not applied.** They were never built: I stopped each time because they did not fit and asked. The checks missed it because they never read the font size. Q51 now reads computed styles at five phone sizes on all 11 steps; it fails with the size rules removed and Q50 fails without centring.
+
+**Not tested.** A real iPhone: the safe-area insets are 0 in the test browser, so the margin is tighter on a real phone. Please check Safari. The full suites and `/visual-qa` were not run, by your instruction.
+
 ## The eighth fix list of 2 November 2026: the phone tutorial is full screen (read this first)
 
 Foreground, harness first, no background or general-purpose agents. **Nothing is pushed or deployed.** `pnpm check:fast` passes (417 tests). Commit: see `git log` (the one after `95c223f`).

@@ -2427,7 +2427,8 @@ input:focus {
 @media (max-width: 599px) {
   .tutorial {
     --tut-gap: 1; /* 1 is the gaps of U172; 0 is no gaps at all. Set by the script (src/client/tutorial.ts), default here. */
-    --tut-pad-y: 10px;
+    --tut-margin: 24px; /* the space above and below the content block, before the safe areas (U180). Set by the script. */
+    --tut-pad-y: 0px;
     --tut-pad-x: 16px;
     display: block;
     height: 100svh;
@@ -2436,16 +2437,68 @@ input:focus {
     overflow: hidden;
   }
 
+  /* The card is the whole visible screen, and its content block is centred in it (U180): the same space above and below, at least
+     the margin plus the safe areas. justify-content centres the block; the block is as tall as its parts, so nothing inside it moves. */
   .tutorial-card {
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     width: 100%;
     height: 100svh;
     margin: 0;
-    padding: calc(var(--tut-pad-y) + env(safe-area-inset-top)) calc(var(--tut-pad-x) + env(safe-area-inset-right)) calc(var(--tut-pad-y) + env(safe-area-inset-bottom)) calc(var(--tut-pad-x) + env(safe-area-inset-left));
+    padding: calc(var(--tut-margin) + env(safe-area-inset-top)) calc(var(--tut-pad-x) + env(safe-area-inset-right)) calc(var(--tut-margin) + env(safe-area-inset-bottom)) calc(var(--tut-pad-x) + env(safe-area-inset-left));
     border: 0;
     border-radius: 0;
     box-shadow: none;
     overflow: hidden;
+  }
+
+  .tutorial-card > * {
+    flex: none;
+  }
+
+  /* The two sets of text sizes (U179). The script picks one when the tutorial opens, from the visible height. */
+  .tutorial[data-size="large"] .tutorial-progress {
+    font-size: 17px;
+  }
+
+  .tutorial[data-size="large"] .tutorial-card h2 {
+    font-size: 32px;
+  }
+
+  .tutorial[data-size="large"] .tutorial-caption {
+    font-size: 19px;
+  }
+
+  .tutorial[data-size="short"] .tutorial-progress {
+    font-size: 15px;
+  }
+
+  .tutorial[data-size="short"] .tutorial-card h2 {
+    font-size: 26px;
+  }
+
+  .tutorial[data-size="short"] .tutorial-caption {
+    font-size: 17px;
+  }
+
+  /* Next is exactly the board's width and at least 52px tall (the large set) or 48px (the short set), with 20px text. Skip tutorial is
+     17px with a box at least 44px tall, centred below it. */
+  .tutorial-actions .btn[data-testid="tutorial-next"] {
+    width: min(var(--tut-board-w), 100%);
+    font-size: 20px;
+    height: var(--tut-next-h, 52px);
+    min-height: var(--tut-next-h, 52px);
+  }
+
+  .tutorial[data-size="short"] {
+    --tut-next-h: 48px;
+  }
+
+  .tutorial-actions .link-button {
+    font-size: 17px;
+    min-height: 44px;
   }
 
   .tutorial-lane {
@@ -2465,15 +2518,25 @@ input:focus {
     gap: calc(12px * var(--tut-gap));
   }
 
-  /* Still too short with every gap closed (an iPhone SE in Safari, or a 320 x 568 phone): the script sets data-tight, Next and Skip
-     tutorial share one row and the instructions use the smaller text, the same last resorts the 320px layout always had. The board
-     keeps its seven 44px columns. */
+  /* Still too short with every gap closed and the margin at its smallest (a 320 x 568 phone): the script sets data-tight, Next and Skip
+     tutorial share one row and the instructions use the smaller text, the last resort U176 always had. The board keeps its seven 44px
+     columns, and the sizes of U179 give way here. */
   .tutorial[data-tight="true"] {
     --tut-pad-x: 0px;
+    --tut-margin: 4px;
+    --tut-next-h: 44px;
   }
 
   .tutorial[data-tight="true"] .tutorial-top {
     padding: 0 8px;
+  }
+
+  .tutorial[data-tight="true"] .tutorial-progress {
+    font-size: 13.6px;
+  }
+
+  .tutorial[data-tight="true"] .tutorial-card h2 {
+    font-size: 24px;
   }
 
   .tutorial[data-tight="true"] .tutorial-caption {
@@ -2485,6 +2548,15 @@ input:focus {
     align-items: center;
     margin-top: calc(4px * var(--tut-gap));
     gap: 8px;
+  }
+
+  .tutorial[data-tight="true"] .tutorial-actions .btn[data-testid="tutorial-next"] {
+    width: auto;
+    font-size: 17.6px;
+  }
+
+  .tutorial[data-tight="true"] .tutorial-actions .link-button {
+    font-size: 16px;
   }
 }
 

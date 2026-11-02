@@ -171,6 +171,8 @@
   --tut-top: 204px;
   --tut-board-w: 316px;
   --tut-gap: 1; /* the phone tutorial's gaps as a fraction of U172's (1 is all of them, 0 none); the script lowers it on a short screen (U176) */
+  --tut-margin: 24px; /* the space above and below the phone tutorial's content block, before the safe areas; the script lowers it on a short phone (U180) */
+  --tut-next-h: 52px; /* Next's height on a phone: 52px (large set), 48px (short set), 44px (the last resort) (U179) */
   --list-width: 560px; /* forms and lists are never wider than this (U60) */
   --vv-top: 0px; /* the visible area above the phone keyboard; src/client/dialog.ts sets both on an open popup (Q21, U91) */
   --vv-height: 100%;
