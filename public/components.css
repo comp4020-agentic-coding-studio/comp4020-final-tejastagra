@@ -1883,12 +1883,19 @@ input:focus {
   font-size: 1rem;
 }
 
-/* A link game's spectator is told why they are watching, in place of the banner (U92). One line, in a smaller type on a phone. */
+/* A link game's spectator is told why they are watching, in place of the banner (U92, U173). As wide as the board, with
+   comfortable padding, centred text that wraps to at most two lines on a phone and one on a laptop, so it looks
+   deliberately designed rather than squeezed. */
 .spectator-notice {
   background: var(--panel);
   color: var(--text);
+  width: 100%;
   max-width: 100%;
-  white-space: nowrap;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .spectator-notice[hidden] {
@@ -2122,9 +2129,12 @@ input:focus {
     text-overflow: ellipsis;
   }
 
+  /* U173: still comfortably padded and centred at 320px, sized to wrap to at most two lines rather than being squeezed.
+     Overrides the status row's one-line-per-item rule above: this chip is the one item meant to wrap. */
   .watching .spectator-notice {
-    font-size: 0.66rem;
-    padding-inline: 6px;
+    font-size: 0.78rem;
+    padding: 12px 16px;
+    white-space: normal;
   }
 
   /* "Watch another game" is the longest label (U79). At 320px the arrow icon goes, so the words fit on two lines. */

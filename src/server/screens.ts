@@ -192,7 +192,7 @@ export function watchScreen(ctx: ScreenContext): string {
       <div class="stage" data-testid="game-group">
         <div class="status-row">
           <p class="watching-banner" data-testid="watching-banner" role="status">Watching live</p>
-          <p class="watching-banner spectator-notice" data-testid="spectator-notice" role="status" hidden>This game already has two players, so you're watching.</p>
+          <p class="watching-banner spectator-notice" data-testid="spectator-notice" role="status" hidden>This game already has two players, so you are spectating.</p>
           <p class="watcher-count" data-testid="watching-count" aria-live="off">${EYE_ICON}<span data-testid="watching-count-text">1 watching</span></p>
           <p class="shrink-warning" data-testid="shrink-warning" role="status" hidden><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 1 5 13h5l-3 10 12-14h-6z"/></svg><span data-testid="shrink-warning-text"></span></p>
         </div>

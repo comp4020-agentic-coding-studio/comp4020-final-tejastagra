@@ -218,10 +218,10 @@ test.describe("The watching screen (U78 to U83)", () => {
     const three = await newPlayer(browser, NARROW, { reducedMotion: true });
     await three.page.goto(`/g/${code}`);
     await three.page.waitForURL(/\/watch\?game=.*via=link/);
-    await expect(three.page.locator(testid("spectator-notice"))).toHaveText("This game already has two players, so you're watching.");
+    await expect(three.page.locator(testid("spectator-notice"))).toHaveText("This game already has two players, so you are spectating.");
     await expect(three.page.locator(testid("name-a"))).not.toHaveText("Player");
     const notice = (await three.page.locator(testid("spectator-notice")).boundingBox())!;
-    expect(notice.height, "the notice is one line at 320 wide").toBeLessThan(30);
+    expect(notice.height, "at most two lines at 320 wide").toBeLessThan(80);
     expect(notice.x).toBeGreaterThanOrEqual(0);
     expect(notice.x + notice.width, "inside the screen").toBeLessThanOrEqual(320);
     expect(await three.page.locator(testid("spectator-notice")).evaluate((e) => e.scrollWidth <= e.clientWidth), "not cut off").toBe(true);
@@ -232,6 +232,36 @@ test.describe("The watching screen (U78 to U83)", () => {
     await expect(one.page.locator(testid("watcher-count-text"))).toHaveText("1");
     for (const c of [one, two, three]) await c.context.close();
   });
+
+  for (const viewport of [PHONE, LAPTOP]) {
+    test(`U92 and U173 the spectator chip is as wide as the board, at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+      const one = await newPlayer(browser, viewport, { reducedMotion: true });
+      const code = (await (await one.page.request.post("/api/games")).json()).code as string;
+      await one.page.goto(`/g/${code}`);
+      const two = await newPlayer(browser, viewport, { reducedMotion: true });
+      await two.page.goto(`/g/${code}`);
+      await waitForRound(one.page, 1);
+      await waitForRound(two.page, 1);
+      const three = await newPlayer(browser, viewport, { reducedMotion: true });
+      await three.page.goto(`/g/${code}`);
+      await three.page.waitForURL(/\/watch\?game=.*via=link/);
+      const notice = three.page.locator(testid("spectator-notice"));
+      await expect(notice).toHaveText("This game already has two players, so you are spectating.");
+      const noticeBox = (await notice.boundingBox())!;
+      const boardBox = (await three.page.locator(testid("board-wrap")).boundingBox())!;
+      expect(Math.abs(noticeBox.width - boardBox.width), "the chip's width matches the board's").toBeLessThanOrEqual(2);
+      expect(await notice.evaluate((e) => e.scrollWidth <= e.clientWidth + 1), "the text is not cut off").toBe(true);
+      // The number of wrapped lines the text itself takes, read from the text node's own client rects (one per visual line),
+      // not the chip's padded box, which is not a multiple of the line height (U173).
+      const lines = await notice.evaluate((e) => {
+        const range = document.createRange();
+        range.selectNodeContents(e);
+        return range.getClientRects().length;
+      });
+      expect(lines, viewport === LAPTOP ? "one line on a laptop" : "at most two lines on a phone").toBeLessThanOrEqual(viewport === LAPTOP ? 1 : 2);
+      for (const c of [one, two, three]) await c.context.close();
+    });
+  }
 
   test("E9 and U84 a second spectator makes it 2 for the player and for the first spectator, and 1 again when they leave", async ({ browser }) => {
     const { player, spectator, code } = await watching(browser, PHONE);

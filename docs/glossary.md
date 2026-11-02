@@ -18,7 +18,7 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Ceiling** | The top of the open area. It drops after rounds 12 and 20, closing the top row | roof, lid |
 | **Rock** | The solid piece that fills a closed row. It belongs to nobody and is different from rubble | stone, wall block |
 | **Open area** | The rows still in play | playing area, grid |
-| **Spectator** | Someone watching a game without playing in it. Never a player, never has a seat | viewer, observer, guest (a guest is a kind of player) |
+| **Spectator** | Someone watching a game without playing in it. Never a player, never has a seat. The notice shown to a link game's spectator says they are **spectating** (changed 2 November 2026: "This game already has two players, so you are spectating.") | viewer, observer, guest (a guest is a kind of player) |
 | **Link game** | A game made with Play a friend, played through its link or 6-character code. The creator is player 1, the first other person is player 2 and everyone after watches | friend game (in code and docs only), private game |
 | **Red** and **Yellow** | The two players' colours in a game. Red discs have a ring marker and yellow discs a cross marker. The server decides who is which (R93) | your colour, their colour, player colour |
 | **Countdown** | The 3 seconds before round 1, which tell each player their colour (R97) | get ready (only the countdown's own words) |
