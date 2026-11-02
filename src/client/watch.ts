@@ -103,10 +103,9 @@ function powerUps(state: GameState): void {
   }
 }
 
+// The warning banner text is no longer shown (Tejas, 2 November 2026); the crack flash (U69) still warns.
 function warning(state: GameState): void {
   const due = state.status === "playing" && ceilingDue(state);
-  $("shrink-warning").hidden = !due;
-  setText("shrink-warning-text", due ? "The ceiling drops after this round" : "");
   markDoomed(board, state.rows, due, rowsAt(state.round + 1));
 }
 

@@ -196,7 +196,7 @@ C1 to C7, S1 to S3, G1 to G3. See the files. C9 adds: the computer plays only op
 | U19 to U30 | Reveal within one second, end popups, reduced motion | `e2e/design.spec.ts` | passing |
 | U31 to U40 | Home menu content and the phone and laptop layouts | `e2e/design.spec.ts` | passing |
 | U41 to U48 | Tutorial steps, skip and replay | `e2e/design.spec.ts` | passing |
-| U68, U69 | The warning one round before a collapse and the flashing cells | `e2e/shrinking-board.spec.ts` | passing |
+| U68, U69 | The warning banner stays hidden in gameplay and spectating (Tejas, 2 November 2026); the flashing cells one round before a collapse still warn | `e2e/shrinking-board.spec.ts` | passing |
 | U70, U71, U73 | The collapse to rock within one second, the rock look, its reduced-motion version and the result line | `e2e/shrinking-board.spec.ts` | passing |
 | U72 | A full column cannot be chosen; no column is ever closed | `e2e/shrinking-board.spec.ts` | passing |
 | U74 | The tutorial's shrinking board step | `e2e/shrinking-board.spec.ts` | passing |

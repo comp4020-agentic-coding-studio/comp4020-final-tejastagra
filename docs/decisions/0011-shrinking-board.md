@@ -1,7 +1,11 @@
 # 0011. Shrinking board: the playable area closes in over rounds
 
-- **Status:** Accepted, amended on 27 October 2026 after playtesting (see "Playtest finding": the walls were removed and the ceiling slowed down)
-- **Decided by:** Tejas (request of 27 October 2026 for the shrinking board, and his amendment the same day); the details below were chosen from docs/rules.md and docs/design/
+- **Status:** Accepted, amended on 27 October 2026 after playtesting (see "Playtest finding": the walls were removed and the ceiling slowed down), amended again on 2 November 2026 (the warning banner no longer shows in gameplay, see "Second amendment" below)
+- **Decided by:** Tejas (request of 27 October 2026 for the shrinking board, and his amendment the same day; his request of 2 November 2026 to drop the banner); the details below were chosen from docs/rules.md and docs/design/
+
+## Second amendment: the warning banner no longer shows
+
+Tejas asked, playing round 11, to remove the "The ceiling drops after this round" banner from gameplay. The ceiling itself is unchanged: it still drops after rounds 12, 20 and so on (R61), and the top row still flashes with a crack pattern the round before (U69), so a player who watches the board still gets a warning. Only the yellow text banner is gone from the game and watching screens; the tutorial keeps it (step 8 still teaches what the flash means). `docs/design/shrinking-board.md` U68 and `spec/CHECKS.md` record the change; no rule in `docs/rules.md` needed to change, since the banner was design (U68), not a rule.
 
 ## Playtest finding and the amended decision
 

@@ -367,14 +367,12 @@ function paintClosed(rows: number): void {
   }
 }
 
-// U68, U69: the round before the ceiling drops, a banner says so and the top row flashes a crack
-// pattern. It comes from the engine's public schedule only: it says nothing about a choice, and both
-// players see the same (R22). Hidden once the game is over.
+// U69: the round before the ceiling drops, the top row flashes a crack pattern. The warning banner
+// text is no longer shown in gameplay (Tejas, 2 November 2026); the flash alone still warns players.
+// It comes from the engine's public schedule only: it says nothing about a choice, and both players
+// see the same (R22).
 function showWarning(state: State): void {
-  const banner = $("shrink-warning");
   const due = state.status === "playing" && ceilingDue(state as unknown as GameState);
-  banner.hidden = !due;
-  setText("shrink-warning-text", due ? "The ceiling drops after this round" : "");
   markDoomed(board, state.rows, due, rowsAt(state.round + 1));
 }
 

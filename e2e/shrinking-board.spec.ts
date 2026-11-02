@@ -33,18 +33,17 @@ const closedCells = (page: Page) => page.locator('[data-testid^="cell-"][data-cl
 const doomedCells = (page: Page) => page.locator('[data-testid^="cell-"][data-doomed="true"]');
 
 test.describe("The warning (U68, U69)", () => {
-  test("U68 and U69 nothing warns before round 12; the round before the first drop a banner says so and the top row flashes; it is gone a round later", async ({ browser }) => {
+  test("U68 the banner never shows in gameplay; U69 nothing flashes before round 12, the round before the first drop the top row flashes, and it is gone a round later", async ({ browser }) => {
     const { one, two } = await twoPlayers(browser, { reducedMotion: true });
     for (const page of [one.page, two.page]) {
       await expect(page.locator(testid("shrink-warning"))).toBeHidden();
       expect(await doomedCells(page).count()).toBe(0);
     }
     await crashRounds(one.page, two.page, 1, 10, everyColumn);
-    await expect(one.page.locator(testid("shrink-warning")), "no warning in round 11").toBeHidden();
+    await expect(one.page.locator(testid("shrink-warning")), "no banner in round 11").toBeHidden();
     await crashRounds(one.page, two.page, 11, 11, everyColumn);
     for (const page of [one.page, two.page]) {
-      await expect(page.locator(testid("shrink-warning"))).toBeVisible();
-      await expect(page.locator(testid("shrink-warning-text"))).toHaveText("The ceiling drops after this round");
+      await expect(page.locator(testid("shrink-warning")), "the banner stays hidden (Tejas, 2 November 2026)").toBeHidden();
       expect(await doomedCells(page).count(), "the seven cells of the top row flash").toBe(7);
       for (let c = 0; c < 7; c++) await expect(page.locator(testid(`cell-${c}-5`))).toHaveAttribute("data-doomed", "true");
     }
@@ -57,25 +56,26 @@ test.describe("The warning (U68, U69)", () => {
     await two.context.close();
   });
 
-  test("U68 the warning comes again before the second drop (round 20), flashing row 5, and never again once the board is at 4 rows", async ({ browser }) => {
+  test("U69 the top row flashes again before the second drop (round 20), flashing row 5, and never again once the board is at 4 rows", async ({ browser }) => {
     const { one, two } = await twoPlayers(browser, { reducedMotion: true });
     await crashRounds(one.page, two.page, 1, 19, everyColumn);
-    await expect(one.page.locator(testid("shrink-warning-text"))).toHaveText("The ceiling drops after this round");
+    await expect(one.page.locator(testid("shrink-warning"))).toBeHidden();
     expect(await doomedCells(one.page).count()).toBe(7);
     for (let c = 0; c < 7; c++) await expect(one.page.locator(testid(`cell-${c}-4`))).toHaveAttribute("data-doomed", "true");
     await crashRounds(one.page, two.page, 20, 20, everyColumn);
     expect(await closedCells(one.page).count(), "two rows of rock").toBe(14);
-    // Round 28 is on the schedule, but the board is at its floor: there is no warning in round 27, and none after.
+    // Round 28 is on the schedule, but the board is at its floor: there is no flash in round 27, and none after.
     await crashRounds(one.page, two.page, 21, 26, everyColumn);
-    await expect(one.page.locator(testid("shrink-warning")), "no warning before round 28").toBeHidden();
+    expect(await doomedCells(one.page).count(), "no flash before round 28").toBe(0);
     await one.context.close();
     await two.context.close();
   });
 
-  test("U68 the warning is the same on both screens and names no choice (R22)", async ({ browser }) => {
+  test("U69 the top row flash is the same on both screens and names no choice (R22)", async ({ browser }) => {
     const { one, two } = await twoPlayers(browser, { reducedMotion: true });
     await crashRounds(one.page, two.page, 1, 11, everyColumn);
-    expect(await one.page.locator(testid("shrink-warning")).innerText()).toBe(await two.page.locator(testid("shrink-warning")).innerText());
+    expect(await doomedCells(one.page).count()).toBe(await doomedCells(two.page).count());
+    for (let c = 0; c < 7; c++) await expect(two.page.locator(testid(`cell-${c}-5`))).toHaveAttribute("data-doomed", "true");
     await one.context.close();
     await two.context.close();
   });
@@ -242,7 +242,7 @@ test.describe("A reload shows the shrunk board (R24)", () => {
 });
 
 test.describe("The phone layout does not change (promise 4)", () => {
-  test("U68 and U75 with the widest nicknames a player can choose, the banner leaves the board and timer on the first screen at 320 x 568", async ({ browser }) => {
+  test("U68 and U75 with the widest nicknames a player can choose, the hidden banner costs no room and the board and timer stay on the first screen at 320 x 568", async ({ browser }) => {
     // R28 allows 16 letters, and a wide name wraps to three lines in the 127px panel: that is the worst case the
     // first-screen rule has to hold for (correction C19).
     const one = await newPlayer(browser, NARROW, { reducedMotion: true });
@@ -255,14 +255,7 @@ test.describe("The phone layout does not change (promise 4)", () => {
     await waitForRound(one.page, 1);
     await waitForRound(two.page, 1);
     await crashRounds(one.page, two.page, 1, 11, everyColumn);
-    await expect(one.page.locator(testid("shrink-warning"))).toBeVisible();
-    const banner = (await one.page.locator(testid("shrink-warning")).boundingBox())!;
-    const bar = (await one.page.locator(testid("topbar")).boundingBox())!;
-    const players = (await one.page.locator(testid("players")).boundingBox())!;
-    expect(banner.height, "the banner is one line").toBeLessThan(30);
-    // U68 (changed for U132): the banner has the status line under the header bar, which holds the round.
-    expect(banner.y, "the banner is under the header bar").toBeGreaterThanOrEqual(bar.y + bar.height - 1);
-    expect(banner.y + banner.height, "and above the versus bar").toBeLessThanOrEqual(players.y + 1);
+    await expect(one.page.locator(testid("shrink-warning")), "the banner stays hidden (Tejas, 2 November 2026)").toBeHidden();
     const timer = (await one.page.locator(testid("timer")).boundingBox())!;
     expect(timer.y + timer.height, "the timer bar is on the first screen").toBeLessThanOrEqual(568);
     const scroll = await one.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -272,27 +265,22 @@ test.describe("The phone layout does not change (promise 4)", () => {
   });
 
   for (const viewport of [NARROW, { width: 360, height: 640 }, PHONE]) {
-    test(`U68 the warning fits: no sideways scroll, nothing overlaps and the first screen holds the board and timer at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
+    test(`U69 the flashing top row fits: no sideways scroll, nothing overlaps and the first screen holds the board and timer at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { one, two } = await twoPlayers(browser, { reducedMotion: true, a: viewport });
       await crashRounds(one.page, two.page, 1, 11, everyColumn);
-      await expect(one.page.locator(testid("shrink-warning"))).toBeVisible();
+      await expect(one.page.locator(testid("shrink-warning"))).toBeHidden();
       const scroll = await one.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(scroll).toBeLessThanOrEqual(0);
       const box = async (id: string) => (await one.page.locator(testid(id)).boundingBox())!;
-      const warning = await box("shrink-warning");
-      const board = await box("board-wrap");
       const round = await box("round-line");
-      expect(warning.x, "inside the screen").toBeGreaterThanOrEqual(0);
-      expect(warning.x + warning.width, "inside the screen").toBeLessThanOrEqual(viewport.width);
-      expect(warning.y + warning.height, "the banner does not cover the board").toBeLessThanOrEqual(board.y + 1);
       // On a page taller than the screen the browser scrolls to the column that was tapped, so the round number is judged
       // by where it is on the page: in the header bar at the top (U132), never pushed down or out of the layout.
       const scrolled = await one.page.evaluate(() => window.scrollY);
       expect(round.y + scrolled, "the round number stays in the header bar at the top of the page").toBeLessThanOrEqual(60);
       expect(round.y + scrolled, "the round number stays on the page").toBeGreaterThanOrEqual(0);
       // The first-screen rule (docs/design.md) is for the marking viewports and 320 x 568: the whole board
-      // and the timer fit, with the banner showing. 360 x 640 is not one of them (it only has to scroll
-      // nowhere sideways and overlap nothing), and its height is a known gap in docs/handover.md.
+      // and the timer fit. 360 x 640 is not one of them (it only has to scroll nowhere sideways and overlap
+      // nothing), and its height is a known gap in docs/handover.md.
       if (viewport.width !== 360) {
         const lowest = await box("cell-0-0");
         expect(lowest.y + lowest.height, "the bottom row is on screen").toBeLessThanOrEqual(viewport.height);

@@ -368,9 +368,10 @@ test.describe("Watching fits the phone (promise 4)", () => {
     for (const c of [one, two, spectator]) await c.context.close();
   });
 
-  test("E9, U68, U78, U84 and C20 the tightest case at 320 x 568: the widest nicknames, a spectator and the ceiling warning all showing, and everything still fits", async ({ browser }) => {
-    // Round 12 on the watching screen has a round number, the banner, the count and the ceiling warning: the worst case for the
-    // status row. A quick match pair resolves each round the moment both choose, so reaching it is quick (correction C20).
+  test("E9, U78, U84 and C20 the tightest case at 320 x 568: the widest nicknames and a spectator, and everything still fits", async ({ browser }) => {
+    // Round 12 on the watching screen has a round number, the banner and the count: the worst case for the
+    // status row (the ceiling warning banner itself stays hidden, Tejas 2 November 2026). A quick match pair
+    // resolves each round the moment both choose, so reaching it is quick (correction C20).
     const { one, two, code } = await withQuickQueue(async () => {
       const drain = await newPlayer(browser, PHONE);
       const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
@@ -398,11 +399,11 @@ test.describe("Watching fits the phone (promise 4)", () => {
       await waitForRound(one.page, round + 1);
     }
     for (const [name, page] of [["watching", spectator.page], ["player", one.page]] as const) {
-      await expect(page.locator(testid("shrink-warning")), name).toBeVisible();
+      await expect(page.locator(testid("shrink-warning")), name).toBeHidden();
       const wide = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("body *")].filter((e) => !e.closest(".bubbles") && e.getBoundingClientRect().right > document.documentElement.clientWidth + 1 && getComputedStyle(e).display !== "none").map((e) => `${e.dataset.testid ?? e.className} ${Math.round(e.getBoundingClientRect().right)}`).slice(0, 8));
       expect(wide, `${name}: sideways`).toEqual([]);
       const box = async (id: string) => (await page.locator(testid(id)).boundingBox())!;
-      const items = name === "watching" ? ["round-line", "watching-banner", "watching-count", "shrink-warning"] : ["round-line", "watcher-count", "shrink-warning"];
+      const items = name === "watching" ? ["round-line", "watching-banner", "watching-count"] : ["round-line", "watcher-count"];
       for (const id of items) {
         const b = await box(id);
         expect(b.height, `${name}: ${id} is one line`).toBeLessThan(30);
