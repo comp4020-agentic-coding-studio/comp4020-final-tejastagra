@@ -17,7 +17,7 @@ test.describe("The leaderboard page (U123 to U130)", () => {
   for (const viewport of VIEWPORTS) {
     test(`one centred column of at most 560px, tabs, a podium and compact rows at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
-      await withBoard(page, rows(8), rows(8).map((r, i) => ({ ...r, value: 4 + i })));
+      await withBoard(page, rows(5), rows(5).map((r, i) => ({ ...r, value: 4 + i })));
       await page.goto("/leaderboard");
       await expect(page.locator(testid("podium"))).toBeVisible();
       const column = (await page.locator(testid("leaderboard-column")).boundingBox())!;
@@ -29,9 +29,9 @@ test.describe("The leaderboard page (U123 to U130)", () => {
         expect(Math.abs(b.x - column.x), `${id} left edge`).toBeLessThanOrEqual(4);
         expect(Math.abs(b.x + b.width - (column.x + column.width)), `${id} right edge`).toBeLessThanOrEqual(4);
       }
-      // The podium holds three, the rows the other five, and the first place is the tallest in the middle.
+      // The podium holds three, the rows the other two, and the first place is the tallest in the middle.
       await expect(page.locator(`${testid("podium")} [data-place]`)).toHaveCount(3);
-      await expect(page.locator(`${testid("leaderboard-wins")} li`)).toHaveCount(5);
+      await expect(page.locator(`${testid("leaderboard-wins")} li`)).toHaveCount(2);
       const heights = await page.locator(`${testid("podium")} [data-place]`).evaluateAll((els) => els.map((e) => [(e as HTMLElement).dataset.place, e.getBoundingClientRect().height, e.getBoundingClientRect().left]));
       const byPlace = Object.fromEntries((heights as Array<[string, number, number]>).map(([p, h, x]) => [p, { h, x }]));
       expect(byPlace["1"].h).toBeGreaterThan(byPlace["2"].h);
@@ -46,22 +46,22 @@ test.describe("The leaderboard page (U123 to U130)", () => {
     });
   }
 
-  test("LB3 R99 U131b at most 10 players: the podium holds exactly the top 3 and the list runs from 4 to 10", async ({ browser }) => {
+  test("LB3 R99 U131b at most 5 players: the podium holds exactly the top 3 and the list runs from 4 to 5", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     const requested: string[] = [];
     page.on("request", (req) => {
       if (req.url().includes("/api/leaderboard")) requested.push(req.url());
     });
-    await withBoard(page, rows(15), rows(15).map((r, i) => ({ ...r, value: 4 + i })));
+    await withBoard(page, rows(8), rows(8).map((r, i) => ({ ...r, value: 4 + i })));
     await page.goto("/leaderboard");
     await expect(page.locator(`${testid("podium")} [data-place]`)).toHaveCount(3);
-    await expect(page.locator(`${testid("leaderboard-wins")} li`)).toHaveCount(7);
+    await expect(page.locator(`${testid("leaderboard-wins")} li`)).toHaveCount(2);
     await expect(page.locator(`${testid("leaderboard-wins")} .row-rank`).first()).toHaveText("4");
-    await expect(page.locator(`${testid("leaderboard-wins")} .row-rank`).last()).toHaveText("10");
-    await expect(page.locator(testid("leaderboard-column"))).not.toContainText("Player 11");
+    await expect(page.locator(`${testid("leaderboard-wins")} .row-rank`).last()).toHaveText("5");
+    await expect(page.locator(testid("leaderboard-column"))).not.toContainText("Player 6");
     await page.locator(testid("tab-rounds")).click();
-    await expect(page.locator(`${testid("leaderboard-rounds")} li`)).toHaveCount(7);
-    expect(requested.every((u) => new URL(u).searchParams.get("limit") === "10"), "the page asks for 10").toBe(true);
+    await expect(page.locator(`${testid("leaderboard-rounds")} li`)).toHaveCount(2);
+    expect(requested.every((u) => new URL(u).searchParams.get("limit") === "5"), "the page asks for 5").toBe(true);
     await context.close();
   });
 
@@ -204,14 +204,14 @@ async function finishedGame(browser: Browser) {
 
 test("item 25: after a full game the winner is on both lists on the page, highlighted, with Your best, and the loser is on neither", async ({ browser }) => {
   const { one, two, name } = await finishedGame(browser);
-  // R99: the page shows only the top 10, and in a shared app other checks have made many one-win players, so the real winner may rank
-  // below the tenth. The server's answer is used as it is, with the winner's own row added to each list only when it is not already in
-  // the first 10 (the winner's name and their "Your best" line come from the server, so what is checked is still the real result).
+  // R99: the page shows only the top 5, and in a shared app other checks have made many one-win players, so the real winner may rank
+  // below the fifth. The server's answer is used as it is, with the winner's own row added to each list only when it is not already in
+  // the first 5 (the winner's name and their "Your best" line come from the server, so what is checked is still the real result).
   await one.page.route("**/api/leaderboard**", async (route) => {
     const res = await route.fetch();
     const data = await res.json();
     for (const list of [data.wins, data.rounds]) {
-      if (!list.some((row: { name: string }) => row.name === data.you?.name)) list.splice(9, list.length, { name: data.you.name, value: list === data.wins ? data.you.wins : data.you.bestRounds });
+      if (!list.some((row: { name: string }) => row.name === data.you?.name)) list.splice(4, list.length, { name: data.you.name, value: list === data.wins ? data.you.wins : data.you.bestRounds });
     }
     await route.fulfill({ response: res, json: data });
   });

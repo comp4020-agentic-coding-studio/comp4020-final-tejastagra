@@ -146,6 +146,52 @@ describe("B: leaderboard (R37 to R39)", () => {
 
   it.todo("B3 (R39) a win where the opponent missed a round does not count for fewest rounds (rule covered in spec/unit-leaderboard.test.ts; needs a real 10 second timer here)");
   it.todo("B4 (R19) an abandoned game changes neither list (needs three real 10 second rounds here; covered in spec/unit-realtime-abandon.test.ts)");
+
+  // A fast win: both seats join and play one real round (R98 needs at least one, or the game is never recorded at
+  // all), then the loser leaves on purpose (R81), a forfeit win for the winner with no real round timer to wait for.
+  // The winner is the same player (the same cookie) across every call, so their wins accumulate on one tally.
+  async function forfeitWin(winner: { cookie: string }, loserName: string): Promise<void> {
+    const loser = await guest(loserName);
+    const code = await newGameCode("/api/games", winner);
+    const a = await seat(code, winner);
+    const b = await seat(code, loser);
+    expect((await a.next()).type).toBe("opponent_joined"); // B arriving
+    for (const who of [a, b]) {
+      expect((await who.next()).type).toBe("countdown");
+      expect((await who.next()).type).toBe("started");
+    }
+    a.socket.send(JSON.stringify({ type: "choose", code, player: a.you, seatToken: a.seatToken, column: 0, shield: false }));
+    expect((await b.next()).type).toBe("opponent_ready");
+    b.socket.send(JSON.stringify({ type: "choose", code, player: b.you, seatToken: b.seatToken, column: 1, shield: false }));
+    expect((await a.next()).state.round).toBe(1); // round 1 resolved: R98's "at least one round played" is met
+    await b.next();
+    b.socket.send(JSON.stringify({ type: "leave_game", code, player: b.you, seatToken: b.seatToken }));
+    expect((await a.next()).type).toBe("game_over");
+    a.socket.close();
+    b.socket.close();
+  }
+
+  it("R99 the endpoint's default answer has at most 5 players, strictly ordered by wins", async () => {
+    // Six players with strictly decreasing win counts. Each player's own games run in order (the same winner plays
+    // each one), but the six players' games run at once, since they are otherwise independent.
+    const players = await Promise.all(Array.from({ length: 6 }, () => guest("Rank" + unique())));
+    await Promise.all(
+      players.map(async (player, i) => {
+        const wins = 6 - i;
+        for (let g = 0; g < wins; g++) await forfeitWin(player, "Loser" + unique());
+      }),
+    );
+    // The default endpoint (no `limit`): R99's "at most 5" against whatever else a shared database holds.
+    const capped = await fetch(base() + "/api/leaderboard", { headers: { "fly-client-ip": fakeAddress() } });
+    expect(((await capped.json()) as { wins: unknown[] }).wins.length).toBeLessThanOrEqual(5);
+    // `?limit=1000` (the pattern the rest of this file already uses) looks past whatever a shared database holds, so
+    // each of these six, with a known and distinct win count, can be found and checked exactly, not just by relative
+    // order (CLAUDE.md: a check must never depend on a shared top-N list or prior runs' state, correction C42).
+    const lists = await board();
+    for (let i = 0; i < players.length; i++) {
+      expect(lists.wins.find((r) => r.name === players[i].name)?.value, players[i].name).toBe(6 - i);
+    }
+  }, 60_000); // six players' worth of forfeit games, run in parallel, each a real game, two real WebSocket joins and one real round
 });
 
 describe("R92 the leaderboard says who is asking, and a full game puts the winner on both lists", () => {

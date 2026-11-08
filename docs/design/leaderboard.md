@@ -11,6 +11,6 @@ Added on 28 October 2026 (Part 7 of the fix list). It follows rules R37 to R39 a
 - **U129** A list that cannot be loaded shows "Could not load the leaderboard. Try again." in `--error`, with a **Try again** button, and the tabs and Home still work.
 - **U130** *Changed 31 October 2026.* The home screen no longer has a Top players strip (home.md U35); this page is the only place the leaderboard is shown.
 
-## Top 10 only (added 31 October 2026)
+## Top 5 only (added 31 October 2026, changed 9 November 2026)
 
-- **U131b** The page shows **at most 10 players** per tab. The **podium holds exactly the top 3** (or fewer when there are fewer players, U125) and the **list starts at place 4** and ends at place 10, so it never has more than 7 rows. The page asks the server for 10 (`/api/leaderboard?limit=10`). This replaces the "up to the 20" of U126.
+- **U131b** The page shows **at most 5 players** per tab. The **podium holds exactly the top 3** (or fewer when there are fewer players, U125) and the **list starts at place 4** and ends at place 5, so it never has more than 2 rows. With fewer than 5 who qualify, only those are shown: no empty row and no placeholder bar. The page asks the server for 5 (`/api/leaderboard?limit=5`). This replaces the "up to the 20" of U126.

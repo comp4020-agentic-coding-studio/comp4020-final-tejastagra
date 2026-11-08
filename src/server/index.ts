@@ -567,8 +567,8 @@ const server = createServer((req, res) => {
       res.end("Too many requests. Try again in a minute.");
       return;
     }
-    // `limit` lets a check look past the top 10 on a database with history.
-    const limit = Math.min(1000, Math.max(1, Number(new URL(req.url ?? "/", "http://localhost").searchParams.get("limit")) || 10));
+    // `limit` lets a check look past the top 5 on a database with history.
+    const limit = Math.min(1000, Math.max(1, Number(new URL(req.url ?? "/", "http://localhost").searchParams.get("limit")) || 5));
     json(res, 200, leaderboardFrom(db, limit, currentPlayer(req)?.id ?? null)); // R92: `you` is the asker, from their own cookie
   } else if (path === "/api/computer" && req.method === "POST") {
     // Play the computer (R33): a game that starts at once, never waiting for anyone.
