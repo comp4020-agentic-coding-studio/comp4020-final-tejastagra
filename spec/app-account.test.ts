@@ -43,7 +43,7 @@ function reset(username: string): string {
 async function account(password = "first password") {
   const b = browser();
   const username = "acct_" + unique();
-  await b("/api/guest", { body: { nickname: "Pip Squeak" } });
+  await b("/api/guest", { body: { nickname: "PipSqueak" } });
   expect((await b("/api/account/signup", { body: { username, password } })).status).toBe(200);
   return { b, username, password };
 }
@@ -137,7 +137,7 @@ describe("R87 changing a password from the account page", () => {
 
   it("R87 a guest has no password to change, and a cross-site form cannot change one", async () => {
     const guest = browser();
-    await guest("/api/guest", { body: { nickname: "Just a guest" } });
+    await guest("/api/guest", { body: { nickname: "JustAGuest" } });
     expect((await guest("/api/account/password", { body: { current: "x", next: "a brand new one" } })).status).toBe(401);
     const { b } = await account();
     const res = await fetch(base() + "/api/account/password", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", cookie: b.cookie(), "fly-client-ip": "10.9.9.9" }, body: "current=a&next=b" });
@@ -154,14 +154,39 @@ describe("R87 changing a password from the account page", () => {
   });
 });
 
-describe("R28 and R31 changing a nickname", () => {
-  it("R28 a logged-in player's nickname change is saved to their account, and survives a fresh session", async () => {
-    const { b, username } = await account();
-    expect((await b("/api/guest", { body: { nickname: "New Name" } })).json.player.nickname).toBe("New Name");
-    expect((await b("/api/me")).json.player.nickname).toBe("New Name");
+describe("R107 renaming an account", () => {
+  it("R107 a correct current password lets a logged-in account rename, and the new name survives a fresh session", async () => {
+    const { b, username, password } = await account();
+    const newName = "renamed_" + unique();
+    const res = await b("/api/account/username", { body: { current: password, username: newName } });
+    expect(res.status).toBe(200);
+    expect(res.json.player.displayName).toBe(newName);
+    expect((await b("/api/me")).json.player.displayName).toBe(newName);
     const other = browser();
-    await other("/api/account/signin", { body: { username, password: "first password" } });
-    expect((await other("/api/me")).json.player.nickname).toBe("New Name");
+    expect((await other("/api/account/signin", { body: { username: newName, password } })).status).toBe(200);
+    expect((await other("/api/me")).json.player.displayName).toBe(newName);
+    expect((await other("/api/account/signin", { body: { username, password } })).status).toBe(401); // the old username is gone
+  });
+
+  it("R107 a wrong current password is refused, and an already-taken username is refused, with no change made", async () => {
+    const { b, password } = await account();
+    const { username: taken } = await account();
+    expect((await b("/api/account/username", { body: { current: "wrong password", username: "newname" } })).status).toBe(401);
+    const clash = await b("/api/account/username", { body: { current: password, username: taken } });
+    expect(clash.status).toBe(409);
+  });
+
+  it("R107 a guest has no account to rename, and renaming does not end another session (unlike a password change, R87)", async () => {
+    const guest = browser();
+    await guest("/api/guest", { body: { nickname: "JustAGuest" } });
+    expect((await guest("/api/account/username", { body: { current: "x", username: "newname" } })).status).toBe(401);
+
+    const { b, password } = await account();
+    const other = browser();
+    const otherUsername = (await b("/api/me")).json.player.displayName;
+    await other("/api/account/signin", { body: { username: otherUsername, password } });
+    expect((await b("/api/account/username", { body: { current: password, username: "renamed_" + unique() } })).status).toBe(200);
+    expect((await other("/api/me")).json.player).not.toBeNull(); // the other session still stands
   });
 });
 

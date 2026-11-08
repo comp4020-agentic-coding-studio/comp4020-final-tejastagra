@@ -28,7 +28,7 @@ Promises 2 to 5 are enforced by checks in `spec/`. Promise 1 is judged, through 
 
 ## Order of truth
 
-`docs/rules.md` comes first, then `spec/`, then the code. To change behaviour, change `rules.md` first, then the test, then the code, in that order, and say so in the commit.
+`docs/rules.md` comes first, then `spec/`, then the code. To change behaviour, change `rules.md` first, then the test, then the code, in that order, and say so in the commit. **A changed rule may make an existing test assert the old behaviour.** When a rule changes, grep `spec/` and `e2e/` for its rule ID and for the words the old behaviour used (a removed tag, an old message, an old pattern) before considering the change finished, so a test left behind is caught at once rather than found stale, broken and unrelated to whatever is being worked on weeks later (C63).
 
 ## Never
 

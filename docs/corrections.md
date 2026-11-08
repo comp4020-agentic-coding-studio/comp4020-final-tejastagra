@@ -499,3 +499,10 @@ Every time the agent gets something wrong, and a check, a playtest or Tejas catc
 - **Rule for the future:** a size you ask for is not applied until a check reads it from the browser. Measure the computed style of what the player sees, at the heights real browsers show, and never trust the CSS file.
 - **Also found:** the earlier "tight" last resort now keeps its old sizes for the narrowest phones (320 x 568), where the new sizes cannot fit at all; Q50 and Q51 assert it is not used at any of the five phone sizes. A real iPhone adds safe-area insets that the test browser reports as 0, so the margin is tighter there: please check it on a phone.
 
+
+### C63. R31 removed the nickname tag on 2 November 2026, but three tests kept asserting it existed
+- **Date:** 8 November 2026
+- **What went wrong:** `spec/app-identity.test.ts` (I4, I5) and `spec/app-tutorial.test.ts`'s generated-nickname test still asserted a `"Pip #2cd1"`-style tag on a display name, a format R31 removed back on 2 November 2026. The three tests had been failing since that rule changed and nobody had noticed, because nothing re-checks a changed rule's ID against the tests that mention it.
+- **How it was caught:** found by chance while working on an unrelated change (unifying nickname and username), when running the full test files these three sit in surfaced failures nobody had traced to R31.
+- **Harness fix:** a new line in CLAUDE.md's "Order of truth" section: when a rule changes, grep `spec/` and `e2e/` for its rule ID and the words the old behaviour used, before considering the change finished.
+- **Rule for the future:** a rule change is not finished when `rules.md`, the new test and the code agree; it is finished when nothing still asserts what the rule used to say. Stale assertions from a past rule change can sit unnoticed for weeks if nothing greps for them at the time.

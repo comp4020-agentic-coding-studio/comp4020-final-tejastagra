@@ -288,13 +288,18 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
       json(res, 429, { error: "Too many new players from here. Try again in a minute." }, { "retry-after": "60" });
       return true;
     }
-    const body = await readBody(req);
-    if (!body || !validNickname(body.nickname)) {
-      json(res, 400, { error: "A nickname is 2 to 16 letters, numbers, spaces, hyphens or underscores." });
+    const existing = currentPlayer(req);
+    if (existing && existing.username !== null) {
+      // R31, R107: an account is named by its username alone; renaming happens on the account page, not here.
+      json(res, 400, { error: "You are signed in. Rename your account from the account page." });
       return true;
     }
-    const nickname = body.nickname.trim();
-    const existing = currentPlayer(req);
+    const body = await readBody(req);
+    if (!body || !validNickname(body.nickname)) {
+      json(res, 400, { error: "A nickname is 2 to 16 letters, numbers, hyphens or underscores." });
+      return true;
+    }
+    const nickname = body.nickname;
     if (existing) {
       db.setNickname(existing.id, nickname);
       json(res, 200, { player: publicPlayer({ ...existing, nickname }) });
@@ -407,6 +412,38 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
     // R87: the sessions of the account's other devices are gone, so their open game connections are closed at their next action
     // (sessionStillValid); this device's session stands, so its connection goes on.
     json(res, 200, { player: publicPlayer(player) });
+    return true;
+  }
+  if (path === "/api/account/username" && req.method === "POST") {
+    // R107: renaming an account. The current password must be right, the new username valid and free, and unlike a
+    // password change, no other session is ended: nothing was leaked, so there is no reason to sign other devices out.
+    if (!allowAuth(clientAddress(req))) {
+      json(res, 429, { error: "Too many attempts. Try again in a minute." }, { "retry-after": "60" });
+      return true;
+    }
+    const player = currentPlayer(req);
+    const body = await readBody(req);
+    if (!body) {
+      json(res, 400, { error: "Send application/json." });
+      return true;
+    }
+    if (!player || player.username === null) {
+      json(res, 401, { error: "Log in first." });
+      return true;
+    }
+    if (typeof body.current !== "string" || !(await checkPassword(body.current, player.passwordHash))) {
+      json(res, 401, { error: "That password is not right." });
+      return true;
+    }
+    if (!validUsername(body.username)) {
+      json(res, 400, { error: "A username is 3 to 20 letters, numbers, hyphens or underscores." });
+      return true;
+    }
+    if (!db.setUsername(player.id, body.username)) {
+      json(res, 409, { error: "That username is taken. Try another." });
+      return true;
+    }
+    json(res, 200, { player: publicPlayer({ ...player, username: body.username }) });
     return true;
   }
   if (path === "/api/me/history" && req.method === "GET") {

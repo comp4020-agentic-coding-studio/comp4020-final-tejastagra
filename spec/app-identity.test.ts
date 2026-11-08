@@ -27,10 +27,10 @@ const unique = () => Math.random().toString(36).slice(2, 10);
 describe("I: identity (R28 to R32)", () => {
   it("I1 (R28) nicknames outside 2 to 16 allowed characters are rejected", async () => {
     const b = browser();
-    for (const nickname of ["", "A", "x".repeat(17), "bad<name>", "emoji😀", 42]) {
+    for (const nickname of ["", "A", "x".repeat(17), "bad<name>", "emoji😀", "has space", 42]) {
       expect((await b("/api/guest", { body: { nickname } })).status).toBe(400);
     }
-    expect((await b("/api/guest", { body: { nickname: "Okay name_1" } })).status).toBe(200);
+    expect((await b("/api/guest", { body: { nickname: "Okay_name_1" } })).status).toBe(200);
   });
 
   it("I2 (R28) a guest cookie is recognised on the next request, and is httpOnly", async () => {
@@ -72,20 +72,16 @@ describe("I: identity (R28 to R32)", () => {
     const name = "user_" + unique();
     const a = browser();
     const guest = await a("/api/guest", { body: { nickname: "Keeper" } });
-    const tag = guest.json.player.displayName.split("#")[1];
-    expect(tag).toMatch(/^[0-9a-f]{4}$/);
+    expect(guest.json.player.displayName).toBe("Keeper");
     await a("/api/account/signup", { body: { username: name, password: "password123" } });
-    // Same session, now an account: the player was upgraded in place, not replaced.
+    // Same session, now an account: the player was upgraded in place, not replaced. The guest's nickname is gone (R31, R107).
     expect((await a("/api/me")).json.player).toEqual({ displayName: name, nickname: "Keeper", kind: "account" });
   });
 
-  it("I5 (R31) guests are always shown with their short tag, and two guests with one nickname differ", async () => {
-    // Tags are 4 hex digits, so two guests can rarely share one; the point is that
-    // the tag comes from the id, so across several guests they are not all equal.
+  it("I5 (R31) two guests may share one nickname, with no tag", async () => {
     const names: string[] = [];
     for (let i = 0; i < 6; i++) names.push((await browser()("/api/guest", { body: { nickname: "Same" } })).json.player.displayName);
-    for (const n of names) expect(n).toMatch(/^Same #[0-9a-f]{4}$/);
-    expect(new Set(names).size).toBeGreaterThan(1);
+    for (const n of names) expect(n).toBe("Same");
   });
 
   it("I6 (R30) no response ever contains a password or password hash", async () => {
@@ -139,5 +135,15 @@ describe("I: identity (R28 to R32)", () => {
     await b("/api/guest", { body: { nickname: "Leaving" } });
     await b("/api/signout", { method: "POST" });
     expect((await b("/api/me")).json.player).toBeNull();
+  });
+
+  it("R31, R107 a logged-in account cannot edit a nickname through /api/guest: it is refused, with the username left unchanged", async () => {
+    const name = "user_" + unique();
+    const b = browser();
+    await b("/api/guest", { body: { nickname: "Before" } });
+    await b("/api/account/signup", { body: { username: name, password: "password123" } });
+    const res = await b("/api/guest", { body: { nickname: "After" } });
+    expect(res.status).toBe(400);
+    expect((await b("/api/me")).json.player.displayName).toBe(name);
   });
 });

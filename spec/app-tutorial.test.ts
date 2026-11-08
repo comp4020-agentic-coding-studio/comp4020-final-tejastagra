@@ -94,7 +94,7 @@ describe("Tutorial (R47 to R50)", () => {
     const b = browser();
     const made = await b("/api/visitor", { body: {} });
     expect(made.status).toBe(200);
-    expect(made.json.player.displayName).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+ #[0-9a-f]{4}$/);
+    expect(made.json.player.displayName).toMatch(/^[A-Z][a-z]+[A-Z][a-z]+$/); // R28: a single word, no space
     const again = await b("/api/visitor", { body: {} });
     expect(again.json.player.displayName).toBe(made.json.player.displayName);
     expect((await b("/api/me")).json.player.displayName).toBe(made.json.player.displayName);
@@ -195,7 +195,7 @@ describe("R47 R48 an experienced account is never offered the tutorial", () => {
   it("R48 finishing the tutorial while signed in marks the account, so another device is not offered it", async () => {
     const b = browser();
     const username = nameOf();
-    await b("/api/guest", { body: { nickname: "Account Seen" } });
+    await b("/api/guest", { body: { nickname: "AccountSeen" } });
     await b("/api/account/signup", { body: { username, password: PASSWORD } });
     expect((await b("/api/me")).json.tutorialDue).toBe(true);
     await b("/api/tutorial", { body: { result: "skipped" } });
@@ -207,11 +207,11 @@ describe("R47 R48 an experienced account is never offered the tutorial", () => {
   it("R48 a guest who has seen it and then signs in to an account has the mark copied to the account", async () => {
     const maker = browser();
     const username = nameOf();
-    await maker("/api/guest", { body: { nickname: "Fresh Account" } });
+    await maker("/api/guest", { body: { nickname: "FreshAccount" } });
     await maker("/api/account/signup", { body: { username, password: PASSWORD } });
     // The account itself has never seen it; a different browser's guest has, and signs in to it.
     const guest = browser();
-    await guest("/api/guest", { body: { nickname: "Seen Guest" } });
+    await guest("/api/guest", { body: { nickname: "SeenGuest" } });
     await guest("/api/tutorial", { body: { result: "finished" } });
     await guest("/api/account/signin", { body: { username, password: PASSWORD } });
     const later = browser();
