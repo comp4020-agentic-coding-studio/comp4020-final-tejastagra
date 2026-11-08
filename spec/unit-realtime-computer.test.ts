@@ -14,7 +14,10 @@ function startServer(roundTimerMs = 5000) {
   const db = openDb(":memory:");
   const rt = attachRealtime(server, db, {
     // No start countdown: these checks are about other rules (R97, ADR 0014).
-    countdownMs: 0, roundTimerMs, computerDelayMs: 100, computerSeed: 1 });
+    countdownMs: 0, roundTimerMs, computerDelayMs: 100, computerSeed: 1,
+    // Who is connecting: a test sends its person in a header, as the session cookie does in the real app.
+    identify: (request) => (typeof request.headers["x-person"] === "string" ? (request.headers["x-person"] as string) : null),
+  });
   server.listen(0);
   const { port } = server.address() as AddressInfo;
   return { server, db, rt, url: `ws://localhost:${port}/ws` };
@@ -32,8 +35,8 @@ function queue(socket: WebSocket): () => Promise<any> {
   return () => new Promise((resolve) => (queued.length ? resolve(queued.shift()) : waiting.push(resolve)));
 }
 
-async function open(url: string) {
-  const socket = new WebSocket(url);
+async function open(url: string, person?: string) {
+  const socket = new WebSocket(url, person ? ({ headers: { "x-person": person } } as never) : undefined);
   const next = queue(socket);
   await new Promise((r) => socket.addEventListener("open", () => r(null), { once: true }));
   return { socket, next };
@@ -107,6 +110,23 @@ describe("R33 playing the computer", () => {
     cleanup = () => { rt.dispose(); server.close(); };
     rt.createComputerGame("CMP238");
     expect(db.loadGames().find((g) => g.code === "CMP238")?.vsComputer).toBe(true);
+  });
+
+  it("R90 the human's seat is saved too, so a finished computer game shows up in their stats (not only marked vsComputer)", async () => {
+    const { server, db, rt, url } = startServer();
+    cleanup = () => { rt.dispose(); server.close(); };
+    rt.createComputerGame("CMP240");
+    const a = await open(url, "person-1");
+    a.socket.send(JSON.stringify({ type: "join", code: "CMP240" }));
+    const snap = await a.next();
+    expect(snap.you).toBe("A");
+    await a.next(); // opponent_ready
+    a.socket.send(JSON.stringify({ type: "choose", code: "CMP240", player: "A", seatToken: snap.seatToken, column: 0, shield: false }));
+    await a.next(); // the resolved round
+    a.socket.close();
+    const saved = db.loadGamesOf("person-1").find((g) => g.code === "CMP240");
+    expect(saved?.playerA).toBe("person-1"); // the seat was recorded, not left empty
+    expect(saved?.vsComputer).toBe(true); // and it is still excluded from the leaderboard by this flag, not by an empty seat
   });
 
   it("R37 after a restart the game is still marked, seat B stays reserved and the computer waits for its human", async () => {

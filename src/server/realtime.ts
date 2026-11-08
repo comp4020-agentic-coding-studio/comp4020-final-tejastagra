@@ -1310,8 +1310,10 @@ export function attachRealtime(
       if (!seatTokens.has(key(code, player))) seatTokens.set(key(code, player), randomUUID());
       const name = personId ? (options.nameFor?.(personId) ?? null) : null;
       if (name) seatNames.set(key(code, player), name);
-      // A learner's seat is saved with their person only when they finish (R102), so a restart leaves it free.
-      if (personId && !computerGames.has(code) && !holdForLearner && !stillLearning) {
+      // A learner's seat is saved with their person only when they finish (R102), so a restart leaves it free. A computer
+      // game's human seat is saved too (R90: a computer game counts in that player's stats, even though it never counts
+      // on the leaderboard, R37, which is enforced separately by the vsComputer flag, not by leaving the seat empty).
+      if (personId && !holdForLearner && !stillLearning) {
         if (!game.getGame(code)) createUnmarkedGame(code); // the row must exist before it can record a seat
         db.seatPlayer(code, player, personId);
         // Remember in memory whose seat this is, as a restart would from the database (R36), so the seat can follow a guest who
