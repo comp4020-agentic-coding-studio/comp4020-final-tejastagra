@@ -27,7 +27,7 @@ Use these words, and only these words, in code, tests, logs and the interface.
 | **Game code** | The 6-character code that joins a shared game | room code, PIN |
 | **Quick match** | The random lobby that pairs you with whoever is waiting | random lobby, matchmaking |
 | **Guest** | A player with a nickname and no password | anonymous user |
-| **Account** | A player who signed up with a username and password | profile |
+| **Account** | A player who signed up with a username and password; the username is shown wherever the player is named, and their earlier nickname is gone (R31, R107, changed 8 November 2026) | profile |
 | **Logged in** | The status shown for a player at an account, on their player card and account page (changed 31 October 2026, replaces "Signed in" and "Account" as a status word) | signed in, account (as a status) |
 | **Log in**, **Log out** | The buttons and popup that open or end a session on an account (changed 31 October 2026, replaces "Sign in" and "Sign out") | sign in, sign out |
 | **Computer** | The built-in opponent | AI, bot, CPU |
