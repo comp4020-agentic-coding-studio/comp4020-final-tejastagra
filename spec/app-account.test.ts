@@ -154,6 +154,17 @@ describe("R87 changing a password from the account page", () => {
   });
 });
 
+describe("R28 and R31 changing a nickname", () => {
+  it("R28 a logged-in player's nickname change is saved to their account, and survives a fresh session", async () => {
+    const { b, username } = await account();
+    expect((await b("/api/guest", { body: { nickname: "New Name" } })).json.player.nickname).toBe("New Name");
+    expect((await b("/api/me")).json.player.nickname).toBe("New Name");
+    const other = browser();
+    await other("/api/account/signin", { body: { username, password: "first password" } });
+    expect((await other("/api/me")).json.player.nickname).toBe("New Name");
+  });
+});
+
 describe("R88 the limit on sign-in attempts", () => {
   it("R88 five failures for a username block it for everyone, with the words given, even with the right password", async () => {
     const { username, password } = await account();

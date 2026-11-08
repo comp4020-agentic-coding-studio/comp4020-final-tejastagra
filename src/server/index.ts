@@ -296,8 +296,8 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
     const nickname = body.nickname.trim();
     const existing = currentPlayer(req);
     if (existing) {
-      if (existing.username === null) db.setNickname(existing.id, nickname);
-      json(res, 200, { player: publicPlayer({ ...existing, nickname: existing.username === null ? nickname : existing.nickname }) });
+      db.setNickname(existing.id, nickname);
+      json(res, 200, { player: publicPlayer({ ...existing, nickname }) });
       return true;
     }
     const id = newPlayerId();

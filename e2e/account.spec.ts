@@ -51,6 +51,43 @@ test.describe("The account page (U114 to U122)", () => {
     await context.close();
   });
 
+  test("R28 a logged-in player's new nickname from the account page shows at once and survives a reload and signing out and in", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const { username, password } = await signedIn(page);
+    await page.goto("/account");
+    await page.locator(testid("edit-nickname")).click();
+    await page.locator(testid("nickname-input")).fill("Pip Two");
+    await page.locator(testid("nickname-save")).click();
+    await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
+    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Two");
+    await page.reload();
+    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Two");
+    await page.locator(testid("signout")).click();
+    await expect(page.locator(testid("open-signin"))).toBeVisible();
+    await page.locator(testid("open-signin")).click();
+    await page.locator(testid("username-input")).fill(username);
+    await page.locator(testid("password-input")).fill(password);
+    await page.locator(testid("signin-save")).click();
+    await expect(page.locator(testid("signin-dialog"))).toHaveCount(0);
+    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Two");
+    await context.close();
+  });
+
+  test("R28 a logged-in player's new nickname from the home pencil shows on the account page and survives a reload", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await signedIn(page);
+    await page.goto("/");
+    await page.locator(testid("rename")).click();
+    await page.locator(testid("nickname-input")).fill("Pip Three");
+    await page.locator(testid("nickname-save")).click();
+    await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
+    await page.goto("/account");
+    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Three");
+    await page.reload();
+    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Three");
+    await context.close();
+  });
+
   test("U120 the log-in popup's Forgot your password? opens the words to email, sends nothing, and Close goes back", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
