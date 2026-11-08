@@ -35,7 +35,7 @@ export function homeScreen(ctx: ScreenContext): string {
             <span class="player-name" data-testid="player-name">Choosing a name...</span>
             <span class="player-status" data-testid="player-kind"></span>
           </span>
-          <button type="button" class="icon-only" data-testid="rename" aria-label="Change nickname">
+          <button type="button" class="icon-only" data-testid="rename" aria-label="Change name">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M3 17.3V21h3.7L18 9.7 14.3 6zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.7 3.7z"/></svg>
           </button>
           <p id="home-message" class="message card-message" role="status" data-testid="home-message"></p>
@@ -136,7 +136,6 @@ export function accountScreen(ctx: ScreenContext): string {
               <span class="avatar" data-testid="account-avatar"></span>
               <span class="account-names">
                 <span class="account-nickname" data-testid="account-nickname">Your account</span>
-                <span class="account-username" data-testid="account-username" hidden></span>
                 <span class="account-status" data-testid="account-status"></span>
               </span>
               <button type="button" class="btn btn-blue account-edit" data-testid="edit-nickname" hidden><span>Edit</span></button>

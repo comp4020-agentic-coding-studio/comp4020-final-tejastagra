@@ -38,15 +38,14 @@ async function refresh(): Promise<void> {
   if (res.data?.mustChange && !document.querySelector('[data-testid="must-change-dialog"]')) mustChangeDialog();
   const guest = me?.kind === "guest";
   const account = me?.kind === "account";
-  $("account-nickname").textContent = me ? me.nickname : "You have not chosen a name yet";
+  // R31, R107: an account is named by its username alone, shown once; a guest's nickname is the only name it has.
+  $("account-nickname").textContent = me ? me.displayName : "You have not chosen a name yet";
   const fresh = avatar(me?.displayName ?? "guest");
   fresh.dataset.testid = "account-avatar";
   $("account-avatar").replaceWith(fresh);
-  $("account-username").hidden = !account;
-  $("account-username").textContent = account ? `@${me!.displayName}` : "";
   $("account-status").textContent = account ? "Logged in" : guest ? "Guest" : "";
   $("edit-nickname").hidden = !me;
-  $("edit-nickname").querySelector("span")!.textContent = account ? "Edit nickname" : "Edit";
+  $("edit-nickname").querySelector("span")!.textContent = account ? "Edit username" : "Edit";
   $("account-hint").hidden = !guest && !!me;
   for (const [id, show] of [["open-signup", !account], ["open-signin", !account], ["open-password", account], ["signout", account]] as const) $(id).hidden = !show;
   await showRecord();
@@ -139,6 +138,23 @@ function nicknameDialog(): void {
   d.actions(dialogButton("Save", "blue", "nickname-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => d.close() }));
 }
 
+// R107: renaming an account's username, with the current password. Unlike a password change, no other session ends.
+function usernameDialog(): void {
+  const d = openDialog({
+    testid: "username-dialog",
+    title: "Your username",
+    onSubmit: async (dialog) => {
+      const r = await post("/api/account/username", { current: field(dialog, "current"), username: field(dialog, "username").trim() });
+      if (!r.ok) return dialog.error(r.status === 401 ? "current" : "username", r.data.error ?? "Could not save the username.");
+      dialog.close();
+      await refresh();
+    },
+  });
+  d.field("Username", "username", { value: me?.displayName ?? "", maxlength: 20, autocomplete: "username" });
+  d.field("Current password", "current", { type: "password", autocomplete: "current-password" });
+  d.actions(dialogButton("Save", "blue", "username-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => d.close() }));
+}
+
 function signUpDialog(): void {
   const d = openDialog({
     testid: "signup-dialog",
@@ -227,7 +243,7 @@ function mustChangeDialog(): void {
   d.actions(dialogButton("Set password", "red", "must-change-save", { type: "submit" }));
 }
 
-$("edit-nickname").addEventListener("click", nicknameDialog);
+$("edit-nickname").addEventListener("click", () => (me?.kind === "account" ? usernameDialog() : nicknameDialog()));
 $("open-signup").addEventListener("click", signUpDialog);
 $("open-signin").addEventListener("click", () => void signInDialog());
 $("open-password").addEventListener("click", passwordDialog);

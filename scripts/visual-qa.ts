@@ -55,7 +55,7 @@ async function openGame(page: Page, path = "/api/computer"): Promise<string> {
 
 async function twoPlayers(browser: Browser, v: Viewport, first: Page) {
   const code = (await (await first.request.post("/api/games")).json()).code as string;
-  const second = await newPlayer(browser, v, { nickname: "Sam Wombat" });
+  const second = await newPlayer(browser, v, { nickname: "SamWombat" });
   await first.goto(`/g/${code}`);
   await second.page.goto(`/g/${code}`);
   await first.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
@@ -69,8 +69,8 @@ async function quickPair(browser: Browser, v: Viewport) {
   const first = await (await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json();
   if (first.state === "waiting") await drain.page.request.post(`/api/quick/${crypto.randomUUID()}`);
   await drain.context.close();
-  const one = await newPlayer(browser, v, { nickname: "Pip Squeak" });
-  const two = await newPlayer(browser, v, { nickname: "Sam Wombat" });
+  const one = await newPlayer(browser, v, { nickname: "PipSqueak" });
+  const two = await newPlayer(browser, v, { nickname: "SamWombat" });
   await one.page.request.post(`/api/quick/${crypto.randomUUID()}`);
   const code = ((await (await two.page.request.post(`/api/quick/${crypto.randomUUID()}`)).json()) as { code: string }).code;
   await one.page.goto(`/g/${code}`);
@@ -167,7 +167,7 @@ const STATES: State[] = [
   },
   {
     name: "leaderboard-filled",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       const names = ["Brave Wombat #a7f3", "Quick Otter #b2c1", "Pip Squeak #4f2a", "Calm Falcon #9d10", "Bold Badger #5e77", "Lucky Panda #31ab", "Sneaky Gecko #c0de"];
       const wins = names.map((name, i) => ({ name, value: 14 - i * 2 }));
@@ -180,7 +180,7 @@ const STATES: State[] = [
   },
   {
     name: "leaderboard-fewest-rounds",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       const names = ["Brave Wombat #a7f3", "Quick Otter #b2c1", "Pip Squeak #4f2a", "Calm Falcon #9d10"];
       const rounds = names.map((name, i) => ({ name, value: 4 + i }));
@@ -191,12 +191,12 @@ const STATES: State[] = [
       await shot();
     },
   },
-  { name: "account-guest", nickname: "Pip Squeak", run: async ({ page, shot }) => { await page.goto("/account"); await settle(page); await shot(); } },
+  { name: "account-guest", nickname: "PipSqueak", run: async ({ page, shot }) => { await page.goto("/account"); await settle(page); await shot(); } },
   ...(["rename:nickname-dialog", "join-toggle:code-dialog"] as const).map((pair): State => {
     const [opener, dialog] = pair.split(":");
     return {
       name: `home-${dialog}`,
-      nickname: "Pip Squeak",
+      nickname: "PipSqueak",
       run: async ({ page, shot }) => {
         await page.goto("/");
         await settle(page, 900);
@@ -209,7 +209,7 @@ const STATES: State[] = [
   }),
   {
     name: "home-code-dialog-error",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       await page.goto("/");
       await settle(page, 900);
@@ -222,7 +222,7 @@ const STATES: State[] = [
   },
   {
     name: "game-power-ups-and-help",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ browser, v, page, shot }) => {
       const { second } = await twoPlayers(browser, v, page);
       await page.locator(testid("shield-badge")).click(); // armed
@@ -235,7 +235,7 @@ const STATES: State[] = [
     const [opener, dialog] = pair.split(":");
     return {
       name: `popup-${dialog}`,
-      nickname: "Pip Squeak",
+      nickname: "PipSqueak",
       run: async ({ page, shot }) => {
         await openGame(page);
         await page.locator(testid("waiting-panel")).waitFor({ state: "hidden" });
@@ -250,7 +250,7 @@ const STATES: State[] = [
   }),
   {
     name: "popup-leave-dialog",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ browser, v, page, shot }) => {
       const { second } = await twoPlayers(browser, v, page);
       await settle(page, 600);
@@ -264,7 +264,7 @@ const STATES: State[] = [
   },
   {
     name: "end-win",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ browser, v, page, shot }) => {
       const { second } = await playedGame(browser, v, page);
       await settle(page, 1800);
@@ -274,7 +274,7 @@ const STATES: State[] = [
   },
   {
     name: "end-lose",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ browser, v, page, shot }) => {
       const { second } = await playedGame(browser, v, page, { firstWins: false });
       await settle(page, 1800);
@@ -284,7 +284,7 @@ const STATES: State[] = [
   },
   {
     name: "end-forfeit",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ browser, v, page, shot }) => {
       const { second } = await twoPlayers(browser, v, page);
       await settle(page, 600);
@@ -299,7 +299,7 @@ const STATES: State[] = [
   },
   {
     name: "end-draw",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       await serverSays(page, [snapshot({ ...emptyBoard, round: 21, status: "draw", rows: 4 })]);
       await page.goto("/g/DRAW42");
@@ -310,7 +310,7 @@ const STATES: State[] = [
   },
   {
     name: "end-abandoned",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       await serverSays(page, [snapshot(emptyBoard), { type: "game_over", result: "abandoned" }]);
       await page.goto("/g/ABAN42");
@@ -321,7 +321,7 @@ const STATES: State[] = [
   },
   ...(["waiting", "offered", "gone"] as const).map((mode): State => ({
     name: `rematch-${mode}`,
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ browser, v, page, shot }) => {
       const { second } = await playedGame(browser, v, page);
       if (mode === "waiting") await page.locator(testid("play-again")).click();
@@ -338,7 +338,7 @@ const STATES: State[] = [
   })),
   {
     name: "game-ceiling-warning",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       await serverSays(page, [snapshot({ ...emptyBoard, round: 11 })]);
       await page.goto("/g/CEIL42");
@@ -349,7 +349,7 @@ const STATES: State[] = [
   },
   {
     name: "account-signed-in",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ browser, v, page, shot }) => {
       const username = `pip${Math.random().toString(36).slice(2, 8)}`;
       await page.request.post("/api/account/signup", { data: { username, password: "correct horse battery" } });
@@ -364,11 +364,24 @@ const STATES: State[] = [
       await shot();
     },
   },
+  {
+    name: "popup-username-dialog",
+    nickname: "PipSqueak",
+    run: async ({ page, shot }) => {
+      const username = `pip${Math.random().toString(36).slice(2, 8)}`;
+      await page.request.post("/api/account/signup", { data: { username, password: "correct horse battery" } });
+      await page.goto("/account");
+      await page.locator(testid("edit-nickname")).click();
+      await page.locator(testid("username-dialog")).waitFor();
+      await settle(page, 500);
+      await shot();
+    },
+  },
   ...(["open-signup:signup-dialog", "open-signin:signin-dialog", "edit-nickname:nickname-dialog"] as const).map((pair): State => {
     const [opener, dialog] = pair.split(":");
     return {
       name: `popup-${dialog}`,
-      nickname: "Pip Squeak",
+      nickname: "PipSqueak",
       run: async ({ page, shot }) => {
         await page.goto("/account");
         await page.locator(testid(opener)).click();
@@ -380,7 +393,7 @@ const STATES: State[] = [
   }),
   {
     name: "popup-forgot-dialog",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       await page.goto("/account");
       await page.locator(testid("open-signin")).click();
@@ -392,7 +405,7 @@ const STATES: State[] = [
   },
   {
     name: "popup-signin-error",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       await page.goto("/account");
       await page.locator(testid("open-signin")).click();
@@ -405,7 +418,7 @@ const STATES: State[] = [
   },
   {
     name: "popup-password-dialog",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       const username = `pip${Math.random().toString(36).slice(2, 8)}`;
       await page.request.post("/api/account/signup", { data: { username, password: "correct horse battery" } });
@@ -448,7 +461,7 @@ const STATES: State[] = [
   },
   {
     name: "friend-game",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ browser, v, page, shot }) => {
       const { second } = await twoPlayers(browser, v, page);
       await settle(page, 1500);
@@ -483,7 +496,7 @@ const STATES: State[] = [
     name: "watching-link-game",
     run: async ({ browser, v, page, shot }) => {
       const { code, second } = await twoPlayers(browser, v, page);
-      const watcher = await newPlayer(browser, v, { nickname: "Wren Spectator" });
+      const watcher = await newPlayer(browser, v, { nickname: "WrenSpectator" });
       await watcher.page.goto(`/g/${code}`);
       await watcher.page.locator(testid("spectator-notice")).waitFor();
       await settle(watcher.page, 1200);
@@ -496,7 +509,7 @@ const STATES: State[] = [
   // Q27: every overlay over the shared backdrop. The sign-up and account nickname popups, and "That game has ended" on the watching screen.
   {
     name: "popup-signup-dialog",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       await page.goto("/account");
       await settle(page, 600);
@@ -508,7 +521,7 @@ const STATES: State[] = [
   },
   {
     name: "popup-account-nickname-dialog",
-    nickname: "Pip Squeak",
+    nickname: "PipSqueak",
     run: async ({ page, shot }) => {
       await page.goto("/account");
       await settle(page, 600);
@@ -522,7 +535,7 @@ const STATES: State[] = [
     name: "watching-game-ended",
     run: async ({ browser, v, page, shot }) => {
       const { code, second } = await twoPlayers(browser, v, page);
-      const watcher = await newPlayer(browser, v, { nickname: "Wren Spectator" });
+      const watcher = await newPlayer(browser, v, { nickname: "WrenSpectator" });
       await watcher.page.goto(`/g/${code}`);
       await watcher.page.locator(testid("spectator-notice")).waitFor();
       // One round resolves (a game with no round is never recorded, R98), then the first player leaves: a forfeit.

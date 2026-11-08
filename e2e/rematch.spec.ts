@@ -8,8 +8,8 @@ import { withQuickQueue } from "./quick-lock.ts";
 async function finishedGame(browser: Browser, sizes: [{ width: number; height: number }, { width: number; height: number }] = [PHONE, LAPTOP]) {
   const one = await newPlayer(browser, sizes[0], { reducedMotion: true });
   const two = await newPlayer(browser, sizes[1], { reducedMotion: true });
-  await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
-  await two.page.request.post("/api/guest", { data: { nickname: "Sam Wombat" } });
+  await one.page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
+  await two.page.request.post("/api/guest", { data: { nickname: "SamWombat" } });
   const code = await makeGameCode(one.page);
   await one.page.goto(`/g/${code}`);
   await two.page.goto(`/g/${code}`);
@@ -94,8 +94,8 @@ test.describe("Rematch (R82 to R85)", () => {
         }
       } as typeof WebSocket;
     });
-    await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
-    await two.page.request.post("/api/guest", { data: { nickname: "Sam Wombat" } });
+    await one.page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
+    await two.page.request.post("/api/guest", { data: { nickname: "SamWombat" } });
     const code = await makeGameCode(one.page);
     await one.page.goto(`/g/${code}`);
     await two.page.goto(`/g/${code}`);
@@ -161,8 +161,8 @@ test.describe("Rematch after a quick match (R82, R84)", () => {
       await drain.context.close();
       const one = await newPlayer(browser, PHONE, { reducedMotion: true });
       const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
-      await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
-      await two.page.request.post("/api/guest", { data: { nickname: "Sam Wombat" } });
+      await one.page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
+      await two.page.request.post("/api/guest", { data: { nickname: "SamWombat" } });
       // Through the real Quick match page, as a player would arrive.
       await one.page.goto("/play/quick");
       await two.page.goto("/play/quick");
@@ -197,8 +197,8 @@ test.describe("Rematch after a quick match (R82, R84)", () => {
     }
     await waitForRound(one.page, 1);
     await waitForRound(two.page, 1);
-    await expect(one.page.locator(testid("name-opponent"))).toContainText("Sam Wombat");
-    await expect(two.page.locator(testid("name-opponent"))).toContainText("Pip Squeak");
+    await expect(one.page.locator(testid("name-opponent"))).toContainText("SamWombat");
+    await expect(two.page.locator(testid("name-opponent"))).toContainText("PipSqueak");
     await one.page.locator(testid("column-3")).click();
     await two.page.locator(testid("column-4")).click();
     await waitForRound(one.page, 2);
@@ -214,8 +214,8 @@ test.describe("Rematch after a quick match (R82, R84)", () => {
       await drain.context.close();
       const one = await newPlayer(browser, PHONE, { reducedMotion: true });
       const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
-      await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
-      await two.page.request.post("/api/guest", { data: { nickname: "Sam Wombat" } });
+      await one.page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
+      await two.page.request.post("/api/guest", { data: { nickname: "SamWombat" } });
       await one.page.goto("/play/quick");
       await two.page.goto("/play/quick");
       await one.page.waitForURL(/\/g\/[A-Z0-9]{6}$/, { timeout: 10_000 });

@@ -243,7 +243,7 @@ test.describe("Home", () => {
   test("U33 a first-time visitor has a generated nickname and can start a computer game in one tap", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { tutorial: "new" });
     await page.goto("/");
-    await expect(page.locator(testid("player-name"))).toHaveText(/^[A-Z][a-z]+ [A-Z][a-z]+$/); // R31: a generated nickname alone, no tag
+    await expect(page.locator(testid("player-name"))).toHaveText(/^[A-Z][a-z]+[A-Z][a-z]+$/); // R28, R31: a single-word generated nickname, no tag
     await page.tap(testid("play-computer"));
     await page.tap(testid("tutorial-skip")); // R47: the tutorial runs before the first match; skipping starts it
     await page.waitForURL(/\/g\/[A-Z2-9]{6}$/);

@@ -70,6 +70,8 @@ $("join-toggle").addEventListener("click", openCodeDialog);
 
 // ---- The player card (U32) ----
 
+let currentKind: "guest" | "account" | null = null;
+
 async function showPlayer(): Promise<void> {
   let player = await currentPlayer();
   if (!player) {
@@ -84,34 +86,60 @@ async function showPlayer(): Promise<void> {
   const fresh = avatar(player?.displayName ?? "guest");
   fresh.dataset.testid = "player-avatar";
   $("player-avatar").replaceWith(fresh);
-  currentName = player?.nickname ?? "";
+  // R31, R107: an account is named by its username alone; a guest's nickname prefills the nickname popup.
+  currentName = player?.kind === "guest" ? player.nickname : (player?.displayName ?? "");
+  currentKind = player?.kind ?? null;
   $("player-name").textContent = player ? player.displayName : "Guest";
   $("player-kind").textContent = player ? (player.kind === "account" ? "Logged in" : "Guest") : "";
 }
 
-// The pencil opens the nickname popup, prefilled with the current nickname (U32, Q7).
-$("rename").addEventListener("click", () => {
+async function postRename(endpoint: string, body: Record<string, string>): Promise<{ ok: boolean; status: number; error?: string }> {
+  try {
+    const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) return { ok: false, status: res.status, error: (await res.json().catch(() => ({}))).error };
+    return { ok: true, status: res.status };
+  } catch {
+    return { ok: false, status: 0, error: "Could not reach the server. Check your connection." };
+  }
+}
+
+function nicknameDialog(): void {
   const dialog = openDialog({
     testid: "nickname-dialog",
     title: "Your nickname",
     onSubmit: async (d) => {
       const value = (d.form.elements.namedItem("nickname") as HTMLInputElement).value.trim();
-      try {
-        const res = await fetch("/api/guest", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ nickname: value }) });
-        if (!res.ok) {
-          d.error("nickname", (await res.json().catch(() => ({}))).error ?? "Could not save the nickname.");
-          return;
-        }
-        d.close();
-        await showPlayer();
-      } catch {
-        d.error("nickname", "Could not reach the server. Check your connection.");
-      }
+      const r = await postRename("/api/guest", { nickname: value });
+      if (!r.ok) return d.error("nickname", r.error ?? "Could not save the nickname.");
+      d.close();
+      await showPlayer();
     },
   });
   dialog.field("Nickname", "nickname", { value: currentName, maxlength: 16, autocomplete: "nickname" });
   dialog.actions(dialogButton("Save", "blue", "nickname-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => dialog.close() }));
-});
+}
+
+// R107: renaming an account's username, with the current password. Unlike a password change, no other session ends.
+function usernameDialog(): void {
+  const dialog = openDialog({
+    testid: "username-dialog",
+    title: "Your username",
+    onSubmit: async (d) => {
+      const username = (d.form.elements.namedItem("username") as HTMLInputElement).value.trim();
+      const current = (d.form.elements.namedItem("current") as HTMLInputElement).value;
+      const r = await postRename("/api/account/username", { username, current });
+      if (!r.ok) return d.error(r.status === 401 ? "current" : "username", r.error ?? "Could not save the username.");
+      d.close();
+      await showPlayer();
+    },
+  });
+  dialog.field("Username", "username", { value: currentName, maxlength: 20, autocomplete: "username" });
+  dialog.field("Current password", "current", { type: "password", autocomplete: "current-password" });
+  dialog.actions(dialogButton("Save", "blue", "username-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => dialog.close() }));
+}
+
+// The pencil opens the nickname popup for a guest, or the rename popup for a logged-in account (U32, Q7, R107).
+$("rename").addEventListener("click", () => (currentKind === "account" ? usernameDialog() : nicknameDialog()));
 
 // ---- The demo board (U36): the twist without words ----
 async function demo(): Promise<void> {

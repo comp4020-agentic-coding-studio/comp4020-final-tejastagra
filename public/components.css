@@ -3069,7 +3069,6 @@ input:focus {
   }
 }
 
-.account-username,
 .account-status {
   color: var(--text-muted);
   overflow-wrap: anywhere;
@@ -3082,8 +3081,7 @@ input:focus {
 
 .account-hint[hidden],
 .account-actions .btn[hidden],
-.account-edit[hidden],
-.account-username[hidden] {
+.account-edit[hidden] {
   display: none;
 }
 

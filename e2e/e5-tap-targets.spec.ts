@@ -39,6 +39,13 @@ for (const [name, viewport] of [["390", PHONE], ["320", NARROW]] as const) {
       expect(await tooSmall(page), `${dialog} open at ${name}`).toEqual([]);
       await page.keyboard.press("Escape");
     }
+    // An account's rename popup (R107), reached by the same edit-nickname button once signed up.
+    const username = `tap${Math.random().toString(36).slice(2, 9)}`;
+    expect((await page.request.post("/api/account/signup", { data: { username, password: "correct horse battery" } })).ok()).toBe(true);
+    await page.reload();
+    await page.click(testid("edit-nickname"));
+    await expect(page.locator(testid("username-dialog"))).toBeVisible();
+    expect(await tooSmall(page), `username-dialog open at ${name}`).toEqual([]);
     await context.close();
   });
 }

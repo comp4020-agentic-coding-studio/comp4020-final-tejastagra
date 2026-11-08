@@ -18,7 +18,7 @@ function adminReset(username: string): string {
 
 async function signedIn(page: Page, password = "first password here") {
   const username = `acc_${unique()}`;
-  await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+  await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
   expect((await page.request.post("/api/account/signup", { data: { username, password } })).ok()).toBe(true);
   return { username, password };
 }
@@ -26,9 +26,9 @@ async function signedIn(page: Page, password = "first password here") {
 test.describe("The account page (U114 to U122)", () => {
   test("U115 a guest sees their nickname, Edit, Save my progress, Log in and the line, and never Log out or Change password", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+    await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
     await page.goto("/account");
-    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Squeak");
+    await expect(page.locator(testid("account-nickname"))).toHaveText("PipSqueak");
     await expect(page.locator(testid("account-status"))).toHaveText("Guest");
     await expect(page.locator(testid("edit-nickname"))).toHaveText("Edit");
     await expect(page.locator(testid("open-signup"))).toHaveText("Save my progress");
@@ -38,59 +38,86 @@ test.describe("The account page (U114 to U122)", () => {
     await context.close();
   });
 
-  test("U116 a logged-in player sees their nickname, username, Logged in, Edit nickname, Change password and Log out, and no log-in controls", async ({ browser }) => {
+  test("U116 a logged-in player is named by their username alone, with Logged in, Edit username, Change password and Log out, and no log-in controls", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
     const { username } = await signedIn(page);
     await page.goto("/account");
-    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Squeak");
-    await expect(page.locator(testid("account-username"))).toHaveText(`@${username}`);
+    await expect(page.locator(testid("account-nickname"))).toHaveText(username);
+    await expect(page.locator(testid("account-username"))).toHaveCount(0); // R31, R107: no separate nickname once signed up
     await expect(page.locator(testid("account-status"))).toHaveText("Logged in");
-    await expect(page.locator(testid("edit-nickname"))).toHaveText("Edit nickname");
+    await expect(page.locator(testid("edit-nickname"))).toHaveText("Edit username");
     for (const id of ["open-password", "signout"]) await expect(page.locator(testid(id))).toBeVisible();
     for (const id of ["open-signup", "open-signin", "account-hint"]) await expect(page.locator(testid(id))).toBeHidden();
     await context.close();
   });
 
-  test("R28 a logged-in player's new nickname from the account page shows at once and survives a reload and signing out and in", async ({ browser }) => {
+  test("R107 a logged-in player's rename from the account page shows at once and survives a reload and signing out and in", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    const { username, password } = await signedIn(page);
+    const { password } = await signedIn(page);
+    const newName = `renamed_${unique()}`;
     await page.goto("/account");
     await page.locator(testid("edit-nickname")).click();
-    await page.locator(testid("nickname-input")).fill("Pip Two");
-    await page.locator(testid("nickname-save")).click();
-    await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
-    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Two");
+    await page.locator(testid("username-input")).fill(newName);
+    await page.locator(testid("current-input")).fill(password);
+    await page.locator(testid("username-save")).click();
+    await expect(page.locator(testid("username-dialog"))).toHaveCount(0);
+    await expect(page.locator(testid("account-nickname"))).toHaveText(newName);
     await page.reload();
-    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Two");
+    await expect(page.locator(testid("account-nickname"))).toHaveText(newName);
     await page.locator(testid("signout")).click();
     await expect(page.locator(testid("open-signin"))).toBeVisible();
     await page.locator(testid("open-signin")).click();
-    await page.locator(testid("username-input")).fill(username);
+    await page.locator(testid("username-input")).fill(newName);
     await page.locator(testid("password-input")).fill(password);
     await page.locator(testid("signin-save")).click();
     await expect(page.locator(testid("signin-dialog"))).toHaveCount(0);
-    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Two");
+    await expect(page.locator(testid("account-nickname"))).toHaveText(newName);
     await context.close();
   });
 
-  test("R28 a logged-in player's new nickname from the home pencil shows on the account page and survives a reload", async ({ browser }) => {
+  test("R107 a logged-in player's rename from the home pencil shows on the account page and survives a reload", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await signedIn(page);
+    const { password } = await signedIn(page);
+    const newName = `renamed_${unique()}`;
     await page.goto("/");
     await page.locator(testid("rename")).click();
-    await page.locator(testid("nickname-input")).fill("Pip Three");
-    await page.locator(testid("nickname-save")).click();
-    await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
+    await page.locator(testid("username-input")).fill(newName);
+    await page.locator(testid("current-input")).fill(password);
+    await page.locator(testid("username-save")).click();
+    await expect(page.locator(testid("username-dialog"))).toHaveCount(0);
+    await expect(page.locator(testid("player-name"))).toContainText(newName);
     await page.goto("/account");
-    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Three");
+    await expect(page.locator(testid("account-nickname"))).toHaveText(newName);
     await page.reload();
-    await expect(page.locator(testid("account-nickname"))).toHaveText("Pip Three");
+    await expect(page.locator(testid("account-nickname"))).toHaveText(newName);
+    await context.close();
+  });
+
+  test("R107 a wrong current password or an already-taken username shows its error inside the rename popup, under the field", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const { password } = await signedIn(page);
+    const other = await newPlayer(browser, PHONE, { reducedMotion: true });
+    const { username: takenName } = await signedIn(other.page);
+    await other.context.close();
+
+    await page.goto("/account");
+    await page.locator(testid("edit-nickname")).click();
+    await page.locator(testid("username-input")).fill(`renamed_${unique()}`);
+    await page.locator(testid("current-input")).fill("wrong password");
+    await page.locator(testid("username-save")).click();
+    const passwordError = page.locator(`${testid("username-dialog")} .dialog-error:visible`);
+    await expect(passwordError).toContainText("not right");
+    await page.locator(testid("current-input")).fill(password);
+    await page.locator(testid("username-input")).fill(takenName);
+    await page.locator(testid("username-save")).click();
+    await expect(page.locator(`${testid("username-dialog")} .dialog-error:visible`)).toContainText("taken");
+    await expect(page.locator(testid("username-dialog"))).toBeVisible();
     await context.close();
   });
 
   test("U120 the log-in popup's Forgot your password? opens the words to email, sends nothing, and Close goes back", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+    await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
     await page.goto("/account");
     await page.waitForLoadState("networkidle"); // the page's own calls are done
     await page.locator(testid("open-signin")).click();
@@ -182,7 +209,7 @@ test.describe("The account page (U114 to U122)", () => {
 
   test("U118 a new player's record shows a dash in both stat cards and one No games yet message", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+    await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
     await page.goto("/account");
     for (const id of ["stats-people", "stats-computer"]) {
       await expect(page.locator(`${testid(id)} dd`).first()).toHaveText("—");
@@ -197,8 +224,8 @@ test.describe("The account page (U114 to U122)", () => {
   test("U118 and R90 a won game shows in the history and the stats, and a forfeit is a loss for the one who left", async ({ browser }) => {
     const one = await newPlayer(browser, PHONE, { reducedMotion: true });
     const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
-    await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
-    await two.page.request.post("/api/guest", { data: { nickname: "Sam Wombat" } });
+    await one.page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
+    await two.page.request.post("/api/guest", { data: { nickname: "SamWombat" } });
     const code = await makeGameCode(one.page);
     await one.page.goto(`/g/${code}`);
     await two.page.goto(`/g/${code}`);
@@ -211,7 +238,7 @@ test.describe("The account page (U114 to U122)", () => {
     await expect(one.page.locator(testid("end-title"))).toHaveText("YOU WIN!", { timeout: 4_000 });
     await one.page.goto("/account");
     const row = one.page.locator(`${testid("history-list")} .history-row`).first();
-    await expect(row).toContainText("Sam Wombat");
+    await expect(row).toContainText("SamWombat");
     await expect(row, "R31: no tag").not.toContainText("#");
     await expect(row).toContainText("Won");
     await expect(row).toContainText("4 rounds");
@@ -351,10 +378,8 @@ test.describe("Long names (U114, U118)", () => {
       const card = (await one.page.locator(testid("account-card")).boundingBox())!;
       expect(card.height, "the card is not stretched tall by a long name").toBeLessThan(viewport.width < 400 ? 420 : 340);
       expect(await one.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-      for (const id of ["account-nickname", "account-username"]) {
-        const b = (await one.page.locator(testid(id)).boundingBox())!;
-        expect(b.x + b.width, `${id} inside the card`).toBeLessThanOrEqual(card.x + card.width);
-      }
+      const nameBox = (await one.page.locator(testid("account-nickname")).boundingBox())!;
+      expect(nameBox.x + nameBox.width, "account-nickname inside the card").toBeLessThanOrEqual(card.x + card.width);
       const row = one.page.locator(`${testid("history-list")} .history-row`).first();
       const result = (await row.locator(".history-result").boundingBox())!;
       const rowBox = (await row.boundingBox())!;

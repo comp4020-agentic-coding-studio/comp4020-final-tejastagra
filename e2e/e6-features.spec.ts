@@ -74,7 +74,7 @@ test("E6 quick match: two phones are paired into one game", async ({ browser }) 
 test("E6 sign up, sign out and sign in again, with errors visible in the first screen", async ({ browser }) => {
   const { context, page } = await newPlayer(browser, PHONE);
   const username = `e6_${Math.random().toString(36).slice(2, 10)}`;
-  await page.request.post("/api/guest", { data: { nickname: "Phone Tester" } });
+  await page.request.post("/api/guest", { data: { nickname: "PhoneTester" } });
   await page.goto("/account");
   // The errors are inside the popup, under their field, and in the first screen (U88, C13).
   await page.tap(testid("open-signup"));
@@ -87,7 +87,7 @@ test("E6 sign up, sign out and sign in again, with errors visible in the first s
   expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height);
   await page.fill(testid("password-input"), "a long enough password");
   await page.tap(testid("signup-save"));
-  await expect(page.locator(testid("account-username"))).toHaveText(`@${username}`);
+  await expect(page.locator(testid("account-nickname"))).toHaveText(username);
   await expect(page.locator(testid("account-status"))).toHaveText("Logged in");
   await page.tap(testid("signout"));
   await expect(page.locator(testid("open-signin"))).toBeVisible();
@@ -98,7 +98,7 @@ test("E6 sign up, sign out and sign in again, with errors visible in the first s
   await expect(page.locator(`${testid("signin-dialog")} .dialog-error:visible`)).toContainText("do not match");
   await page.fill(testid("password-input"), "a long enough password");
   await page.tap(testid("signin-save"));
-  await expect(page.locator(testid("account-username"))).toHaveText(`@${username}`);
+  await expect(page.locator(testid("account-nickname"))).toHaveText(username);
   await context.close();
 });
 

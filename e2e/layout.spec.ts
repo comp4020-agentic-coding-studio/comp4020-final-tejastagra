@@ -333,16 +333,22 @@ test.describe("Q12 Home is always visible and Q13 the board is centred", () => {
 // Q1: a popup opens over the page and moves nothing behind it.
 test.describe("Q1 popups move nothing", () => {
   for (const viewport of VIEWPORTS) {
-    const popups: Array<{ name: string; screen: string; opener: string; dialog: string }> = [
+    const popups: Array<{ name: string; screen: string; opener: string; dialog: string; signedIn?: boolean }> = [
       { name: "nickname", screen: "/", opener: "rename", dialog: "nickname-dialog" },
       { name: "join with a code", screen: "/", opener: "join-toggle", dialog: "code-dialog" },
-      { name: "nickname (account)", screen: "/account", opener: "edit-nickname", dialog: "nickname-dialog" },
+      { name: "nickname (guest, account page)", screen: "/account", opener: "edit-nickname", dialog: "nickname-dialog" },
+      { name: "rename (account)", screen: "/account", opener: "edit-nickname", dialog: "username-dialog", signedIn: true },
       { name: "sign up", screen: "/account", opener: "open-signup", dialog: "signup-dialog" },
       { name: "sign in", screen: "/account", opener: "open-signin", dialog: "signin-dialog" },
     ];
     for (const popup of popups) {
       test(`${popup.name} at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
         const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
+        if (popup.signedIn) {
+          const name = `q1${Math.random().toString(36).slice(2, 9)}`;
+          const r = await page.request.post("/api/account/signup", { data: { username: name, password: "correct horse battery" } });
+          expect(r.ok()).toBe(true);
+        }
         await page.goto(popup.screen);
         await page.waitForLoadState("networkidle");
         await page.evaluate(() => document.fonts.ready); // the display font swapping in changes a line's height by a pixel: measure after it
@@ -405,12 +411,12 @@ test.describe("Q1 popups move nothing", () => {
 test.describe("Q7 and Q8 forms and controls", () => {
   test("Q7 the nickname editor opens prefilled with the current nickname, on home and on the account page", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+    await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
     for (const [path, opener] of [["/", "rename"], ["/account", "edit-nickname"]] as const) {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
       await page.locator(testid(opener)).click();
-      await expect(page.locator(`${testid("nickname-dialog")} ${testid("nickname-input")}`)).toHaveValue("Pip Squeak");
+      await expect(page.locator(`${testid("nickname-dialog")} ${testid("nickname-input")}`)).toHaveValue("PipSqueak");
       await page.keyboard.press("Escape");
     }
     await context.close();
@@ -418,7 +424,7 @@ test.describe("Q7 and Q8 forms and controls", () => {
 
   test("Q8 a logged-in player sees no log-in or sign-up control, and a guest sees no Log out", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+    await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
     await page.goto("/account");
     await page.waitForLoadState("networkidle");
     await expect(page.locator(testid("signout"))).toBeHidden();
@@ -474,17 +480,17 @@ test.describe("Home menu and its popups (U33, U33b)", () => {
 
   test("the nickname popup saves and closes, the new name on the player card is the confirmation, and Cancel changes nothing", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+    await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
     await page.goto("/");
     await page.locator(testid("rename")).click();
     await page.locator(testid("dialog-cancel")).click();
     await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
-    await expect(page.locator(testid("player-name"))).toContainText("Pip Squeak");
+    await expect(page.locator(testid("player-name"))).toContainText("PipSqueak");
     await page.locator(testid("rename")).click();
-    await page.locator(testid("nickname-input")).fill("Pip Two");
+    await page.locator(testid("nickname-input")).fill("PipTwo");
     await page.locator(testid("nickname-save")).click();
     await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
-    await expect(page.locator(testid("player-name")), "the new name is the confirmation (U32)").toContainText("Pip Two");
+    await expect(page.locator(testid("player-name")), "the new name is the confirmation (U32)").toContainText("PipTwo");
     await expect(page.locator("body"), "no Nickname saved. text anywhere").not.toContainText("Nickname saved");
     await context.close();
   });
@@ -684,13 +690,13 @@ test.describe("Heading, leaving and the end popup (U29, U106 to U108, U132, R81)
   test("a game against a person says who with their name (no tag, R31), and Leave forfeits: the other player wins and is told", async ({ browser }) => {
     const one = await newPlayer(browser, PHONE, { reducedMotion: true });
     const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
-    await one.page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
-    await two.page.request.post("/api/guest", { data: { nickname: "Sam Wombat" } });
+    await one.page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
+    await two.page.request.post("/api/guest", { data: { nickname: "SamWombat" } });
     const code = await makeGameCode(one.page);
     await one.page.goto(`/g/${code}`);
     await two.page.goto(`/g/${code}`);
-    await expect(one.page.locator(testid("opponent-heading"))).toHaveText("Playing with Sam Wombat");
-    await expect(two.page.locator(testid("opponent-heading"))).toHaveText("Playing with Pip Squeak");
+    await expect(one.page.locator(testid("opponent-heading"))).toHaveText("Playing with SamWombat");
+    await expect(two.page.locator(testid("opponent-heading"))).toHaveText("Playing with PipSqueak");
     await one.page.locator(testid("header-home")).click() /* U132: Home asks to confirm leaving */;
     await one.page.locator(testid("leave-confirm")).click();
     await one.page.waitForURL(/\/$/);
@@ -848,7 +854,7 @@ test.describe("Phone width: the watching screen and the game screen's first scre
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
       await page.routeWebSocket(/\/ws$/, (ws) => {
         ws.onMessage(() =>
-          ws.send(JSON.stringify({ type: "spectating", code: "QQQQQQ", kind: "quick", watching: 1, names: { A: "Pip Squeak", B: "Sam Wombat" }, colours: { A: "red", B: "yellow" }, state: { board: [[], [], [], [], [], [], []], round: 3, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null } })),
+          ws.send(JSON.stringify({ type: "spectating", code: "QQQQQQ", kind: "quick", watching: 1, names: { A: "PipSqueak", B: "SamWombat" }, colours: { A: "red", B: "yellow" }, state: { board: [[], [], [], [], [], [], []], round: 3, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 6, status: "playing", winner: null } })),
         );
       });
       await page.goto("/watch");
@@ -1148,7 +1154,7 @@ async function openEndPopup(page: Page, status: "draw" | "won" = "draw"): Promis
   const state = { board: [[], [], [], [], [], [], []], round: 21, shieldsLeft: { A: true, B: true }, earthquakesLeft: { A: true, B: true }, rows: 4, status, winner: status === "won" ? "B" : null };
   await page.routeWebSocket(/\/ws$/, (ws) => {
     ws.onMessage((raw) => {
-      if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "Pip Squeak", opponentName: "Brave Wombat", colours: { A: "red", B: "yellow" }, opponentReady: false }));
+      if (String(raw).includes('"join"')) ws.send(JSON.stringify({ type: "snapshot", you: "A", seatToken: "x", opponentPresent: true, started: true, state, yourName: "PipSqueak", opponentName: "BraveWombat", colours: { A: "red", B: "yellow" }, opponentReady: false }));
     });
   });
   await page.goto("/g/DRAW42");
@@ -1531,7 +1537,7 @@ test.describe("Q23 the round icons and the laptop balance", () => {
   for (const viewport of [PHONE, LAPTOP]) {
     test(`Q23 U32 saving a nickname shows the new name, no message and moves nothing at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
-      await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+      await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
       await page.goto("/");
       await page.waitForLoadState("networkidle");
       await page.evaluate(() => document.fonts.ready);
@@ -1539,10 +1545,10 @@ test.describe("Q23 the round icons and the laptop balance", () => {
       await page.mouse.move(1, 1);
       const before = await geometry(page, ["nickname-dialog", "player-name"]);
       await page.locator(testid("rename")).click();
-      await page.locator(testid("nickname-input")).fill("Pip Two");
+      await page.locator(testid("nickname-input")).fill("PipTwo");
       await page.locator(testid("nickname-save")).click();
       await expect(page.locator(testid("nickname-dialog"))).toHaveCount(0);
-      await expect(page.locator(testid("player-name"))).toContainText("Pip Two");
+      await expect(page.locator(testid("player-name"))).toContainText("PipTwo");
       await expect(page.locator("body")).not.toContainText("Nickname saved");
       await page.mouse.move(1, 1);
       await page.waitForTimeout(400);
@@ -2035,7 +2041,7 @@ test.describe("Q31 U9b every button has one style and its whole shadow shows", (
 
 async function signedInHere(page: Page): Promise<void> {
   const username = `lay_${Math.random().toString(36).slice(2, 8)}`;
-  await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+  await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
   expect((await page.request.post("/api/account/signup", { data: { username, password: "first password here" } })).ok()).toBe(true);
 }
 
@@ -2054,7 +2060,7 @@ test.describe("Q35 U51a a focused text field shows only a yellow border", () => 
     test(`Q35 every text field at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       test.setTimeout(60_000);
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
-      await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+      await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
       const problems: string[] = [];
       const measure = (input: import("@playwright/test").Locator) => input.evaluate((el) => {
         const c = getComputedStyle(el);
@@ -2100,7 +2106,7 @@ test.describe("Q36 U85a the popup X is a plain icon", () => {
     test(`Q36 the X in every popup at ${viewport.width} x ${viewport.height}`, async ({ browser }) => {
       test.setTimeout(60_000);
       const { context, page } = await newPlayer(browser, viewport, { reducedMotion: true });
-      await page.request.post("/api/guest", { data: { nickname: "Pip Squeak" } });
+      await page.request.post("/api/guest", { data: { nickname: "PipSqueak" } });
       const problems: string[] = [];
       const check = async (name: string, dialog: string) => {
         const m = await page.locator(`${testid(dialog)} ${testid("dialog-close")}`).evaluate((el) => {

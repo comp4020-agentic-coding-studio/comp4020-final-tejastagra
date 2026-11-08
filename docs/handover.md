@@ -560,3 +560,8 @@ From `/Users/tejastagra/comp4020/comp4020-final-tejastagra`: `pnpm dev` (Tejas r
 
 - `d254cb6` The friend waiting screen shows the Rubble title 16px above the waiting card (U163, Q37), because that screen has no header. The Q24 and Q27 checks still pass.
 - The phone home stack is vertically centred on the screen (U164, Q38). The Q23, Q17 and home Q12/Q13/Q15 checks still pass. The laptop was already centred.
+
+### Found while unifying nickname and username (8 November 2026)
+
+- **`e2e/rematch.spec.ts` has several stale tag assertions**, left over from before R31 removed the `#a7f3`-style tag on 2 November 2026 (same root cause as correction C63, which fixed three similar tests in `spec/app-identity.test.ts` and `spec/app-tutorial.test.ts`). Lines 36, 39, 63, 112, 189, 190 and 233 assert text such as `/^Waiting for SamWombat #/` and `/^PipSqueak #\w+ wants a rematch$/`, which no longer matches a tag-less display name. Left unfixed because they are unrelated to the nickname/username unification this session is doing and I did not want to expand scope without asking; they need the same treatment as C63 (confirm with Tejas, then rewrite to the tag-less wording).
+- **`scripts/visual-qa.ts` also still uses the old `"Pip Squeak #4f2a"`-style names** for leaderboard fixture data (lines 107, 172, 175, 185, 187) and should probably drop the tag suffix for the same reason, though these are screenshot fixtures rather than assertions, so a wrong format is lower-risk (no longer a valid nickname, but leaderboard rows are typically plain `name` strings from the server, not round-tripped through validNickname, so the script likely still renders something, just not what a real player would have).
