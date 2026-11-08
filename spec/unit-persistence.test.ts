@@ -569,7 +569,7 @@ describe("R84 archiving a finished game for a rematch (no schema change: it uses
 
 describe("R93 and R95 player colours are saved with the game", () => {
   it("S8 (R95) migrations 19 and 20 give a game saved before colours seat A red and seat B yellow, once, and keep newer colours", () => {
-    expect(MIGRATION_COUNT, "the colours are migrations 19 and 20, then migration 21 (R98) and 22 (R48)").toBe(22);
+    expect(MIGRATION_COUNT, "the colours are migrations 19 and 20, then 21 (R98), 22 (R48) and 23 (R28, nicknames with no space)").toBe(23);
     const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration19.db`);
     try {
       const old = new DatabaseSync(path);
@@ -636,7 +636,7 @@ describe("R98 games that never started are removed once", () => {
       expect(upgraded.loadGames().map((g) => g.code).sort()).toEqual(["PLAYED", "PLAYED#2", "WAITNG"]);
       upgraded.close();
       const raw = new DatabaseSync(path);
-      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(22); // 21 is this migration (R98); 22 (R48) ran after it
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT); // 21 is this migration (R98); 22 (R48) and 23 (R28) ran after it
       raw.close();
       // Run once: a game cancelled after the upgrade is left for history to ignore (R98), never deleted by a second open.
       const again = openDb(path);
@@ -646,6 +646,45 @@ describe("R98 games that never started are removed once", () => {
       const third = openDb(path);
       expect(third.loadGames().map((g) => g.code)).toContain("LATER");
       third.close();
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
+  });
+});
+
+describe("R28 nicknames saved with a space are upgraded once", () => {
+  it("S10 (R28) migration 23 removes a space from an existing nickname, and leaves a single-word one alone", () => {
+    expect(MIGRATION_COUNT, "the space-removing migration is 23, after R98 (21) and R48 (22)").toBe(23);
+    const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-migration23.db`);
+    try {
+      const old = new DatabaseSync(path);
+      old.exec(`CREATE TABLE games (code TEXT PRIMARY KEY, state TEXT NOT NULL, updated_at INTEGER NOT NULL)`);
+      for (const c of ["ended TEXT", "vs_computer INTEGER NOT NULL DEFAULT 0", "player_a TEXT", "player_b TEXT", "missed_a INTEGER NOT NULL DEFAULT 0", "missed_b INTEGER NOT NULL DEFAULT 0", "watchable INTEGER NOT NULL DEFAULT 0", "kind TEXT", "creator TEXT", "colours TEXT"]) old.exec(`ALTER TABLE games ADD COLUMN ${c}`);
+      old.exec(`CREATE TABLE players (id TEXT PRIMARY KEY, nickname TEXT NOT NULL, username TEXT COLLATE NOCASE UNIQUE, password_hash TEXT, created_at INTEGER NOT NULL)`);
+      old.exec(`ALTER TABLE players ADD COLUMN tutorial_seen INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`ALTER TABLE players ADD COLUMN must_change INTEGER NOT NULL DEFAULT 0`);
+      old.exec(`CREATE TABLE sessions (token_hash TEXT PRIMARY KEY, player_id TEXT NOT NULL, created_at INTEGER NOT NULL)`);
+      old.exec(`PRAGMA user_version = 22`); // the schema as shipped before nicknames became single words
+      old.prepare("INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)").run("p1", "Pip Squeak", Date.now());
+      old.prepare("INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)").run("p2", "Solo", Date.now());
+      old.prepare("INSERT INTO players (id, nickname, created_at) VALUES (?, ?, ?)").run("p3", " Sam  Wombat ", Date.now()); // leading, trailing and doubled spaces
+      old.close();
+
+      const upgraded = openDb(path);
+      expect(upgraded.playerById("p1")?.nickname).toBe("PipSqueak");
+      expect(upgraded.playerById("p2")?.nickname).toBe("Solo");
+      expect(upgraded.playerById("p3")?.nickname).toBe("SamWombat");
+      upgraded.close();
+      const raw = new DatabaseSync(path);
+      expect((raw.prepare("PRAGMA user_version").get() as { user_version: number }).user_version).toBe(MIGRATION_COUNT);
+      raw.close();
+      // Run once: renaming p1 directly in the database to something that would match LIKE '% %' again proves
+      // openDb does not reapply the migration on every open, only when user_version says it has not run yet.
+      const again = openDb(path);
+      expect(again.playerById("p1")?.nickname).toBe("PipSqueak");
+      again.close();
     } finally {
       rmSync(path, { force: true });
       rmSync(`${path}-wal`, { force: true });

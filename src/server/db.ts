@@ -53,6 +53,9 @@ export interface Db {
   // Turns a guest into an account in place, keeping the same id (R29).
   // Returns false when the username is already taken (case-insensitive).
   upgradeToAccount(id: string, username: string, passwordHash: string): boolean;
+  // R107: renames an existing account's username in place. Returns false when the username is already taken
+  // (case-insensitive) or the player has no account yet.
+  setUsername(id: string, username: string): boolean;
   // R48 and R49: whether this player has finished or skipped the tutorial.
   setTutorialSeen(id: string, seen: boolean): void;
   // R86: sets a new password hash and marks the account "must change" (an admin reset) or not. Every session of the account
@@ -168,6 +171,9 @@ const MIGRATIONS: string[] = [
      UNION
      SELECT player_b FROM games WHERE player_b IS NOT NULL AND json_extract(state, '$.round') > 0 AND (ended IS NOT NULL OR json_extract(state, '$.status') <> 'playing')
    )`,
+  // R28 (changed 8 November 2026): nicknames are single words, so a nickname saved before this change may still hold a
+  // space. It is removed in place, so the stored value always matches the new NICKNAME_PATTERN.
+  `UPDATE players SET nickname = replace(nickname, ' ', '') WHERE nickname LIKE '% %'`,
 ];
 
 // How many migrations there are: a database opened by this code has run exactly this many (`PRAGMA user_version`).
@@ -240,6 +246,7 @@ export function openDb(path: string): Db {
     LIMIT 1`);
   const updateTutorial = db.prepare(`UPDATE players SET tutorial_seen = ? WHERE id = ?`);
   const upgrade = db.prepare(`UPDATE players SET username = ?, password_hash = ? WHERE id = ? AND username IS NULL`);
+  const rename = db.prepare(`UPDATE players SET username = ? WHERE id = ? AND username IS NOT NULL`);
   const selectByUsername = db.prepare(`SELECT id, nickname, username, password_hash, tutorial_seen, must_change FROM players WHERE username = ?`);
   const insertSession = db.prepare(`INSERT INTO sessions (token_hash, player_id, created_at) VALUES (?, ?, ?)`);
   const selectBySession = db.prepare(`
@@ -322,6 +329,14 @@ export function openDb(path: string): Db {
     upgradeToAccount(id: string, username: string, passwordHash: string): boolean {
       try {
         return Number(upgrade.run(username, passwordHash, id).changes) === 1;
+      } catch (error) {
+        if (error instanceof Error && /UNIQUE/i.test(error.message)) return false;
+        throw error;
+      }
+    },
+    setUsername(id: string, username: string): boolean {
+      try {
+        return Number(rename.run(username, id).changes) === 1;
       } catch (error) {
         if (error instanceof Error && /UNIQUE/i.test(error.message)) return false;
         throw error;

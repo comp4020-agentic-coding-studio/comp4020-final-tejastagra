@@ -99,6 +99,34 @@ describe("R87 the forced change and changing a password", () => {
   });
 });
 
+describe("R107 renaming an account", () => {
+  it("R107 setUsername renames an existing account, refuses a name already taken, and never touches the password or other sessions", async () => {
+    const db = openDb(":memory:");
+    db.createPlayer("p1", "Pip");
+    db.upgradeToAccount("p1", "pip", await hashPassword("secret password"));
+    db.createPlayer("p2", "Sam");
+    db.upgradeToAccount("p2", "sam", await hashPassword("other password"));
+    db.createSession("tok-a", "p1");
+
+    expect(db.setUsername("p1", "pip-two")).toBe(true);
+    expect(db.playerByUsername("pip")).toBeUndefined();
+    const renamed = db.playerByUsername("pip-two")!;
+    expect(renamed.id).toBe("p1");
+    expect(await checkPassword("secret password", renamed.passwordHash)).toBe(true); // the password is untouched
+    expect(db.playerBySession("tok-a", 60_000)?.id).toBe("p1"); // renaming does not end other sessions (R107, unlike R87)
+
+    expect(db.setUsername("p1", "SAM")).toBe(false); // taken, case-insensitively (R29)
+    expect(db.playerByUsername("pip-two")!.id).toBe("p1"); // the failed attempt changed nothing
+  });
+
+  it("R107 setUsername refuses a player with no account yet", () => {
+    const db = openDb(":memory:");
+    db.createPlayer("p1", "Pip");
+    expect(db.setUsername("p1", "newname")).toBe(false);
+    expect(db.playerById("p1")!.username).toBeNull();
+  });
+});
+
 describe("R88 the limit on sign-in attempts", () => {
   it("R88 five failures for one username in 15 minutes block it, whatever the password, until the window has passed", () => {
     let t = 1_000_000;
@@ -390,7 +418,7 @@ describe("migration 22: accounts with a finished game have seen the tutorial", (
       const fresh = openDb(path);
       fresh.close();
       const raw = new DatabaseSync(path);
-      raw.exec(`PRAGMA user_version = ${MIGRATION_COUNT - 1}`);
+      raw.exec(`PRAGMA user_version = ${MIGRATION_COUNT - 2}`); // one migration (R28, nicknames with no space) now runs after this one
       raw.exec(`UPDATE players SET tutorial_seen = 0`);
       const now = Date.now();
       const insertPlayer = raw.prepare(`INSERT INTO players (id, nickname, username, password_hash, created_at) VALUES (?, ?, ?, ?, ?)`);
