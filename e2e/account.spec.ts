@@ -58,7 +58,6 @@ test.describe("The account page (U114 to U122)", () => {
     await page.goto("/account");
     await page.locator(testid("edit-nickname")).click();
     await page.locator(testid("username-input")).fill(newName);
-    await page.locator(testid("current-input")).fill(password);
     await page.locator(testid("username-save")).click();
     await expect(page.locator(testid("username-dialog"))).toHaveCount(0);
     await expect(page.locator(testid("account-nickname"))).toHaveText(newName);
@@ -77,12 +76,11 @@ test.describe("The account page (U114 to U122)", () => {
 
   test("R107 a logged-in player's rename from the home pencil shows on the account page and survives a reload", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    const { password } = await signedIn(page);
+    await signedIn(page);
     const newName = `renamed_${unique()}`;
     await page.goto("/");
     await page.locator(testid("rename")).click();
     await page.locator(testid("username-input")).fill(newName);
-    await page.locator(testid("current-input")).fill(password);
     await page.locator(testid("username-save")).click();
     await expect(page.locator(testid("username-dialog"))).toHaveCount(0);
     await expect(page.locator(testid("player-name"))).toContainText(newName);
@@ -93,21 +91,16 @@ test.describe("The account page (U114 to U122)", () => {
     await context.close();
   });
 
-  test("R107 a wrong current password or an already-taken username shows its error inside the rename popup, under the field", async ({ browser }) => {
+  test("R107 an already-taken username shows its error inside the rename popup, under the field, with no password asked", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
-    const { password } = await signedIn(page);
+    await signedIn(page);
     const other = await newPlayer(browser, PHONE, { reducedMotion: true });
     const { username: takenName } = await signedIn(other.page);
     await other.context.close();
 
     await page.goto("/account");
     await page.locator(testid("edit-nickname")).click();
-    await page.locator(testid("username-input")).fill(`renamed_${unique()}`);
-    await page.locator(testid("current-input")).fill("wrong password");
-    await page.locator(testid("username-save")).click();
-    const passwordError = page.locator(`${testid("username-dialog")} .dialog-error:visible`);
-    await expect(passwordError).toContainText("not right");
-    await page.locator(testid("current-input")).fill(password);
+    await expect(page.locator(`${testid("username-dialog")} ${testid("current-input")}`)).toHaveCount(0); // R107: no password asked
     await page.locator(testid("username-input")).fill(takenName);
     await page.locator(testid("username-save")).click();
     await expect(page.locator(`${testid("username-dialog")} .dialog-error:visible`)).toContainText("taken");

@@ -155,10 +155,10 @@ describe("R87 changing a password from the account page", () => {
 });
 
 describe("R107 renaming an account", () => {
-  it("R107 a correct current password lets a logged-in account rename, and the new name survives a fresh session", async () => {
+  it("R107 a logged-in session can rename with no password, and the new name survives a fresh session", async () => {
     const { b, username, password } = await account();
     const newName = "renamed_" + unique();
-    const res = await b("/api/account/username", { body: { current: password, username: newName } });
+    const res = await b("/api/account/username", { body: { username: newName } });
     expect(res.status).toBe(200);
     expect(res.json.player.displayName).toBe(newName);
     expect((await b("/api/me")).json.player.displayName).toBe(newName);
@@ -168,24 +168,23 @@ describe("R107 renaming an account", () => {
     expect((await other("/api/account/signin", { body: { username, password } })).status).toBe(401); // the old username is gone
   });
 
-  it("R107 a wrong current password is refused, and an already-taken username is refused, with no change made", async () => {
-    const { b, password } = await account();
+  it("R107 an already-taken username is refused, with no change made", async () => {
+    const { b } = await account();
     const { username: taken } = await account();
-    expect((await b("/api/account/username", { body: { current: "wrong password", username: "newname" } })).status).toBe(401);
-    const clash = await b("/api/account/username", { body: { current: password, username: taken } });
+    const clash = await b("/api/account/username", { body: { username: taken } });
     expect(clash.status).toBe(409);
   });
 
   it("R107 a guest has no account to rename, and renaming does not end another session (unlike a password change, R87)", async () => {
     const guest = browser();
     await guest("/api/guest", { body: { nickname: "JustAGuest" } });
-    expect((await guest("/api/account/username", { body: { current: "x", username: "newname" } })).status).toBe(401);
+    expect((await guest("/api/account/username", { body: { username: "newname" } })).status).toBe(401);
 
     const { b, password } = await account();
     const other = browser();
     const otherUsername = (await b("/api/me")).json.player.displayName;
     await other("/api/account/signin", { body: { username: otherUsername, password } });
-    expect((await b("/api/account/username", { body: { current: password, username: "renamed_" + unique() } })).status).toBe(200);
+    expect((await b("/api/account/username", { body: { username: "renamed_" + unique() } })).status).toBe(200);
     expect((await other("/api/me")).json.player).not.toBeNull(); // the other session still stands
   });
 });

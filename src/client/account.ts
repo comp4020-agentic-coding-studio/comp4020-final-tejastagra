@@ -138,20 +138,19 @@ function nicknameDialog(): void {
   d.actions(dialogButton("Save", "blue", "nickname-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => d.close() }));
 }
 
-// R107: renaming an account's username, with the current password. Unlike a password change, no other session ends.
+// R107: renaming an account's username. The session alone is enough, no password asked; unlike a password change, no other session ends.
 function usernameDialog(): void {
   const d = openDialog({
     testid: "username-dialog",
     title: "Your username",
     onSubmit: async (dialog) => {
-      const r = await post("/api/account/username", { current: field(dialog, "current"), username: field(dialog, "username").trim() });
-      if (!r.ok) return dialog.error(r.status === 401 ? "current" : "username", r.data.error ?? "Could not save the username.");
+      const r = await post("/api/account/username", { username: field(dialog, "username").trim() });
+      if (!r.ok) return dialog.error("username", r.data.error ?? "Could not save the username.");
       dialog.close();
       await refresh();
     },
   });
   d.field("Username", "username", { value: me?.displayName ?? "", maxlength: 20, autocomplete: "username" });
-  d.field("Current password", "current", { type: "password", autocomplete: "current-password" });
   d.actions(dialogButton("Save", "blue", "username-save", { type: "submit" }), dialogButton("Cancel", "red", "dialog-cancel", { onClick: () => d.close() }));
 }
 

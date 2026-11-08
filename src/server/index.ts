@@ -415,8 +415,9 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
     return true;
   }
   if (path === "/api/account/username" && req.method === "POST") {
-    // R107: renaming an account. The current password must be right, the new username valid and free, and unlike a
-    // password change, no other session is ended: nothing was leaked, so there is no reason to sign other devices out.
+    // R107: renaming an account. The session alone is enough, as for a guest's nickname (R28); the new username must be
+    // valid and free. Unlike a password change, no other session is ended: nothing was leaked, so there is no reason to
+    // sign other devices out.
     if (!allowAuth(clientAddress(req))) {
       json(res, 429, { error: "Too many attempts. Try again in a minute." }, { "retry-after": "60" });
       return true;
@@ -429,10 +430,6 @@ async function handleIdentity(path: string, req: IncomingMessage, res: ServerRes
     }
     if (!player || player.username === null) {
       json(res, 401, { error: "Log in first." });
-      return true;
-    }
-    if (typeof body.current !== "string" || !(await checkPassword(body.current, player.passwordHash))) {
-      json(res, 401, { error: "That password is not right." });
       return true;
     }
     if (!validUsername(body.username)) {

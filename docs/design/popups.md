@@ -17,7 +17,7 @@ Added on 28 October 2026 for the layout rule Q1 (`qa-checklist.md`): nothing ope
 | Popup | Opened by | Content | Buttons |
 | --- | --- | --- | --- |
 | Nickname (`nickname-dialog`) | The pencil on the home screen, "Edit" on the account page, for a **guest** | "Your nickname", one field **prefilled with the current nickname** (Q7) | Save, Cancel |
-| Rename (`username-dialog`) | The pencil on the home screen, "Edit username" on the account page, for a **logged-in account** (R107) | "Your username", a username field **prefilled with the current username** (Q7) and a current-password field | Save, Cancel |
+| Rename (`username-dialog`) | The pencil on the home screen, "Edit username" on the account page, for a **logged-in account** (R107) | "Your username", a username field **prefilled with the current username** (Q7), no password asked | Save, Cancel |
 | Join with a code (`code-dialog`) | "Join with a code" on the home screen | "Join with a code", the code field (6 letters or numbers) | Join, Cancel |
 | Sign up (`signup-dialog`) | "Save my progress" on the account page | Username, password (at least 8 characters) | Save my progress, Cancel |
 | Log in (`signin-dialog`) | "Log in" on the account page | Username, password and a "Forgot your password?" link | Log in, Cancel |
