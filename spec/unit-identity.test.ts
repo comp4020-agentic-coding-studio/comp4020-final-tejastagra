@@ -13,11 +13,11 @@ import {
 } from "../src/server/identity.ts";
 
 describe("I1 (R28) nicknames", () => {
-  it("I1 (R28) accepts 2 to 16 letters, numbers, spaces, hyphens and underscores", () => {
-    for (const ok of ["Al", "Tejas", "a b_c-d", "1234567890123456"]) expect(validNickname(ok)).toBe(true);
+  it("I1 (R28) accepts 2 to 16 letters, numbers, hyphens and underscores, no spaces", () => {
+    for (const ok of ["Al", "Tejas", "a_b-c1", "1234567890123456"]) expect(validNickname(ok)).toBe(true);
   });
-  it("I1 (R28) rejects other lengths and characters", () => {
-    for (const bad of ["", "A", "12345678901234567", "no!", "tab\t", "é", "<b>", "  ", 5, null, undefined]) {
+  it("I1 (R28) rejects other lengths, spaces and other characters", () => {
+    for (const bad of ["", "A", "12345678901234567", "no!", "tab\t", "é", "<b>", "a b", "  ", 5, null, undefined]) {
       expect(validNickname(bad)).toBe(false);
     }
   });

@@ -11,13 +11,13 @@ export const SESSION_COOKIE = "rubble_session";
 export const SESSION_MAX_AGE_S = 60 * 60 * 24 * 365;
 const BCRYPT_ROUNDS = 10;
 
-const NICKNAME_PATTERN = /^[A-Za-z0-9 _-]{2,16}$/; // R28
+const NICKNAME_PATTERN = /^[A-Za-z0-9_-]{2,16}$/; // R28: single word, no spaces
 const USERNAME_PATTERN = /^[A-Za-z0-9_-]{3,20}$/; // R29 (the length and characters are an implementation note in rules.md)
 const MIN_PASSWORD = 8; // R29
 const MAX_PASSWORD_BYTES = 72; // bcrypt ignores everything past 72 bytes, so refuse rather than silently truncate
 
 export function validNickname(value: unknown): value is string {
-  return typeof value === "string" && NICKNAME_PATTERN.test(value) && value.trim().length >= 2;
+  return typeof value === "string" && NICKNAME_PATTERN.test(value);
 }
 
 export function validUsername(value: unknown): value is string {
@@ -92,5 +92,5 @@ const ANIMALS = ["Wombat", "Otter", "Falcon", "Badger", "Panda", "Gecko", "Heron
 
 export function generatedNickname(id: string): string {
   const n = parseInt(id.replace(/-/g, "").slice(0, 8), 16);
-  return `${ADJECTIVES[n % ADJECTIVES.length]} ${ANIMALS[Math.floor(n / ADJECTIVES.length) % ANIMALS.length]}`;
+  return `${ADJECTIVES[n % ADJECTIVES.length]}${ANIMALS[Math.floor(n / ADJECTIVES.length) % ANIMALS.length]}`; // R28: single word, no space
 }
