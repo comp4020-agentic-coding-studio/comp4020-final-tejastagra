@@ -214,6 +214,20 @@ test.describe("The account page (U114 to U122)", () => {
     await context.close();
   });
 
+  test("Q10 logging out shows a clear message in place of the record, never a blank column", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, PHONE, { reducedMotion: true });
+    await signedIn(page);
+    await page.goto("/account");
+    await expect(page.locator(testid("stats-people"))).toBeVisible();
+    await page.locator(testid("signout")).click();
+    const empty = page.locator(testid("record-empty"));
+    await expect(empty).toBeVisible();
+    await expect(empty).toHaveText("Choose a nickname or log in to see your record.");
+    for (const id of ["stats-people", "stats-computer"]) await expect(page.locator(testid(id))).toBeHidden();
+    await expect(page.locator(`${testid("history-list")} .record-error`)).toHaveCount(0); // not an error, a clear reason
+    await context.close();
+  });
+
   test("U118 and R90 a won game shows in the history and the stats, and a forfeit is a loss for the one who left", async ({ browser }) => {
     const one = await newPlayer(browser, PHONE, { reducedMotion: true });
     const two = await newPlayer(browser, LAPTOP, { reducedMotion: true });
@@ -286,15 +300,13 @@ test.describe("Q30 U114a the account page on a laptop is two columns", () => {
     await context.close();
   });
 
-  test("Q5 Q12 Home shares an edge with the card beneath it on a laptop", async ({ browser }) => {
+  test("Q5 Q12 Home shares its left edge with the card beneath it on a laptop", async ({ browser }) => {
     const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
     await signedIn(page);
     await page.goto("/account");
     const home = (await page.locator(testid("header-home")).boundingBox())!;
     const card = (await page.locator(testid("account-card")).boundingBox())!;
-    // The card is end-aligned within its own track (U114a, the gap to the record), so the edge that stays fixed
-    // against the header bar is the right edge, not the left; Home moves to meet the card, never the other way round.
-    expect(Math.abs(home.x + home.width - (card.x + card.width)), "Home lines up with the card under it").toBeLessThanOrEqual(4);
+    expect(Math.abs(home.x - card.x), "Home lines up with the card under it").toBeLessThanOrEqual(4);
     await context.close();
   });
 

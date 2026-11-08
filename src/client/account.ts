@@ -87,14 +87,25 @@ async function showRecord(): Promise<void> {
   if (!res.ok) {
     // Q10: a record that could not be loaded says so. It never claims "No games yet", which would be untrue.
     for (const id of ["stats-people", "stats-computer"]) $(id).hidden = true;
-    empty.hidden = true;
     list.replaceChildren();
+    if (res.status === 401) {
+      // No session at all (just logged out, or never chosen a name): the record is nobody's yet, not "empty" or
+      // "failed" (Q10). Shown in the same reserved place as every other record message, never left blank.
+      empty.textContent = "Choose a nickname or log in to see your record.";
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
     const failed = document.createElement("li");
     failed.className = "record-error";
-    failed.textContent = res.status === 403 || res.status === 401 ? "" : "Could not load your record. Try again.";
-    if (failed.textContent) list.append(failed);
+    // R87: a 403 here means a forced password change is blocking every request but a few; the uncloseable popup that
+    // follows (mustChangeDialog, triggered from GET /api/me above) explains it, but the reserved message line still
+    // says so rather than sitting blank underneath that popup (Q10).
+    failed.textContent = res.status === 403 ? "Choose a new password first to see your record." : "Could not load your record. Try again.";
+    list.append(failed);
     return;
   }
+  empty.textContent = "No games yet. Play the computer or a friend and your results will show up here.";
   for (const id of ["stats-people", "stats-computer"]) $(id).hidden = false;
   const data = res.data;
   fillStats("stats-people", data.stats.people);
