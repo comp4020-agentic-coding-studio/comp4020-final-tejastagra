@@ -286,6 +286,18 @@ test.describe("Q30 U114a the account page on a laptop is two columns", () => {
     await context.close();
   });
 
+  test("Q5 Q12 Home shares an edge with the card beneath it on a laptop", async ({ browser }) => {
+    const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
+    await signedIn(page);
+    await page.goto("/account");
+    const home = (await page.locator(testid("header-home")).boundingBox())!;
+    const card = (await page.locator(testid("account-card")).boundingBox())!;
+    // The card is end-aligned within its own track (U114a, the gap to the record), so the edge that stays fixed
+    // against the header bar is the right edge, not the left; Home moves to meet the card, never the other way round.
+    expect(Math.abs(home.x + home.width - (card.x + card.width)), "Home lines up with the card under it").toBeLessThanOrEqual(4);
+    await context.close();
+  });
+
   test("Q30 Q33 a long history scrolls inside its own card, not the page, and the columns fill the area between the bar and the bottom", async ({ browser }) => {
     test.setTimeout(120_000); // 20 full games played through the UI take longer than the default 60s
     const { context, page } = await newPlayer(browser, LAPTOP, { reducedMotion: true });
