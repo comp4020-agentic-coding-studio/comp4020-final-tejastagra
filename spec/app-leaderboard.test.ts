@@ -197,7 +197,7 @@ describe("B: leaderboard (R37 to R39)", () => {
 describe("R92 the leaderboard says who is asking, and a full game puts the winner on both lists", () => {
   async function boardAs(who: { cookie: string } | null) {
     const res = await fetch(base() + "/api/leaderboard?limit=1000", { headers: { "fly-client-ip": fakeAddress(), ...(who ? { cookie: who.cookie } : {}) } });
-    return (await res.json()) as { wins: Array<{ name: string; value: number }>; rounds: Array<{ name: string; value: number }>; you: { name: string; wins: number; bestRounds: number | null } | null };
+    return (await res.json()) as { wins: Array<{ name: string; value: number; you?: true }>; rounds: Array<{ name: string; value: number; you?: true }>; you: { name: string; wins: number; bestRounds: number | null } | null };
   }
 
   it("R92 a visitor with no player gets you: null, and the lists as before", async () => {
@@ -216,13 +216,17 @@ describe("R92 the leaderboard says who is asking, and a full game puts the winne
     const result = await playVertical(a, b, code);
     expect(result.state.status).toBe("won");
     const mine = await boardAs(winner);
-    expect(mine.wins.find((r) => r.name === winner.name)).toEqual({ name: winner.name, value: 1 });
-    expect(mine.rounds.find((r) => r.name === winner.name)).toEqual({ name: winner.name, value: 4 });
+    // R92 (changed 2 November 2026): the server marks the asking player's own row with you: true.
+    expect(mine.wins.find((r) => r.name === winner.name)).toEqual({ name: winner.name, value: 1, you: true });
+    expect(mine.rounds.find((r) => r.name === winner.name)).toEqual({ name: winner.name, value: 4, you: true });
+    // The same rows seen by someone else carry no mark.
+    const theirs = await boardAs(loser);
+    expect(theirs.wins.find((r) => r.name === winner.name)).toEqual({ name: winner.name, value: 1 });
+    expect(theirs.rounds.find((r) => r.name === winner.name)).toEqual({ name: winner.name, value: 4 });
     expect(mine.wins.find((r) => r.name === loser.name)).toBeUndefined();
     expect(mine.rounds.find((r) => r.name === loser.name)).toBeUndefined();
     expect(mine.you).toEqual({ name: winner.name, wins: 1, bestRounds: 4 });
     // The loser asks: their own line shows no wins and no best; they learn nothing more about the winner than the lists show.
-    const theirs = await boardAs(loser);
     expect(theirs.you).toEqual({ name: loser.name, wins: 0, bestRounds: null });
     expect(JSON.stringify(theirs.you)).not.toContain(winner.name);
     // Nobody can ask as someone else: a made-up cookie is a visitor.

@@ -189,10 +189,12 @@ function migrate(db: DatabaseSync): void {
 
 export function openDb(path: string): Db {
   const db = new DatabaseSync(path);
-  db.exec("PRAGMA journal_mode = WAL");
   // The admin's reset script (ADR 0013) opens this same file while the server has it open. A writer that finds the file busy
-  // waits up to 5 seconds instead of failing with "database is locked", for the script and for the server alike.
+  // waits up to 5 seconds instead of failing with "database is locked", for the script and for the server alike. It is set
+  // first, before anything else touches the file: switching the journal mode below needs a lock too, and with no timeout set
+  // yet it failed at once whenever the server was mid-write (correction C67).
   db.exec("PRAGMA busy_timeout = 5000");
+  db.exec("PRAGMA journal_mode = WAL");
   migrate(db);
 
   const upsert = db.prepare(`
