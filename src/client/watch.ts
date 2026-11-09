@@ -218,6 +218,15 @@ function endCard(title: string): void {
   const card = $("watch-result");
   card.hidden = false;
   setText("watch-result-title", title);
+  // U175: a spectator can always leave the end card, styled like the other popup buttons. Added once, by the browser only.
+  if (!card.querySelector('[data-testid="watch-result-home"]')) {
+    const home = document.createElement("a");
+    home.className = "btn btn-blue";
+    home.href = "/";
+    home.dataset.testid = "watch-result-home";
+    home.textContent = "Back to home";
+    card.append(home);
+  }
   let left = MOVE_SECONDS;
   clearInterval(moveTimer);
   if (kind === "link" || viaLink) {
