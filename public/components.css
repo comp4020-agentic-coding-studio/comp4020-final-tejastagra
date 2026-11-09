@@ -1976,6 +1976,41 @@ input:focus {
   margin: 0;
 }
 
+/* U178: the spectator's end card is spaced like the other popups. 24px padding on every side, 8px from the title to the
+   count down line and 20px from that line to Back to home, which spans the content width at the popups' button height. The
+   bottom padding (24px) is wider than the button's 5px hard shadow (--shadow), so the shadow is never cut off. */
+.watch-result:not(.watch-learning) {
+  display: flex;
+  flex-direction: column;
+  width: min(340px, calc(100% - 32px));
+  padding: 24px;
+  overflow: visible;
+}
+
+.watch-result:not(.watch-learning)[hidden] {
+  display: none;
+}
+
+.watch-result:not(.watch-learning) h2 {
+  margin: 0;
+}
+
+.watch-result:not(.watch-learning) h2 + p {
+  margin-top: 8px;
+}
+
+.watch-result:not(.watch-learning) h2 + p:empty {
+  display: none;
+}
+
+.watch-result > .btn {
+  align-self: stretch;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 20px;
+  white-space: nowrap;
+}
+
 /* The "Watch live" round button on the home screen carries a small live count under its label (U76). */
 .watch-live {
   position: relative;

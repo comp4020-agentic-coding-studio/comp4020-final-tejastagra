@@ -20,6 +20,7 @@ The watching screen is the normal game screen with everything that acts taken aw
 - **U175** The end card a spectator sees when a watched game ends (U82, U83) has a **Back to home** button (`watch-result-home`), styled like the other popup buttons, that takes them to the home screen. It is added by the browser for spectators only; the players' end popup (U27) is unchanged.
 - **U176** On a link game's end card (no count down to another game, U92), a line under the result counts down "Going home in 10s"; if the spectator has not pressed Back to home and no rematch starts in those 10 seconds, the browser takes them to the home screen. A quick match spectator is unchanged: still moved to another game after 5 seconds (R76).
 - **U177** When the existing `rematch_started` message arrives (R84), the end card closes, any count down is cancelled and the watching screen's message line shows "They're playing again!" for 3 seconds. No server change.
+- **U178** The spectator's end card is spaced like the other popups: 24px padding on every side, 8px from the title to the count down line and 20px from that line to **Back to home**, which spans the card's content width at the popups' button height (52px, `--radius-button`, `--shadow`). The bottom padding is wider than the button's 5px hard shadow, so the shadow is never cut off. When there is no count down line, the button sits 20px under the title.
 
 ## On the players' screen
 
