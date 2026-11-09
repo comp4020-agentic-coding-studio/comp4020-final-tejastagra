@@ -22,7 +22,7 @@ I planned in a separate Claude chat, outside the course's one, which also wrote 
 
 ## Keeping track of changes
 
-Returning after a few hours or a day, I kept losing track of what I had changed and why. So a [`commit-msg`](.githooks/commit-msg) hook rejects any commit without four things: why it was made, which files changed, what the harness gained and the prompt behind it. The [`pre-commit`](.githooks/pre-commit) hook rebuilds [`docs/process-log.md`](docs/process-log.md) from those messages ([`baa5b6d`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/baa5b6d)). Bigger decisions became [18 ADRs](docs/decisions/), and every mistake went into [`docs/corrections.md`](docs/corrections.md) with the harness change that stops it frrom recurring (66 entries by the end).
+Returning after a few hours or a day, I kept losing track of what I had changed and why. So a [`commit-msg`](.githooks/commit-msg) hook rejects any commit without four things: why it was made, which files changed, what the harness gained and the prompt behind it. The [`pre-commit`](.githooks/pre-commit) hook rebuilds [`docs/process-log.md`](docs/process-log.md) from those messages ([`baa5b6d`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/baa5b6d)). Bigger decisions became [18 ADRs](docs/decisions/), and every mistake went into [`docs/corrections.md`](docs/corrections.md) with the harness change that stops it frrom recurring (68 entries by the end).
 
 I created [`docs/handover.md`](docs/handover.md) ([`0c79197`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/0c79197)), which Claude updated after each session with its commits, test results and anything waiting on me. Long chats cost me tokens, especially after a break, when the cache had expired and Claude re-read everything. With the handover, I could clear the chat and each new session read [`CLAUDE.md`](CLAUDE.md) and the handover to pick up where the last one stopped.
 
@@ -48,4 +48,4 @@ Some changes were also me changing my mind. I ruled spectating out ([`687101c`](
 
 ## Where it ended up
 
-In two weeks, working from my direction, Claude made 229 commits, 421 unit checks and 248 browser checks. I have played over 100 games with friends and family and asked them what to change, rather than relying only on Claude or my taste. Next time, I would set limits on agents from day one and write checks that test what a player sees, not just whether the code works.
+In two weeks, working from my direction, Claude made 241 commits, 421 unit checks and 248 browser checks. I have played over 100 games with friends and family and asked them what to change, rather than relying only on Claude or my taste. Next time, I would set limits on agents from day one and write checks that test what a player sees, not just whether the code works.
