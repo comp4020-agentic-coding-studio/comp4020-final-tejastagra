@@ -24,8 +24,8 @@ let drawn: GameState | null = null;
 let code: string | null = null;
 let kind: Kind = "quick";
 let moveTimer: ReturnType<typeof setInterval> | undefined;
-let homeTimer: ReturnType<typeof setInterval> | undefined; // U176: a link game's end card goes home after 10 seconds
-const HOME_SECONDS = 10;
+let homeTimer: ReturnType<typeof setInterval> | undefined; // U176: a link game's end card goes home after 30 seconds
+const HOME_SECONDS = 30; // the same as the rematch offer (R83), so a spectator never leaves before the players have decided
 let busy = Promise.resolve(); // rounds are shown one at a time, in order
 // Which seat's discs are drawn as "you" (the first seat) and which as "opponent": seat A uses the ring marker and
 // seat B the cross marker, so they differ by shape as well as colour (U78).
@@ -232,7 +232,7 @@ function endCard(title: string): void {
   let left = MOVE_SECONDS;
   clearInterval(moveTimer);
   if (kind === "link" || viaLink) {
-    // U176: a link game does not move on (U92); if no rematch starts within 10 seconds the browser takes the spectator home.
+    // U176: a link game does not move on (U92); if no rematch starts within 30 seconds the browser takes the spectator home.
     let home = HOME_SECONDS;
     clearInterval(homeTimer);
     setText("watch-result-next", `Going home in ${home}s`);
