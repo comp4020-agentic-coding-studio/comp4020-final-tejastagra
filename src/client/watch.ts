@@ -24,6 +24,8 @@ let drawn: GameState | null = null;
 let code: string | null = null;
 let kind: Kind = "quick";
 let moveTimer: ReturnType<typeof setInterval> | undefined;
+let homeTimer: ReturnType<typeof setInterval> | undefined; // U176: a link game's end card goes home after 10 seconds
+const HOME_SECONDS = 10;
 let busy = Promise.resolve(); // rounds are shown one at a time, in order
 // Which seat's discs are drawn as "you" (the first seat) and which as "opponent": seat A uses the ring marker and
 // seat B the cross marker, so they differ by shape as well as colour (U78).
@@ -230,7 +232,19 @@ function endCard(title: string): void {
   let left = MOVE_SECONDS;
   clearInterval(moveTimer);
   if (kind === "link" || viaLink) {
-    setText("watch-result-next", ""); // a link game ends here: no count down and no moving on (U92)
+    // U176: a link game does not move on (U92); if no rematch starts within 10 seconds the browser takes the spectator home.
+    let home = HOME_SECONDS;
+    clearInterval(homeTimer);
+    setText("watch-result-next", `Going home in ${home}s`);
+    homeTimer = setInterval(() => {
+      home--;
+      if (home <= 0) {
+        clearInterval(homeTimer);
+        location.assign("/");
+        return;
+      }
+      setText("watch-result-next", `Going home in ${home}s`);
+    }, 1000);
     return;
   }
   setText("watch-result-next", `Next game in ${left} seconds`);
@@ -263,6 +277,7 @@ socket.addEventListener("message", (event) => {
       kind = message.kind;
       nameOf = message.names;
       clearInterval(moveTimer);
+      clearInterval(homeTimer);
       $("watch-result").hidden = true;
       drawn = null;
       names(message.names);
@@ -283,6 +298,15 @@ socket.addEventListener("message", (event) => {
       else $("watch-learning").hidden = true;
       break;
     case "rematch_started":
+      // U177: the players are playing again. Close the end card, cancel any count down and say so for 3 seconds.
+      clearInterval(homeTimer);
+      clearInterval(moveTimer);
+      $("watch-result").hidden = true;
+      setText("result-line", "");
+      setText("watch-message", "They're playing again!");
+      setTimeout(() => {
+        if ($("watch-message").textContent === "They're playing again!") setText("watch-message", "");
+      }, 3000);
       if (message.colours) colourSeats(message.colours); // R96: the new game's swapped colours
       break; // the first round of the new game follows as a `round`, which repaints the board (R85)
     case "round":
