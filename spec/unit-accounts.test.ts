@@ -365,7 +365,9 @@ describe("migration 18: accounts that must change their password", () => {
 });
 
 describe("R86 the reset while the server has the database open", () => {
-  it("R86 the real script, run as its own process, resets a password while the server process keeps writing, without 'database is locked'", async () => {
+  // Skipped on CI only, at Tejas's request (correction C67): it still hit "database is locked" on GitHub's slower machine
+  // after the busy timeout was set first and raised to 10 seconds, and could not be confirmed there in time. It still runs locally.
+  it.skipIf(process.env.CI)("R86 the real script, run as its own process, resets a password while the server process keeps writing, without 'database is locked'", async () => {
     const { spawn } = await import("node:child_process");
     const path = join(tmpdir(), `rubble-test-${process.pid}-${Date.now()}-busy.db`);
     try {
