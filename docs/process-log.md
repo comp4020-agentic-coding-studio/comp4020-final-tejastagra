@@ -1862,7 +1862,7 @@ Commits: 233
 
 ## 233. 2026-11-09: Join the hard-wrapped lines in the reflections into paragraphs
 
-- **Commit:** [`a0e401f`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/a0e401f636f71f1b3a3b94bd04bd255dfe0c4b6d)
+- **Commit:** [`4b96aa9`](https://github.com/comp4020-agentic-coding-studio/comp4020-final-tejastagra/commit/4b96aa9a17c89418293b792f638ecd9d2348c98f)
 - **Why:** the reflections were wrapped at about 78 characters, so each paragraph was split across many lines; one line per paragraph is easier to edit and reads the same.
 - **What:** reflections/crit-8.md, crit-9.md, crit-10.md and week12.md now have one line per paragraph; headings, the table and blank lines are unchanged and the words are identical (checked against the previous commit).
 - **Harness:** none.
